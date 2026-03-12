@@ -15,6 +15,7 @@ Thumbs.db
 **/*.pyo
 **/*.pyd
 **/*.so
+**/*.db
 
 backend/*.egg-info/
 worker/*.egg-info/

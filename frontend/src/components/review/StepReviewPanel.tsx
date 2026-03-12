@@ -50,11 +50,14 @@ export function StepReviewPanel({
         {step.screenshots.length > 0 ? (
           <div className="stack">
             {step.screenshots.map((stepScreenshot) => (
-              <div key={stepScreenshot.id} className="screenshot-preview">
-                <img
-                  src={apiClient.getArtifactContentUrl(stepScreenshot.artifactId)}
-                  alt={`${stepScreenshot.role} screenshot for step ${step.stepNumber}`}
-                />
+              <div key={stepScreenshot.id} className="screenshot-card">
+                <div className="screenshot-preview">
+                  {stepScreenshot.isPrimary ? <span className="screenshot-badge">Primary</span> : null}
+                  <img
+                    src={apiClient.getArtifactContentUrl(stepScreenshot.artifactId)}
+                    alt={`${stepScreenshot.role} screenshot for step ${step.stepNumber}`}
+                  />
+                </div>
                 <div className="artifact-meta">
                   {stepScreenshot.role} | {stepScreenshot.timestamp} | {stepScreenshot.isPrimary ? "primary" : "secondary"}
                 </div>
@@ -64,16 +67,18 @@ export function StepReviewPanel({
                       Make primary
                     </button>
                   ) : null}
-                  <button type="button" className="button-secondary" onClick={() => onRemoveScreenshot(stepScreenshot.id)}>
-                    Remove
+                  <button type="button" className="button-danger" onClick={() => onRemoveScreenshot(stepScreenshot.id)}>
+                    Remove screenshot
                   </button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="screenshot-preview">
-            <span className="muted">No derived screenshot available yet.</span>
+          <div className="screenshot-card">
+            <div className="screenshot-preview">
+              <span className="muted">No derived screenshot available yet.</span>
+            </div>
           </div>
         )}
         <div className="artifact-meta">
