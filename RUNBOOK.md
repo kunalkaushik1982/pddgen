@@ -65,6 +65,33 @@ Your current local setup uses:
 
 If you reuse an existing PostgreSQL/Redis instance, keep a separate database and Redis DB index for this app.
 
+## Demo Mode For Restricted Machines
+
+If a machine cannot run PostgreSQL, Redis, or Docker Desktop, use demo mode.
+
+Recommended backend `.env` values:
+
+```env
+PDD_GENERATOR_DEMO_MODE=true
+PDD_GENERATOR_DATABASE_URL=sqlite:///C:/Users/work/Documents/PddGenerator/backend/pdd_generator_demo.db
+PDD_GENERATOR_REDIS_URL=
+```
+
+Demo mode behavior:
+
+- uses SQLite for persistence
+- runs generation inline in the backend
+- does not require Redis
+- does not require the Celery worker process
+
+In demo mode you only need:
+
+1. backend
+2. frontend
+3. `ffmpeg`
+
+The worker terminal is not required.
+
 ## Restart Sequence
 
 If code changes are pulled on a new machine or after a branch switch:

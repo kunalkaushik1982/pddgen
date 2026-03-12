@@ -13,9 +13,15 @@ class JobDispatcherService:
 
     def __init__(self) -> None:
         settings = get_settings()
-        self.client = Celery("pdd_generator_backend", broker=settings.redis_url, backend=settings.redis_url)
+        self.client = (
+            Celery("pdd_generator_backend", broker=settings.redis_url, backend=settings.redis_url)
+            if settings.redis_url
+            else None
+        )
 
     def enqueue_draft_generation(self, session_id: str) -> str:
         """Queue the draft-generation task and return the task id."""
+        if self.client is None:
+            raise RuntimeError("Redis/Celery is not configured for this environment.")
         task = self.client.send_task("draft_generation.run", args=[session_id], queue="draft-generation")
         return task.id

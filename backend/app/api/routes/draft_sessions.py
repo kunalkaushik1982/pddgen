@@ -8,7 +8,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_job_dispatcher_service, get_pipeline_orchestrator_service
+from app.api.dependencies import (
+    get_demo_generation_runner_service,
+    get_job_dispatcher_service,
+    get_pipeline_orchestrator_service,
+)
+from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.schemas.draft_session import DraftSessionResponse, ProcessStepResponse
 from app.schemas.process_step import ProcessStepUpdateRequest, StepScreenshotUpdateRequest
@@ -17,6 +22,7 @@ from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.mappers import map_draft_session, map_process_step
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.demo_generation_runner import DemoGenerationRunnerService
 
 router = APIRouter(prefix="/draft-sessions", tags=["draft-sessions"])
 
@@ -28,9 +34,16 @@ def generate_draft_session(
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
     dispatcher: Annotated[JobDispatcherService, Depends(get_job_dispatcher_service)],
+    demo_runner: Annotated[DemoGenerationRunnerService, Depends(get_demo_generation_runner_service)],
 ) -> DraftSessionResponse:
-    """Queue background generation for process steps, notes, and screenshots."""
+    """Queue background generation or run inline generation in demo mode."""
+    settings = get_settings()
     session = service.mark_session_processing(db, session_id)
+    if settings.demo_mode:
+        demo_runner.run(session_id)
+        session = service.get_session(db, session_id)
+        return map_draft_session(session)
+
     task_id = dispatcher.enqueue_draft_generation(session_id)
     response.headers["X-Task-Id"] = task_id
     return map_draft_session(session)
