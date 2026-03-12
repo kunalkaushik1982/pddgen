@@ -13,6 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_STORAGE_ROOT = PROJECT_ROOT / "storage" / "local"
+DEFAULT_FRONTEND_DIST_ROOT = PROJECT_ROOT / "frontend" / "dist"
 
 
 class Settings(BaseSettings):
@@ -33,6 +34,7 @@ class Settings(BaseSettings):
     ai_base_url: str = "https://api.openai.com/v1"
     storage_backend: str = "local"
     local_storage_root: Path = Field(default=DEFAULT_STORAGE_ROOT)
+    frontend_dist_root: Path = Field(default=DEFAULT_FRONTEND_DIST_ROOT)
     max_upload_size_mb: int = 1024
     docx_output_folder: str = "exports"
 

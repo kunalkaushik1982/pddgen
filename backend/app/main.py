@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
 from app.api.routes import draft_sessions, exports, uploads
@@ -70,6 +72,16 @@ def create_app() -> FastAPI:
     app.include_router(uploads.router, prefix=settings.api_prefix)
     app.include_router(draft_sessions.router, prefix=settings.api_prefix)
     app.include_router(exports.router, prefix=settings.api_prefix)
+
+    if settings.frontend_dist_root.exists():
+        assets_dir = settings.frontend_dist_root / "assets"
+        if assets_dir.exists():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="frontend-assets")
+
+        @app.get("/", include_in_schema=False)
+        def serve_frontend_index() -> FileResponse:
+            return FileResponse(str(settings.frontend_dist_root / "index.html"))
+
     return app
 
 

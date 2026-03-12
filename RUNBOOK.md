@@ -118,14 +118,15 @@ Demo mode behavior:
 - runs generation inline in the backend
 - does not require Redis
 - does not require the Celery worker process
+- can serve a prebuilt frontend from `frontend/dist`
 
 In demo mode you only need:
 
 1. backend
-2. frontend
+2. prebuilt frontend files in `frontend/dist`
 3. `ffmpeg`
 
-The worker terminal is not required.
+The worker terminal is not required. Node.js is also not required on the target machine if `frontend/dist` is already built and committed or copied over.
 
 ## Corporate Demo Machine Setup
 
@@ -181,6 +182,12 @@ Put this in `frontend\.env`:
 VITE_API_BASE_URL=http://localhost:8000/api
 ```
 
+If the target machine cannot run Node.js:
+
+- build the frontend on another machine
+- copy or commit `frontend/dist`
+- the backend will serve `frontend/dist/index.html` at `http://localhost:8000/`
+
 ### 5. Install backend
 
 ```powershell
@@ -212,6 +219,12 @@ npm run dev
 
 ```text
 http://localhost:5173
+```
+
+If using a prebuilt frontend without Node.js:
+
+```text
+http://localhost:8000/
 ```
 
 ### 10. What not to start in demo mode
