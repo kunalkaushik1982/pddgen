@@ -1,0 +1,13 @@
+{
+  "name": "pdd-generator",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Stubbed project structure for AI-assisted PDD drafting",
+  "scripts": {
+    "dev:frontend": "TODO",
+    "dev:backend": "TODO",
+    "dev:worker": "TODO",
+    "build": "TODO",
+    "test": "TODO"
+  }
+}

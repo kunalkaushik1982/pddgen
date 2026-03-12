@@ -1,0 +1,284 @@
+/**
+ * Purpose: Core styles for the BA workflow application.
+ * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\styles.css
+ */
+
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #0f172a;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 30%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.app-subtitle {
+  margin: 6px 0 0;
+  color: #475569;
+}
+
+.workflow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 24px;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+}
+
+.panel h2,
+.panel h3 {
+  margin-top: 0;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-group input,
+.field-group textarea,
+.field-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.field-inline {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.button-primary,
+.button-secondary,
+.button-link {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.button-primary {
+  color: #fff;
+  background: linear-gradient(135deg, #0f766e, #0369a1);
+  box-shadow: 0 8px 18px rgba(3, 105, 161, 0.2);
+}
+
+.button-secondary {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.button-link {
+  color: #0369a1;
+  background: transparent;
+  padding-left: 0;
+}
+
+.button-primary:hover,
+.button-secondary:hover,
+.button-link:hover {
+  transform: translateY(-1px);
+}
+
+.button-primary:disabled,
+.button-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+.status-banner {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #e0f2fe;
+  color: #0c4a6e;
+}
+
+.status-banner.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.artifact-list,
+.step-list,
+.note-list,
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.artifact-card,
+.step-card,
+.note-card,
+.timeline-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+}
+
+.artifact-meta,
+.step-meta,
+.muted {
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.confidence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.confidence-badge.high {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.confidence-badge.medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.confidence-badge.low,
+.confidence-badge.unknown {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.step-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.step-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.step-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.screenshot-preview {
+  border: 1px dashed #94a3b8;
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+}
+
+.screenshot-preview img {
+  max-width: 100%;
+  display: block;
+}
+
+.empty-state {
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(148, 163, 184, 0.12);
+  color: #475569;
+}
+
+@media (max-width: 960px) {
+  .workflow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-inline {
+    grid-template-columns: 1fr;
+  }
+}

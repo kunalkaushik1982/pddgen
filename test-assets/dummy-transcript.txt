@@ -1,0 +1,20 @@
+00:00:05 Open Outlook and go to the Accounts Payable inbox.
+00:00:12 Open the latest vendor invoice email.
+00:00:20 Copy the invoice number from the email subject line.
+00:00:28 Open Excel and update the Invoice Tracker sheet.
+00:00:38 Paste the invoice number into the Invoice Number column.
+00:00:47 Copy the invoice amount from the email attachment preview.
+00:00:56 Paste the invoice amount into the Amount column in Excel.
+00:01:08 If the invoice amount is greater than 10000, mark the Priority column as High.
+00:01:19 Open Chrome and log in to the Finance Portal.
+00:01:31 Navigate to the Create Invoice screen.
+00:01:42 Paste the invoice number into the Reference Document field.
+00:01:53 Enter the vendor name from the email body into the Vendor field.
+00:02:04 Enter the invoice amount into the Total Amount field.
+00:02:16 If the vendor is not found in the portal, stop processing and send the case for manual review.
+00:02:29 Click Submit to create the invoice record.
+00:02:38 Copy the generated portal reference number.
+00:02:47 Go back to Excel and paste the portal reference number into the Portal Ref column.
+00:02:58 Update the Status column to Submitted.
+00:03:07 Save the Excel file.
+00:03:15 Reply to the original email and mention that the invoice has been submitted in the portal.
