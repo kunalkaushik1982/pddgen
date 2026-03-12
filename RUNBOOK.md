@@ -10,6 +10,24 @@ Clone the repository, then create local env files from the examples:
 
 Do not commit the `.env` files.
 
+## Prerequisites
+
+You need these runtimes available on the machine:
+
+- Python 3.11 or newer
+- Node.js LTS
+- npm
+- `ffmpeg` in PATH
+
+Verify the runtimes:
+
+```powershell
+python --version
+node --version
+npm --version
+ffmpeg -version
+```
+
 ## Backend Setup
 
 From `backend`:
@@ -25,6 +43,38 @@ Run the API:
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+## Frontend Setup
+
+From `frontend`:
+
+```powershell
+npm install
+```
+
+Create the frontend env file if needed:
+
+```powershell
+Copy-Item .\.env.example .\.env
+```
+
+Recommended frontend `.env`:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000/api
+```
+
+Run the React app:
+
+```powershell
+npm run dev
+```
+
+Default UI URL:
+
+```text
+http://localhost:5173
+```
+
 ## Worker Setup
 
 From `worker`:
@@ -35,21 +85,6 @@ python -m celery -A worker.celery_app worker --loglevel=info
 ```
 
 On Windows the worker is configured to use the `solo` pool.
-
-## Frontend Setup
-
-From `frontend`:
-
-```powershell
-npm install
-npm run dev
-```
-
-Default UI URL:
-
-```text
-http://localhost:5173
-```
 
 ## Database and Redis
 
@@ -91,6 +126,102 @@ In demo mode you only need:
 3. `ffmpeg`
 
 The worker terminal is not required.
+
+## Corporate Demo Machine Setup
+
+Use this path if the machine cannot run Docker Desktop, PostgreSQL, or Redis.
+
+### 1. Clone the repo
+
+```powershell
+git clone <your-repo-url> C:\Users\work\Documents\PddGenerator
+cd C:\Users\work\Documents\PddGenerator
+```
+
+### 2. Create env files
+
+```powershell
+Copy-Item .\backend\.env.example .\backend\.env
+Copy-Item .\frontend\.env.example .\frontend\.env
+```
+
+### 3. Configure backend demo mode
+
+Put these values in `backend\.env`:
+
+```env
+PDD_GENERATOR_APP_NAME=PDD Generator API
+PDD_GENERATOR_APP_ENV=development
+PDD_GENERATOR_APP_DEBUG=true
+PDD_GENERATOR_API_PREFIX=/api
+PDD_GENERATOR_DEMO_MODE=true
+PDD_GENERATOR_DATABASE_URL=sqlite:///C:/Users/work/Documents/PddGenerator/backend/pdd_generator_demo.db
+PDD_GENERATOR_REDIS_URL=
+PDD_GENERATOR_AI_ENABLED=true
+PDD_GENERATOR_AI_PROVIDER=openai_compatible
+PDD_GENERATOR_AI_API_KEY=YOUR_OPENAI_API_KEY
+PDD_GENERATOR_AI_MODEL=gpt-4.1-mini
+PDD_GENERATOR_AI_BASE_URL=https://api.openai.com/v1
+PDD_GENERATOR_STORAGE_BACKEND=local
+PDD_GENERATOR_LOCAL_STORAGE_ROOT=C:\Users\work\Documents\PddGenerator\storage\local
+PDD_GENERATOR_MAX_UPLOAD_SIZE_MB=1024
+PDD_GENERATOR_DOCX_OUTPUT_FOLDER=exports
+```
+
+Important:
+
+- do not put the API key in quotes
+- Redis is intentionally blank in demo mode
+
+### 4. Configure frontend
+
+Put this in `frontend\.env`:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000/api
+```
+
+### 5. Install backend
+
+```powershell
+cd C:\Users\work\Documents\PddGenerator\backend
+python -m pip install -r requirements.txt
+python -m pip install -e .
+```
+
+### 6. Start backend
+
+```powershell
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 7. Install frontend
+
+```powershell
+cd C:\Users\work\Documents\PddGenerator\frontend
+npm install
+```
+
+### 8. Start frontend
+
+```powershell
+npm run dev
+```
+
+### 9. Open the app
+
+```text
+http://localhost:5173
+```
+
+### 10. What not to start in demo mode
+
+Do not start:
+
+- PostgreSQL
+- Redis
+- Celery worker
+- Docker Desktop
 
 ## Restart Sequence
 
