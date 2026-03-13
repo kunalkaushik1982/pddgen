@@ -11,6 +11,7 @@ from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_note import ProcessNoteModel
 from app.models.process_step import ProcessStepModel
+from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.services.screenshot_mapping import ScreenshotMappingService
 from app.services.step_extraction import StepExtractionService
@@ -33,7 +34,7 @@ class PipelineOrchestratorService:
         self.transcript_intelligence_service = transcript_intelligence_service or TranscriptIntelligenceService()
         self.screenshot_mapping_service = screenshot_mapping_service or ScreenshotMappingService()
 
-    def get_session(self, db: Session, session_id: str) -> DraftSessionModel:
+    def get_session(self, db: Session, session_id: str, owner_id: str | None = None) -> DraftSessionModel:
         """Load a draft session with related entities."""
         statement = (
             select(DraftSessionModel)
@@ -41,18 +42,19 @@ class PipelineOrchestratorService:
             .options(
                 selectinload(DraftSessionModel.artifacts),
                 selectinload(DraftSessionModel.process_steps).selectinload(ProcessStepModel.step_screenshots).selectinload(ProcessStepScreenshotModel.artifact),
+                selectinload(DraftSessionModel.process_steps).selectinload(ProcessStepModel.step_screenshot_candidates).selectinload(ProcessStepScreenshotCandidateModel.artifact),
                 selectinload(DraftSessionModel.process_notes),
                 selectinload(DraftSessionModel.output_documents),
             )
         )
         session = db.execute(statement).scalar_one_or_none()
-        if session is None:
+        if session is None or (owner_id is not None and session.owner_id != owner_id):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft session not found.")
         return session
 
-    def mark_session_processing(self, db: Session, session_id: str) -> DraftSessionModel:
+    def mark_session_processing(self, db: Session, session_id: str, owner_id: str | None = None) -> DraftSessionModel:
         """Validate prerequisites and mark the session as processing."""
-        session = self.get_session(db, session_id)
+        session = self.get_session(db, session_id, owner_id=owner_id)
         transcript_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "transcript"]
         video_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "video"]
         template_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "template"]
@@ -77,7 +79,7 @@ class PipelineOrchestratorService:
 
         session.status = "processing"
         db.commit()
-        return self.get_session(db, session_id)
+        return self.get_session(db, session_id, owner_id=owner_id)
 
     def run_draft_generation(self, db: Session, session_id: str) -> DraftSessionModel:
         """Generate process steps and notes from available transcript artifacts."""

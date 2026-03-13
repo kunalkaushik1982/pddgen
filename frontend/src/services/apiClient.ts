@@ -3,8 +3,9 @@
  * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\services\apiClient.ts
  */
 
-import type { ProcessNote, ProcessStep, StepScreenshot } from "../types/process";
-import type { DraftSession, ExportResult, InputArtifact, OutputDocument } from "../types/session";
+import type { User } from "../types/auth";
+import type { CandidateScreenshot, ProcessNote, ProcessStep, StepScreenshot } from "../types/process";
+import type { DraftSession, DraftSessionListItem, ExportResult, InputArtifact, OutputDocument } from "../types/session";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
 
@@ -36,6 +37,7 @@ type BackendProcessStep = {
   confidence: ProcessStep["confidence"];
   evidence_references: BackendEvidenceReference[];
   screenshots: BackendStepScreenshot[];
+  candidate_screenshots: BackendCandidateScreenshot[];
   edited_by_ba: boolean;
 };
 
@@ -47,6 +49,17 @@ type BackendStepScreenshot = {
   timestamp: string;
   selection_method: string;
   is_primary: boolean;
+  artifact: BackendArtifact;
+};
+
+type BackendCandidateScreenshot = {
+  id: string;
+  artifact_id: string;
+  sequence_number: number;
+  timestamp: string;
+  source_role: string;
+  selection_method: string;
+  is_selected: boolean;
   artifact: BackendArtifact;
 };
 
@@ -77,6 +90,26 @@ type BackendDraftSession = {
   output_documents: BackendOutputDocument[];
 };
 
+type BackendDraftSessionListItem = {
+  id: string;
+  title: string;
+  status: DraftSession["status"];
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type BackendUser = {
+  id: string;
+  username: string;
+  created_at: string;
+};
+
+type BackendAuthResponse = {
+  token: string;
+  user: BackendUser;
+};
+
 type CreateSessionPayload = {
   title: string;
   ownerId: string;
@@ -95,6 +128,8 @@ type StepUpdatePayload = Partial<{
   editedByBa: boolean;
 }>;
 
+const AUTH_TOKEN_KEY = "pdd_generator_auth_token";
+
 function mapArtifact(artifact: BackendArtifact): InputArtifact {
   return {
     id: artifact.id,
@@ -107,7 +142,7 @@ function mapArtifact(artifact: BackendArtifact): InputArtifact {
 function mapOutputDocument(output: BackendOutputDocument): OutputDocument {
   return {
     id: output.id,
-    kind: "docx",
+    kind: output.kind === "pdf" ? "pdf" : "docx",
     storagePath: output.storage_path,
     exportedAt: output.exported_at,
   };
@@ -133,6 +168,7 @@ function mapProcessStep(step: BackendProcessStep): ProcessStep {
       locator: reference.locator,
     })),
     screenshots: step.screenshots.map(mapStepScreenshot),
+    candidateScreenshots: step.candidate_screenshots.map(mapCandidateScreenshot),
     editedByBa: step.edited_by_ba,
   };
 }
@@ -151,6 +187,24 @@ function mapStepScreenshot(stepScreenshot: BackendStepScreenshot): StepScreensho
       name: stepScreenshot.artifact.name,
       kind: "screenshot",
       storagePath: stepScreenshot.artifact.storage_path,
+    },
+  };
+}
+
+function mapCandidateScreenshot(candidateScreenshot: BackendCandidateScreenshot): CandidateScreenshot {
+  return {
+    id: candidateScreenshot.id,
+    artifactId: candidateScreenshot.artifact_id,
+    sequenceNumber: candidateScreenshot.sequence_number,
+    timestamp: candidateScreenshot.timestamp,
+    sourceRole: candidateScreenshot.source_role,
+    selectionMethod: candidateScreenshot.selection_method,
+    isSelected: candidateScreenshot.is_selected,
+    artifact: {
+      id: candidateScreenshot.artifact.id,
+      name: candidateScreenshot.artifact.name,
+      kind: "screenshot",
+      storagePath: candidateScreenshot.artifact.storage_path,
     },
   };
 }
@@ -179,6 +233,25 @@ function mapDraftSession(session: BackendDraftSession): DraftSession {
   };
 }
 
+function mapDraftSessionListItem(session: BackendDraftSessionListItem): DraftSessionListItem {
+  return {
+    id: session.id,
+    title: session.title,
+    status: session.status,
+    ownerId: session.owner_id,
+    createdAt: session.created_at,
+    updatedAt: session.updated_at,
+  };
+}
+
+function mapUser(user: BackendUser): User {
+  return {
+    id: user.id,
+    username: user.username,
+    createdAt: user.created_at,
+  };
+}
+
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const fallback = await response.text();
@@ -187,15 +260,115 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function getDownloadFilename(response: Response, fallback: string): string {
+  const contentDisposition = response.headers.get("content-disposition") ?? "";
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const quotedMatch = contentDisposition.match(/filename="([^"]+)"/i);
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1];
+  }
+
+  return fallback;
+}
+
 export class ApiClient {
+  private authToken = window.localStorage.getItem(AUTH_TOKEN_KEY) ?? "";
+
+  setAuthToken(token: string): void {
+    this.authToken = token;
+    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  }
+
+  clearAuthToken(): void {
+    this.authToken = "";
+    window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+
+  private buildHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+    return this.authToken
+      ? {
+          Authorization: `Bearer ${this.authToken}`,
+          ...extraHeaders,
+        }
+      : extraHeaders;
+  }
+
   getArtifactContentUrl(artifactId: string): string {
-    return `${API_BASE_URL}/uploads/artifacts/${artifactId}/content`;
+    const url = new URL(`${API_BASE_URL}/uploads/artifacts/${artifactId}/content`);
+    if (this.authToken) {
+      url.searchParams.set("token", this.authToken);
+    }
+    return url.toString();
+  }
+
+  async register(username: string, password: string): Promise<User> {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const payload = await parseJsonResponse<BackendAuthResponse>(response);
+    this.setAuthToken(payload.token);
+    return mapUser(payload.user);
+  }
+
+  async login(username: string, password: string): Promise<User> {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const payload = await parseJsonResponse<BackendAuthResponse>(response);
+    this.setAuthToken(payload.token);
+    return mapUser(payload.user);
+  }
+
+  async logout(): Promise<void> {
+    if (!this.authToken) {
+      return;
+    }
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      headers: this.buildHeaders(),
+    });
+    this.clearAuthToken();
+  }
+
+  async getCurrentUser(): Promise<User> {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: this.buildHeaders(),
+    });
+    const user = await parseJsonResponse<BackendUser>(response);
+    return mapUser(user);
+  }
+
+  async listDraftSessions(): Promise<DraftSessionListItem[]> {
+    const response = await fetch(`${API_BASE_URL}/draft-sessions`, {
+      headers: this.buildHeaders(),
+    });
+    const sessions = await parseJsonResponse<BackendDraftSessionListItem[]>(response);
+    return sessions.map(mapDraftSessionListItem);
   }
 
   async createDraftSession(payload: CreateSessionPayload): Promise<DraftSession> {
     const response = await fetch(`${API_BASE_URL}/uploads/sessions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.buildHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         title: payload.title,
         owner_id: payload.ownerId,
@@ -212,6 +385,7 @@ export class ApiClient {
 
     const response = await fetch(`${API_BASE_URL}/uploads/sessions/${sessionId}/artifacts`, {
       method: "POST",
+      headers: this.buildHeaders(),
       body: formData,
     });
     const artifact = await parseJsonResponse<BackendArtifact>(response);
@@ -221,13 +395,16 @@ export class ApiClient {
   async generateDraftSession(sessionId: string): Promise<DraftSession> {
     const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/generate`, {
       method: "POST",
+      headers: this.buildHeaders(),
     });
     const session = await parseJsonResponse<BackendDraftSession>(response);
     return mapDraftSession(session);
   }
 
   async getDraftSession(sessionId: string): Promise<DraftSession> {
-    const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}`);
+    const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}`, {
+      headers: this.buildHeaders(),
+    });
     const session = await parseJsonResponse<BackendDraftSession>(response);
     return mapDraftSession(session);
   }
@@ -235,7 +412,7 @@ export class ApiClient {
   async updateProcessStep(sessionId: string, stepId: string, payload: StepUpdatePayload): Promise<ProcessStep> {
     const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/steps/${stepId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: this.buildHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         application_name: payload.applicationName,
         action_text: payload.actionText,
@@ -256,6 +433,7 @@ export class ApiClient {
   async exportDocx(sessionId: string): Promise<ExportResult> {
     const response = await fetch(`${API_BASE_URL}/exports/${sessionId}/docx`, {
       method: "POST",
+      headers: this.buildHeaders(),
     });
     const output = await parseJsonResponse<BackendOutputDocument>(response);
     return {
@@ -266,6 +444,38 @@ export class ApiClient {
     };
   }
 
+  async downloadExportDocx(sessionId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/exports/${sessionId}/docx/download`, {
+      method: "POST",
+      headers: this.buildHeaders(),
+    });
+
+    if (!response.ok) {
+      const fallback = await response.text();
+      throw new Error(fallback || `Request failed with status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const filename = getDownloadFilename(response, `${sessionId}_draft.docx`);
+    triggerBlobDownload(blob, filename);
+  }
+
+  async downloadExportPdf(sessionId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/exports/${sessionId}/pdf/download`, {
+      method: "POST",
+      headers: this.buildHeaders(),
+    });
+
+    if (!response.ok) {
+      const fallback = await response.text();
+      throw new Error(fallback || `Request failed with status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const filename = getDownloadFilename(response, `${sessionId}_draft.pdf`);
+    triggerBlobDownload(blob, filename);
+  }
+
   async updateStepScreenshot(
     sessionId: string,
     stepId: string,
@@ -274,7 +484,7 @@ export class ApiClient {
   ): Promise<ProcessStep> {
     const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/steps/${stepId}/screenshots/${stepScreenshotId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: this.buildHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         is_primary: payload.isPrimary,
         role: payload.role,
@@ -287,7 +497,29 @@ export class ApiClient {
   async deleteStepScreenshot(sessionId: string, stepId: string, stepScreenshotId: string): Promise<ProcessStep> {
     const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/steps/${stepId}/screenshots/${stepScreenshotId}`, {
       method: "DELETE",
+      headers: this.buildHeaders(),
     });
+    const step = await parseJsonResponse<BackendProcessStep>(response);
+    return mapProcessStep(step);
+  }
+
+  async selectCandidateScreenshot(
+    sessionId: string,
+    stepId: string,
+    candidateScreenshotId: string,
+    payload: { isPrimary?: boolean; role?: string } = {},
+  ): Promise<ProcessStep> {
+    const response = await fetch(
+      `${API_BASE_URL}/draft-sessions/${sessionId}/steps/${stepId}/candidate-screenshots/${candidateScreenshotId}/select`,
+      {
+        method: "POST",
+        headers: this.buildHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          is_primary: payload.isPrimary,
+          role: payload.role,
+        }),
+      },
+    );
     const step = await parseJsonResponse<BackendProcessStep>(response);
     return mapProcessStep(step);
   }

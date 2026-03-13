@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
-from app.api.routes import draft_sessions, exports, uploads
+from app.api.routes import auth, draft_sessions, exports, uploads
 from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import engine
@@ -68,6 +68,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(uploads.router, prefix=settings.api_prefix)
+    app.include_router(auth.router, prefix=settings.api_prefix)
     app.include_router(draft_sessions.router, prefix=settings.api_prefix)
     app.include_router(exports.router, prefix=settings.api_prefix)
     return app

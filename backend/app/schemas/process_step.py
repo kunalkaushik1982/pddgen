@@ -28,3 +28,10 @@ class StepScreenshotUpdateRequest(BaseModel):
 
     is_primary: bool | None = None
     role: str | None = None
+
+
+class CandidateScreenshotSelectRequest(BaseModel):
+    """Request payload for selecting one generated candidate screenshot."""
+
+    is_primary: bool | None = None
+    role: str | None = None

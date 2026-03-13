@@ -29,3 +29,4 @@ storage/local/
 input/
 tmp/
 temp/
+test-assets/*.pdf

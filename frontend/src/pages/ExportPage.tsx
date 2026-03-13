@@ -11,30 +11,17 @@ type ExportPageProps = {
   session: DraftSession | null;
   exportResult: ExportResult | null;
   disabled?: boolean;
+  showHeader?: boolean;
   onExport: () => void;
 };
 
-export function ExportPage({ session, exportResult, disabled, onExport }: ExportPageProps): JSX.Element {
+export function ExportPage({ session, exportResult, disabled, showHeader = true, onExport }: ExportPageProps): JSX.Element {
   return (
-    <section className="panel stack">
-      <div>
-        <h2>4. Export PDD</h2>
-        <p className="muted">Generate the editable DOCX once the step review is complete.</p>
-      </div>
+    <section className="panel stack export-panel">
+      {showHeader ? <h2>4. Export PDD</h2> : null}
 
       {session ? (
         <>
-          <div className="timeline-list">
-            <div className="timeline-card">
-              <strong>Ready to export</strong>
-              <div className="artifact-meta">{session.processSteps.length} reviewed step(s)</div>
-            </div>
-            <div className="timeline-card">
-              <strong>Existing outputs</strong>
-              <div className="artifact-meta">{session.outputDocuments.length} document(s)</div>
-            </div>
-          </div>
-
           <div className="button-row">
             <button type="button" className="button-primary" onClick={onExport} disabled={disabled}>
               Export DOCX
@@ -42,9 +29,9 @@ export function ExportPage({ session, exportResult, disabled, onExport }: Export
           </div>
 
           {exportResult ? (
-            <div className="artifact-card">
+            <div className="artifact-card export-result-card">
               <strong>Latest export</strong>
-              <div className="artifact-meta">{exportResult.storagePath}</div>
+              <div className="artifact-meta">{toRelativeExportPath(exportResult.storagePath)}</div>
               <div className="artifact-meta">Exported at {exportResult.exportedAt}</div>
             </div>
           ) : null}
@@ -54,4 +41,14 @@ export function ExportPage({ session, exportResult, disabled, onExport }: Export
       )}
     </section>
   );
+}
+
+function toRelativeExportPath(storagePath: string): string {
+  const normalized = storagePath.replaceAll("/", "\\");
+  const marker = "\\storage\\local\\";
+  const markerIndex = normalized.toLowerCase().indexOf(marker);
+  if (markerIndex >= 0) {
+    return normalized.slice(markerIndex + marker.length);
+  }
+  return normalized.split("\\").slice(-3).join("\\");
 }

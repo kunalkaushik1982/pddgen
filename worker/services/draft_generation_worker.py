@@ -20,6 +20,7 @@ from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_note import ProcessNoteModel
 from app.models.process_step import ProcessStepModel
+from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
@@ -70,6 +71,13 @@ class DraftGenerationWorker:
             if not transcript_artifacts:
                 raise ValueError("No transcript artifacts found for draft generation.")
 
+            step_ids_subquery = select(ProcessStepModel.id).where(ProcessStepModel.session_id == session_id)
+            db.execute(delete(ProcessStepScreenshotModel).where(ProcessStepScreenshotModel.step_id.in_(step_ids_subquery)))
+            db.execute(
+                delete(ProcessStepScreenshotCandidateModel).where(
+                    ProcessStepScreenshotCandidateModel.step_id.in_(step_ids_subquery)
+                )
+            )
             db.execute(delete(ProcessStepModel).where(ProcessStepModel.session_id == session_id))
             db.execute(delete(ProcessNoteModel).where(ProcessNoteModel.session_id == session_id))
             db.execute(
@@ -162,21 +170,26 @@ class DraftGenerationWorker:
         screenshots_dir.mkdir(parents=True, exist_ok=True)
 
         for step in step_candidates:
-            derived_screenshots = self._derive_step_screenshot_slots(
+            candidate_screenshots = self._derive_candidate_screenshot_pool(
                 db=db,
                 session_id=session_id,
                 video_path=primary_video.storage_path,
                 screenshots_dir=screenshots_dir,
                 step=step,
             )
-            if not derived_screenshots:
+            if not candidate_screenshots:
                 continue
 
+            derived_screenshots = self._select_step_screenshot_slots(
+                step=step,
+                candidate_screenshots=candidate_screenshots,
+            )
+            step["_candidate_screenshots"] = candidate_screenshots
             step["_derived_screenshots"] = derived_screenshots
             primary_screenshot = next((item for item in derived_screenshots if item["is_primary"]), derived_screenshots[0])
             step["screenshot_id"] = primary_screenshot["artifact"].id
             step["timestamp"] = primary_screenshot["timestamp"]
-            screenshots.extend(item["artifact"] for item in derived_screenshots)
+            screenshots.extend(item["artifact"] for item in candidate_screenshots)
         db.commit()
         return screenshots
 
@@ -201,11 +214,23 @@ class DraftGenerationWorker:
     def _persist_step_screenshots(self, db, step_models: list[ProcessStepModel], step_candidates: list[dict]) -> None:
         """Persist screenshot relations after step rows exist."""
         relations: list[ProcessStepScreenshotModel] = []
+        candidate_relations: list[ProcessStepScreenshotCandidateModel] = []
         for step_model, step_candidate in zip(step_models, step_candidates):
             self._attach_screenshot_evidence(step_candidate)
             step_model.evidence_references = step_candidate["evidence_references"]
             step_model.screenshot_id = step_candidate.get("screenshot_id", "")
             step_model.timestamp = step_candidate.get("timestamp", "")
+            for candidate in step_candidate.get("_candidate_screenshots", []):
+                candidate_relations.append(
+                    ProcessStepScreenshotCandidateModel(
+                        step_id=step_model.id,
+                        artifact_id=candidate["artifact"].id,
+                        sequence_number=candidate["sequence_number"],
+                        timestamp=candidate["timestamp"],
+                        source_role=candidate["source_role"],
+                        selection_method=candidate["selection_method"],
+                    )
+                )
             for screenshot in step_candidate.get("_derived_screenshots", []):
                 relations.append(
                     ProcessStepScreenshotModel(
@@ -218,6 +243,8 @@ class DraftGenerationWorker:
                         is_primary=screenshot["is_primary"],
                     )
                 )
+        if candidate_relations:
+            db.add_all(candidate_relations)
         if relations:
             db.add_all(relations)
 
@@ -229,6 +256,7 @@ class DraftGenerationWorker:
             for key, value in step.items()
             if key
             not in {
+                "_candidate_screenshots",
                 "_derived_screenshots",
             }
         }
@@ -320,37 +348,94 @@ class DraftGenerationWorker:
         step: dict,
     ) -> list[dict]:
         """Generate up to three screenshot slots for one step."""
-        roles = self._select_screenshot_roles(step)
-        screenshots: list[dict] = []
-        for sequence_number, role in enumerate(roles, start=1):
-            target_timestamp = self._timestamp_for_role(step, role)
-            candidate_timestamps = self._candidate_timestamps_for_role(target_timestamp, role)
-            candidates = self.frame_extractor.extract_frames_at_timestamps(
-                video_path=video_path,
-                output_dir=str(screenshots_dir),
-                timestamps=candidate_timestamps,
-                filename_prefix=f"step_{step['step_number']:03d}_{role}",
-            )
-            best_candidate = self._select_best_frame(step, candidates)
-            if best_candidate is None:
-                continue
+        candidate_screenshots = self._derive_candidate_screenshot_pool(
+            db=db,
+            session_id=session_id,
+            video_path=video_path,
+            screenshots_dir=screenshots_dir,
+            step=step,
+        )
+        return self._select_step_screenshot_slots(step=step, candidate_screenshots=candidate_screenshots)
 
+    def _derive_candidate_screenshot_pool(
+        self,
+        *,
+        db,
+        session_id: str,
+        video_path: str,
+        screenshots_dir: Path,
+        step: dict,
+    ) -> list[dict]:
+        """Generate a broader candidate pool that the BA can browse later."""
+        candidate_timestamps = self._build_candidate_timestamps(step)
+        extracted_candidates = self.frame_extractor.extract_frames_at_timestamps(
+            video_path=video_path,
+            output_dir=str(screenshots_dir),
+            timestamps=candidate_timestamps,
+            filename_prefix=f"step_{step['step_number']:03d}_candidate",
+        )
+        screenshot_candidates: list[dict] = []
+        seen_timestamps: set[str] = set()
+        for candidate in extracted_candidates:
+            if candidate.timestamp in seen_timestamps:
+                continue
+            seen_timestamps.add(candidate.timestamp)
             artifact = ArtifactModel(
                 session_id=session_id,
-                name=Path(best_candidate.output_path).name,
+                name=Path(candidate.output_path).name,
                 kind="screenshot",
-                storage_path=str(best_candidate.output_path),
+                storage_path=str(candidate.output_path),
                 content_type="image/png",
-                size_bytes=best_candidate.file_size,
+                size_bytes=candidate.file_size,
             )
             db.add(artifact)
             db.flush()
-            screenshots.append(
+            screenshot_candidates.append(
                 {
                     "artifact": artifact,
+                    "sequence_number": len(screenshot_candidates) + 1,
+                    "timestamp": candidate.timestamp,
+                    "source_role": "candidate",
+                    "selection_method": "span-candidate",
+                    "offset_seconds": candidate.offset_seconds,
+                    "file_size": candidate.file_size,
+                }
+            )
+        return screenshot_candidates
+
+    def _select_step_screenshot_slots(self, *, step: dict, candidate_screenshots: list[dict]) -> list[dict]:
+        """Choose the selected screenshots from the broader candidate pool."""
+        if not candidate_screenshots:
+            return []
+
+        roles = self._select_screenshot_roles(step)
+        screenshots: list[dict] = []
+        used_artifact_ids: set[str] = set()
+        for sequence_number, role in enumerate(roles, start=1):
+            target_timestamp = self._timestamp_for_role(step, role)
+            candidate_timestamps = self._candidate_timestamps_for_role(target_timestamp, role)
+            candidate_timestamp_set = set(candidate_timestamps)
+            scoped_candidates = [
+                candidate
+                for candidate in candidate_screenshots
+                if candidate["artifact"].id not in used_artifact_ids and candidate["timestamp"] in candidate_timestamp_set
+            ]
+            if not scoped_candidates:
+                scoped_candidates = [
+                    candidate for candidate in candidate_screenshots if candidate["artifact"].id not in used_artifact_ids
+                ]
+
+            best_candidate = self._select_best_candidate_record(step, scoped_candidates)
+            if best_candidate is None:
+                continue
+
+            used_artifact_ids.add(best_candidate["artifact"].id)
+            screenshots.append(
+                {
+                    "artifact": best_candidate["artifact"],
                     "role": role,
                     "sequence_number": sequence_number,
-                    "timestamp": best_candidate.timestamp,
+                    "timestamp": best_candidate["timestamp"],
                     "selection_method": "span-sequence",
                     "is_primary": role == "during" or (role == roles[0] and "during" not in roles),
                 }
@@ -358,6 +443,27 @@ class DraftGenerationWorker:
         if screenshots and not any(item["is_primary"] for item in screenshots):
             screenshots[0]["is_primary"] = True
         return screenshots
+
+    def _select_best_candidate_record(self, step: dict, candidates: list[dict]) -> dict | None:
+        """Choose the best persisted candidate using the existing heuristic scoring."""
+        if not candidates:
+            return None
+
+        action_type = self._classify_action_type(step.get("action_text", ""))
+        best_candidate: dict | None = None
+        best_score = float("-inf")
+        for candidate in candidates:
+            frame_candidate = ExtractedFrameCandidate(
+                output_path=candidate["artifact"].storage_path,
+                timestamp=candidate["timestamp"],
+                offset_seconds=candidate.get("offset_seconds", 0),
+                file_size=candidate.get("file_size", candidate["artifact"].size_bytes),
+            )
+            score = self._score_candidate(action_type, frame_candidate, step)
+            if score > best_score:
+                best_score = score
+                best_candidate = candidate
+        return best_candidate
 
     def _select_screenshot_roles(self, step: dict) -> list[str]:
         """Return ordered screenshot roles for one step."""

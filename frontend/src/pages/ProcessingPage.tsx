@@ -10,17 +10,20 @@ import type { DraftSession } from "../types/session";
 type ProcessingPageProps = {
   session: DraftSession | null;
   disabled?: boolean;
+  showHeader?: boolean;
   onGenerate: () => void;
   onRefresh: () => void;
 };
 
-export function ProcessingPage({ session, disabled, onGenerate, onRefresh }: ProcessingPageProps): JSX.Element {
+export function ProcessingPage({ session, disabled, showHeader = true, onGenerate, onRefresh }: ProcessingPageProps): JSX.Element {
   return (
     <section className="panel stack">
-      <div>
-        <h2>2. Generate Draft</h2>
-        <p className="muted">Trigger extraction after the required artifacts are uploaded.</p>
-      </div>
+      {showHeader ? (
+        <div>
+          <h2>2. Generate Draft</h2>
+          <p className="muted">Trigger extraction after the required artifacts are uploaded.</p>
+        </div>
+      ) : null}
 
       {session ? (
         <>

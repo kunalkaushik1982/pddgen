@@ -46,6 +46,21 @@ class StepScreenshotResponse(BaseModel):
     artifact: ArtifactResponse
 
 
+class CandidateScreenshotResponse(BaseModel):
+    """Candidate screenshot evidence available for manual BA selection."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    artifact_id: str
+    sequence_number: int
+    timestamp: str
+    source_role: str
+    selection_method: str
+    is_selected: bool
+    artifact: ArtifactResponse
+
+
 class ProcessStepResponse(BaseModel):
     """Process step response for draft session retrieval."""
 
@@ -64,6 +79,7 @@ class ProcessStepResponse(BaseModel):
     confidence: ConfidenceLevel
     evidence_references: list[EvidenceReference]
     screenshots: list[StepScreenshotResponse]
+    candidate_screenshots: list[CandidateScreenshotResponse]
     edited_by_ba: bool
 
 
@@ -106,3 +122,16 @@ class DraftSessionResponse(BaseModel):
     process_steps: list[ProcessStepResponse]
     process_notes: list[ProcessNoteResponse]
     output_documents: list[OutputDocumentResponse]
+
+
+class DraftSessionListItemResponse(BaseModel):
+    """Compact draft session response for history lists."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    status: str
+    owner_id: str
+    created_at: datetime
+    updated_at: datetime

@@ -32,10 +32,11 @@ class ArtifactIngestionService:
         session_id: str,
         upload: UploadFile,
         artifact_kind: str,
+        owner_id: str,
     ) -> ArtifactModel:
         """Validate, persist, and register a newly uploaded artifact."""
         session = db.get(DraftSessionModel, session_id)
-        if session is None:
+        if session is None or session.owner_id != owner_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft session not found.")
 
         storage_path, size_bytes = self.storage_service.save_upload(

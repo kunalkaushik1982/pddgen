@@ -4,8 +4,13 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\documen
 """
 
 import json
+import shutil
+import subprocess
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from docxtpl import DocxTemplate
 from docxtpl import InlineImage
@@ -21,6 +26,7 @@ from app.storage.storage_service import StorageService
 
 class DocumentRendererService:
     """Render reviewed structured draft data into a DOCX document."""
+    _pdf_conversion_lock = threading.Lock()
 
     def __init__(self, storage_service: StorageService | None = None) -> None:
         self.storage_service = storage_service or StorageService()
@@ -28,24 +34,8 @@ class DocumentRendererService:
 
     def render_docx(self, db: Session, draft_session: DraftSessionModel) -> OutputDocumentModel:
         """Render a DOCX document from the draft session."""
-        template_artifact = next((artifact for artifact in draft_session.artifacts if artifact.kind == "template"), None)
-        if template_artifact is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A template artifact is required before export.",
-            )
-
-        template_path = Path(template_artifact.storage_path)
-        if not template_path.exists():
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Template file was not found on storage.")
-
-        output_name = f"{draft_session.id}_draft.docx"
-        output_path = self.settings.local_storage_root / draft_session.id / self.settings.docx_output_folder / output_name
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        doc = DocxTemplate(str(template_path))
-        doc.render(self._build_context(draft_session, doc))
-        doc.save(str(output_path))
+        output_path = self._build_output_path(draft_session, "docx")
+        self._render_docx_file(draft_session, output_path)
 
         output_document = OutputDocumentModel(
             session_id=draft_session.id,
@@ -57,6 +47,154 @@ class DocumentRendererService:
         db.commit()
         db.refresh(output_document)
         return output_document
+
+    def render_pdf(self, db: Session, draft_session: DraftSessionModel) -> OutputDocumentModel:
+        """Render a PDF by converting the same DOCX content used for Word export."""
+        output_path = self._build_output_path(draft_session, "pdf")
+        with TemporaryDirectory(prefix=f"pdd_{draft_session.id}_") as temp_dir:
+            temp_docx_path = Path(temp_dir) / f"{draft_session.id}_draft.docx"
+            self._render_docx_file(draft_session, temp_docx_path)
+            self._convert_docx_to_pdf(temp_docx_path, output_path)
+
+        output_document = OutputDocumentModel(
+            session_id=draft_session.id,
+            kind="pdf",
+            storage_path=str(output_path),
+        )
+        db.add(output_document)
+        draft_session.status = "exported"
+        db.commit()
+        db.refresh(output_document)
+        return output_document
+
+    def _get_template_path(self, draft_session: DraftSessionModel) -> Path:
+        template_artifact = next((artifact for artifact in draft_session.artifacts if artifact.kind == "template"), None)
+        if template_artifact is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A template artifact is required before export.",
+            )
+
+        template_path = Path(template_artifact.storage_path)
+        if not template_path.exists():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Template file was not found on storage.")
+        return template_path
+
+    def _build_output_path(self, draft_session: DraftSessionModel, extension: str) -> Path:
+        output_name = f"{draft_session.id}_draft.{extension}"
+        output_path = self.settings.local_storage_root / draft_session.id / self.settings.docx_output_folder / output_name
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        return output_path
+
+    def _render_docx_file(self, draft_session: DraftSessionModel, output_path: Path) -> None:
+        template_path = self._get_template_path(draft_session)
+        doc = DocxTemplate(str(template_path))
+        doc.render(self._build_context(draft_session, doc))
+        doc.save(str(output_path))
+
+    def _convert_docx_to_pdf(self, source_docx_path: Path, output_pdf_path: Path) -> None:
+        conversion_errors: list[str] = []
+        if self._convert_with_docx2pdf(source_docx_path, output_pdf_path, conversion_errors):
+            return
+        if self._convert_with_libreoffice(source_docx_path, output_pdf_path, conversion_errors):
+            return
+
+        error_suffix = f" Conversion details: {' | '.join(conversion_errors)}" if conversion_errors else ""
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "PDF export requires DOCX-to-PDF conversion support. "
+                "Install Microsoft Word with the 'docx2pdf' package, or install LibreOffice and expose 'soffice' in PATH."
+                f"{error_suffix}"
+            ).strip(),
+        )
+
+    def _convert_with_docx2pdf(
+        self,
+        source_docx_path: Path,
+        output_pdf_path: Path,
+        conversion_errors: list[str],
+    ) -> bool:
+        try:
+            from docx2pdf import convert
+        except ImportError as error:
+            conversion_errors.append(f"docx2pdf import failed: {error}")
+            return False
+
+        pythoncom = None
+        com_initialized = False
+        try:
+            import pythoncom  # type: ignore
+
+            pythoncom.CoInitialize()
+            com_initialized = True
+        except ImportError:
+            pythoncom = None
+        except Exception as error:
+            conversion_errors.append(f"COM initialization failed: {error}")
+            return False
+
+        attempts = 2
+        try:
+            with self._pdf_conversion_lock:
+                for attempt in range(1, attempts + 1):
+                    try:
+                        if output_pdf_path.exists():
+                            output_pdf_path.unlink()
+                        convert(str(source_docx_path), str(output_pdf_path))
+                        if output_pdf_path.exists():
+                            return True
+                        conversion_errors.append(
+                            f"docx2pdf attempt {attempt} completed without producing '{output_pdf_path.name}'"
+                        )
+                    except Exception as error:
+                        conversion_errors.append(f"docx2pdf attempt {attempt} failed: {error}")
+                    if attempt < attempts:
+                        time.sleep(1.0)
+            return False
+        finally:
+            if pythoncom is not None and com_initialized:
+                try:
+                    pythoncom.CoUninitialize()
+                except Exception:
+                    pass
+
+    def _convert_with_libreoffice(
+        self,
+        source_docx_path: Path,
+        output_pdf_path: Path,
+        conversion_errors: list[str],
+    ) -> bool:
+        soffice_path = shutil.which("soffice")
+        if not soffice_path:
+            conversion_errors.append("LibreOffice 'soffice' not found in PATH")
+            return False
+
+        try:
+            subprocess.run(
+                [
+                    soffice_path,
+                    "--headless",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    str(output_pdf_path.parent),
+                    str(source_docx_path),
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except Exception as error:
+            conversion_errors.append(f"LibreOffice conversion failed: {error}")
+            return False
+
+        generated_pdf = output_pdf_path.parent / f"{source_docx_path.stem}.pdf"
+        if generated_pdf.exists() and generated_pdf != output_pdf_path:
+            generated_pdf.replace(output_pdf_path)
+        if not output_pdf_path.exists():
+            conversion_errors.append("LibreOffice completed without producing the expected PDF output")
+        return output_pdf_path.exists()
 
     def _build_context(self, draft_session: DraftSessionModel, template_document: DocxTemplate) -> dict:
         """Build the DOCX template context from the session."""

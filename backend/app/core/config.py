@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/pdd_generator"
     redis_url: str = "redis://localhost:6379/0"
+    auth_token_days: int = 7
     ai_enabled: bool = False
     ai_provider: str = "openai_compatible"
     ai_api_key: str = ""

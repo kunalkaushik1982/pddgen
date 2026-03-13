@@ -22,6 +22,12 @@ export function StepReviewPanel({
   onSetPrimaryScreenshot,
   onRemoveScreenshot,
 }: StepReviewPanelProps): JSX.Element {
+  const primaryScreenshot =
+    step.screenshots.find((stepScreenshot) => stepScreenshot.isPrimary) ?? step.screenshots[0] ?? null;
+  const secondaryScreenshots = primaryScreenshot
+    ? step.screenshots.filter((stepScreenshot) => stepScreenshot.id !== primaryScreenshot.id)
+    : [];
+
   return (
     <article className="step-card">
       <div className="step-card-header">
@@ -31,7 +37,12 @@ export function StepReviewPanel({
             {step.applicationName || "Application pending"} {step.timestamp ? `| ${step.timestamp}` : ""}
           </div>
         </div>
-        <ConfidenceBadge level={step.confidence} />
+        <div className="step-card-header-actions">
+          <ConfidenceBadge level={step.confidence} />
+          <button type="button" className="button-secondary" onClick={() => onEdit(step)}>
+            Edit step
+          </button>
+        </div>
       </div>
 
       <div>{step.actionText}</div>
@@ -47,32 +58,57 @@ export function StepReviewPanel({
       ) : null}
 
       <div className="step-preview">
-        {step.screenshots.length > 0 ? (
+        {primaryScreenshot ? (
           <div className="stack">
-            {step.screenshots.map((stepScreenshot) => (
-              <div key={stepScreenshot.id} className="screenshot-card">
-                <div className="screenshot-preview">
-                  {stepScreenshot.isPrimary ? <span className="screenshot-badge">Primary</span> : null}
+            <div className="step-screenshot-section">
+              <div className="step-section-title">Primary screenshot</div>
+              <div className="screenshot-card screenshot-card-primary">
+                <div className="screenshot-preview screenshot-preview-primary">
+                  <span className="screenshot-badge">Primary</span>
                   <img
-                    src={apiClient.getArtifactContentUrl(stepScreenshot.artifactId)}
-                    alt={`${stepScreenshot.role} screenshot for step ${step.stepNumber}`}
+                    src={apiClient.getArtifactContentUrl(primaryScreenshot.artifactId)}
+                    alt={`Primary screenshot for step ${step.stepNumber}`}
                   />
                 </div>
                 <div className="artifact-meta">
-                  {stepScreenshot.role} | {stepScreenshot.timestamp} | {stepScreenshot.isPrimary ? "primary" : "secondary"}
+                  {primaryScreenshot.role} | {primaryScreenshot.timestamp}
                 </div>
                 <div className="button-row">
-                  {!stepScreenshot.isPrimary ? (
-                    <button type="button" className="button-secondary" onClick={() => onSetPrimaryScreenshot(stepScreenshot.id)}>
-                      Make primary
-                    </button>
-                  ) : null}
-                  <button type="button" className="button-danger" onClick={() => onRemoveScreenshot(stepScreenshot.id)}>
+                  <button type="button" className="button-danger" onClick={() => onRemoveScreenshot(primaryScreenshot.id)}>
                     Remove screenshot
                   </button>
                 </div>
               </div>
-            ))}
+            </div>
+
+            {secondaryScreenshots.length > 0 ? (
+              <div className="step-screenshot-section">
+                <div className="step-section-title">Other screenshots</div>
+                <div className="screenshot-grid">
+                  {secondaryScreenshots.map((stepScreenshot) => (
+                    <div key={stepScreenshot.id} className="screenshot-card">
+                      <div className="screenshot-preview">
+                        <img
+                          src={apiClient.getArtifactContentUrl(stepScreenshot.artifactId)}
+                          alt={`${stepScreenshot.role} screenshot for step ${step.stepNumber}`}
+                        />
+                      </div>
+                      <div className="artifact-meta">
+                        {stepScreenshot.role} | {stepScreenshot.timestamp} | secondary
+                      </div>
+                      <div className="button-row">
+                        <button type="button" className="button-secondary" onClick={() => onSetPrimaryScreenshot(stepScreenshot.id)}>
+                          Make primary
+                        </button>
+                        <button type="button" className="button-danger" onClick={() => onRemoveScreenshot(stepScreenshot.id)}>
+                          Remove screenshot
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="screenshot-card">
@@ -87,12 +123,6 @@ export function StepReviewPanel({
             ? step.evidenceReferences.map((reference) => `${reference.kind}:${reference.locator}`).join(", ")
             : "No evidence mapped"}
         </div>
-      </div>
-
-      <div className="step-card-actions">
-        <button type="button" className="button-secondary" onClick={() => onEdit(step)}>
-          Edit step
-        </button>
       </div>
     </article>
   );

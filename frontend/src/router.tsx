@@ -6,13 +6,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "./components/layout/AppShell";
-import { ExportPage } from "./pages/ExportPage";
-import { ProcessingPage } from "./pages/ProcessingPage";
+import { AuthPage } from "./pages/AuthPage";
+import { SessionHistoryPage } from "./pages/SessionHistoryPage";
 import { StepReviewPage } from "./pages/StepReviewPage";
 import { UploadPage } from "./pages/UploadPage";
 import { apiClient } from "./services/apiClient";
+import type { User } from "./types/auth";
 import type { ProcessStep } from "./types/process";
-import type { DraftSession } from "./types/session";
+import type { DraftSession, DraftSessionListItem } from "./types/session";
 import type { ArtifactQueueItem, ArtifactUploadState, WorkflowContext } from "./types/workflow";
 
 const INITIAL_UPLOAD_STATE: ArtifactUploadState = {
@@ -38,13 +39,32 @@ export function AppRouter(): JSX.Element {
   const [ownerId, setOwnerId] = useState("pilot-user");
   const [uploads, setUploads] = useState<ArtifactUploadState>(INITIAL_UPLOAD_STATE);
   const [context, setContext] = useState<WorkflowContext>(INITIAL_WORKFLOW_CONTEXT);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [activeView, setActiveView] = useState<"workspace" | "history">("workspace");
+  const [sessionHistory, setSessionHistory] = useState<DraftSessionListItem[]>([]);
+  const [collapsedSections, setCollapsedSections] = useState({
+    controls: false,
+    review: false,
+  });
 
   const statusLabel = useMemo(() => {
-    if (!context.currentSession) {
-      return "No active session";
+    return activeView === "history" ? "Past Runs" : "Workspace";
+  }, [activeView]);
+
+  const canGenerateDraft =
+    uploads.videoFiles.length > 0 && uploads.transcriptFiles.length > 0 && Boolean(uploads.templateFile);
+
+  useEffect(() => {
+    void restoreUser();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
     }
-    return `${context.currentSession.status.toUpperCase()} | ${context.currentSession.processSteps.length} step(s)`;
-  }, [context.currentSession]);
+    setOwnerId(currentUser.username);
+    void loadSessionHistory();
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (!context.currentSession || context.currentSession.status !== "processing") {
@@ -60,6 +80,20 @@ export function AppRouter(): JSX.Element {
     };
   }, [context.currentSession?.id, context.currentSession?.status]);
 
+  useEffect(() => {
+    if (!currentUser || !sessionHistory.some((session) => session.status === "processing")) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadSessionHistory();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [currentUser?.id, sessionHistory]);
+
   function setMessage(tone: "info" | "error", text: string): void {
     setContext((current) => ({
       ...current,
@@ -69,6 +103,13 @@ export function AppRouter(): JSX.Element {
 
   function setBusy(isBusy: boolean): void {
     setContext((current) => ({ ...current, isBusy }));
+  }
+
+  function toggleSection(section: keyof typeof collapsedSections): void {
+    setCollapsedSections((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
   }
 
   function handleFilesChange(field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", files: FileList | null): void {
@@ -87,56 +128,55 @@ export function AppRouter(): JSX.Element {
     });
   }
 
-  async function handleCreateSessionAndUpload(): Promise<void> {
+  async function createSessionAndUploadArtifacts(): Promise<DraftSession> {
     if (uploads.videoFiles.length === 0 || uploads.transcriptFiles.length === 0 || !uploads.templateFile) {
-      setMessage("error", "At least one video, one transcript, and one template are required.");
-      return;
+      throw new Error("At least one video, one transcript, and one template are required.");
     }
 
-    setBusy(true);
-    try {
-      const session = await apiClient.createDraftSession({ title, ownerId });
-      const queue: ArtifactQueueItem[] = [
-        ...uploads.videoFiles.map((file) => ({ artifactKind: "video" as const, file })),
-        ...uploads.transcriptFiles.map((file) => ({ artifactKind: "transcript" as const, file })),
-        { artifactKind: "template" as const, file: uploads.templateFile },
-        ...uploads.optionalArtifacts.sopFiles.map((file) => ({ artifactKind: "sop" as const, file })),
-        ...uploads.optionalArtifacts.diagramFiles.map((file) => ({ artifactKind: "diagram" as const, file })),
-      ];
+    const session = await apiClient.createDraftSession({ title, ownerId });
+    const queue: ArtifactQueueItem[] = [
+      ...uploads.videoFiles.map((file) => ({ artifactKind: "video" as const, file })),
+      ...uploads.transcriptFiles.map((file) => ({ artifactKind: "transcript" as const, file })),
+      { artifactKind: "template" as const, file: uploads.templateFile },
+      ...uploads.optionalArtifacts.sopFiles.map((file) => ({ artifactKind: "sop" as const, file })),
+      ...uploads.optionalArtifacts.diagramFiles.map((file) => ({ artifactKind: "diagram" as const, file })),
+    ];
 
-      for (const item of queue) {
-        await apiClient.uploadArtifact(session.id, item.artifactKind, item.file);
-      }
-
-      const refreshed = await apiClient.getDraftSession(session.id);
-      setContext((current) => ({
-        ...current,
-        currentSession: refreshed,
-        selectedStepId: refreshed.processSteps[0]?.id ?? null,
-        exportResult: null,
-      }));
-      setMessage("info", "Session created and all selected artifacts uploaded.");
-    } catch (error) {
-      setMessage("error", getErrorMessage(error));
-    } finally {
-      setBusy(false);
+    for (const item of queue) {
+      await apiClient.uploadArtifact(session.id, item.artifactKind, item.file);
     }
+
+    const refreshed = await apiClient.getDraftSession(session.id);
+    await loadSessionHistory();
+    setContext((current) => ({
+      ...current,
+      currentSession: refreshed,
+      selectedStepId: refreshed.processSteps[0]?.id ?? null,
+      exportResult: null,
+    }));
+    return refreshed;
   }
 
-  async function handleGenerateDraft(): Promise<void> {
-    if (!context.currentSession) {
+  async function handleGeneratePdd(): Promise<void> {
+    if (!canGenerateDraft) {
+      setMessage("error", "Select at least one video, one transcript, and one DOCX template before generating the draft.");
       return;
     }
 
     setBusy(true);
     try {
-      const session = await apiClient.generateDraftSession(context.currentSession.id);
+      const uploadedSession = await createSessionAndUploadArtifacts();
+      const generatedSession = await apiClient.generateDraftSession(uploadedSession.id);
       setContext((current) => ({
         ...current,
-        currentSession: session,
-        selectedStepId: current.selectedStepId,
+        currentSession: generatedSession,
+        selectedStepId: generatedSession.processSteps[0]?.id ?? current.selectedStepId,
       }));
-      setMessage("info", "Draft generation queued. The session will refresh automatically while processing.");
+      setUploads(INITIAL_UPLOAD_STATE);
+      setTitle("Untitled PDD Session");
+      await loadSessionHistory();
+      setActiveView("history");
+      setMessage("info", "PDD generation started. Track progress in Past Runs.");
     } catch (error) {
       setMessage("error", getErrorMessage(error));
     } finally {
@@ -157,9 +197,11 @@ export function AppRouter(): JSX.Element {
       }));
 
       if (session.status === "review") {
-        setMessage("info", "Draft generation completed. Review the extracted steps before export.");
+        void loadSessionHistory();
+        setMessage("info", "Draft generation completed. Open the run from Past Runs to review the extracted steps.");
       }
       if (session.status === "failed") {
+        void loadSessionHistory();
         setMessage("error", "Draft generation failed. Check worker logs and try again.");
       }
     } catch (error) {
@@ -256,6 +298,37 @@ export function AppRouter(): JSX.Element {
     }
   }
 
+  async function handleSelectCandidateScreenshot(
+    stepId: string,
+    candidateScreenshotId: string,
+    payload: { isPrimary?: boolean; role?: string } = {},
+  ): Promise<void> {
+    if (!context.currentSession) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const updatedStep = await apiClient.selectCandidateScreenshot(
+        context.currentSession.id,
+        stepId,
+        candidateScreenshotId,
+        payload,
+      );
+      const updatedSession = replaceStep(context.currentSession, updatedStep);
+      setContext((current) => ({
+        ...current,
+        currentSession: updatedSession,
+        selectedStepId: updatedStep.id,
+      }));
+      setMessage("info", "Screenshot selection updated.");
+    } catch (error) {
+      setMessage("error", getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleExport(): Promise<void> {
     if (!context.currentSession) {
       return;
@@ -265,6 +338,7 @@ export function AppRouter(): JSX.Element {
     try {
       const exportResult = await apiClient.exportDocx(context.currentSession.id);
       const refreshed = await apiClient.getDraftSession(context.currentSession.id);
+      await loadSessionHistory();
       setContext((current) => ({
         ...current,
         currentSession: refreshed,
@@ -278,85 +352,219 @@ export function AppRouter(): JSX.Element {
     }
   }
 
+  async function handleExportSession(sessionId: string, format: "docx" | "pdf"): Promise<void> {
+    setBusy(true);
+    try {
+      if (format === "pdf") {
+        await apiClient.downloadExportPdf(sessionId);
+      } else {
+        await apiClient.downloadExportDocx(sessionId);
+      }
+      const refreshed = await apiClient.getDraftSession(sessionId);
+      await loadSessionHistory();
+      setContext((current) => ({
+        ...current,
+        currentSession: refreshed,
+        selectedStepId: refreshed.processSteps[0]?.id ?? null,
+        exportResult: refreshed.outputDocuments[0]
+          ? {
+              id: refreshed.outputDocuments[0].id,
+              kind: refreshed.outputDocuments[0].kind,
+              storagePath: refreshed.outputDocuments[0].storagePath,
+              exportedAt: refreshed.outputDocuments[0].exportedAt,
+            }
+          : current.exportResult,
+      }));
+      setMessage("info", `${format.toUpperCase()} downloaded.`);
+    } catch (error) {
+      setMessage("error", getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!currentUser) {
+    return (
+      <AuthPage
+        disabled={context.isBusy}
+        message={context.message}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+      />
+    );
+  }
+
   return (
     <AppShell
       title="PDD Generator"
       subtitle="Upload discovery evidence, review AI-drafted AS-IS steps, and export a DOCX PDD."
       statusLabel={statusLabel}
+      userLabel={currentUser.username}
+      activeView={activeView}
+      onSelectView={setActiveView}
+      onLogout={() => void handleLogout()}
     >
       {context.message ? <div className={`status-banner ${context.message.tone === "error" ? "error" : ""}`}>{context.message.text}</div> : null}
 
-      <div className="workflow-grid">
-        <div className="stack">
-          <UploadPage
-            title={title}
-            ownerId={ownerId}
-            uploads={uploads}
-            disabled={context.isBusy}
-            onTitleChange={setTitle}
-            onOwnerIdChange={setOwnerId}
-            onFilesChange={handleFilesChange}
-            onSubmit={() => void handleCreateSessionAndUpload()}
-          />
-          <StepReviewPage
-            session={context.currentSession}
-            selectedStepId={context.selectedStepId}
-            disabled={context.isBusy}
-            onSelectStep={(stepId) => setContext((current) => ({ ...current, selectedStepId: stepId }))}
-            onSaveStep={handleSaveStep}
-            onSetPrimaryScreenshot={handleSetPrimaryScreenshot}
-            onRemoveScreenshot={handleRemoveScreenshot}
-          />
-        </div>
+      {activeView === "workspace" ? (
+        <>
+          <div className="session-controls-section">
+            <CollapsibleSection
+              title="1. Session Controls"
+              description="Upload evidence, generate the PDD draft, and export the DOCX from one compact panel."
+              collapsed={collapsedSections.controls}
+              onToggle={() => toggleSection("controls")}
+            >
+              <UploadPage
+                title={title}
+                ownerId={ownerId}
+                uploads={uploads}
+                disabled={context.isBusy}
+                showHeader={false}
+                ownerLocked
+                showSubmitButton={false}
+                actionBar={
+                  <div className="session-actions-row">
+                    <button
+                      type="button"
+                      className="button-primary"
+                      onClick={() => void handleGeneratePdd()}
+                      disabled={context.isBusy || !canGenerateDraft}
+                    >
+                      Generate Draft
+                    </button>
+                  </div>
+                }
+                onTitleChange={setTitle}
+                onOwnerIdChange={setOwnerId}
+                onFilesChange={handleFilesChange}
+                onSubmit={() => void handleGeneratePdd()}
+              />
+            </CollapsibleSection>
+          </div>
 
-        <div className="stack">
-          <ProcessingPage
-            session={context.currentSession}
-            disabled={context.isBusy}
-            onGenerate={() => void handleGenerateDraft()}
-            onRefresh={() => void handleRefreshSession()}
-          />
-          <SessionArtifactsPanel session={context.currentSession} />
-          <ExportPage
-            session={context.currentSession}
-            exportResult={context.exportResult}
-            disabled={context.isBusy}
-            onExport={() => void handleExport()}
-          />
-        </div>
-      </div>
+          <div className="review-section-fullwidth">
+            <CollapsibleSection
+              title="2. Review and Edit Steps"
+              description="Validate the extracted AS-IS steps, derived screenshots, and confidence markers."
+              collapsed={collapsedSections.review}
+              onToggle={() => toggleSection("review")}
+            >
+              <StepReviewPage
+                session={context.currentSession}
+                selectedStepId={context.selectedStepId}
+                disabled={context.isBusy}
+                showHeader={false}
+                onCloseSession={() =>
+                  setContext((current) => ({
+                    ...current,
+                    currentSession: null,
+                    selectedStepId: null,
+                    exportResult: null,
+                  }))
+                }
+                onSelectStep={(stepId) => setContext((current) => ({ ...current, selectedStepId: stepId }))}
+                onSaveStep={handleSaveStep}
+                onSetPrimaryScreenshot={handleSetPrimaryScreenshot}
+                onRemoveScreenshot={handleRemoveScreenshot}
+                onSelectCandidateScreenshot={handleSelectCandidateScreenshot}
+              />
+            </CollapsibleSection>
+          </div>
+        </>
+      ) : (
+        <SessionHistoryPage
+          sessions={sessionHistory}
+          disabled={context.isBusy}
+          onRefresh={() => void loadSessionHistory()}
+          onOpen={(sessionId) => void openPastSession(sessionId)}
+          onExportDocx={(sessionId) => void handleExportSession(sessionId, "docx")}
+          onExportPdf={(sessionId) => void handleExportSession(sessionId, "pdf")}
+        />
+      )}
     </AppShell>
   );
-}
 
-type SessionArtifactsPanelProps = {
-  session: DraftSession | null;
-};
+  async function restoreUser(): Promise<void> {
+    try {
+      const user = await apiClient.getCurrentUser();
+      setCurrentUser(user);
+      setOwnerId(user.username);
+    } catch {
+      apiClient.clearAuthToken();
+      setCurrentUser(null);
+    }
+  }
 
-function SessionArtifactsPanel({ session }: SessionArtifactsPanelProps): JSX.Element {
-  return (
-    <section className="panel stack">
-      <div>
-        <h2>Session Artifacts</h2>
-        <p className="muted">Track uploaded source files and derived screenshots.</p>
-      </div>
+  async function handleLogin(username: string, password: string): Promise<void> {
+    setBusy(true);
+    try {
+      const user = await apiClient.login(username, password);
+      setCurrentUser(user);
+      setOwnerId(user.username);
+      setMessage("info", `Signed in as ${user.username}.`);
+    } catch (error) {
+      setMessage("error", getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
 
-      {session ? (
-        <div className="artifact-list">
-          {session.inputArtifacts.map((artifact) => (
-            <div key={artifact.id} className="artifact-card">
-              <strong>{artifact.name}</strong>
-              <div className="artifact-meta">
-                {artifact.kind} | {artifact.storagePath}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="empty-state">Artifacts will appear here once the session is created.</div>
-      )}
-    </section>
-  );
+  async function handleRegister(username: string, password: string): Promise<void> {
+    setBusy(true);
+    try {
+      const user = await apiClient.register(username, password);
+      setCurrentUser(user);
+      setOwnerId(user.username);
+      setMessage("info", `Account created for ${user.username}.`);
+    } catch (error) {
+      setMessage("error", getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLogout(): Promise<void> {
+    setBusy(true);
+    try {
+      await apiClient.logout();
+    } finally {
+      setCurrentUser(null);
+      setSessionHistory([]);
+      setContext(INITIAL_WORKFLOW_CONTEXT);
+      setUploads(INITIAL_UPLOAD_STATE);
+      setActiveView("workspace");
+      setOwnerId("pilot-user");
+      setBusy(false);
+    }
+  }
+
+  async function loadSessionHistory(): Promise<void> {
+    try {
+      const sessions = await apiClient.listDraftSessions();
+      setSessionHistory(sessions);
+    } catch (error) {
+      setMessage("error", getErrorMessage(error));
+    }
+  }
+
+  async function openPastSession(sessionId: string): Promise<void> {
+    setBusy(true);
+    try {
+      const session = await apiClient.getDraftSession(sessionId);
+      setContext((current) => ({
+        ...current,
+        currentSession: session,
+        selectedStepId: session.processSteps[0]?.id ?? null,
+      }));
+      setActiveView("workspace");
+      setMessage("info", `Loaded session ${session.title}.`);
+    } catch (error) {
+      setMessage("error", getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
 }
 
 function replaceStep(session: DraftSession, updatedStep: ProcessStep): DraftSession {
@@ -371,4 +579,35 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return "An unexpected error occurred.";
+}
+
+type CollapsibleSectionProps = {
+  title: string;
+  description: string;
+  collapsed: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+};
+
+function CollapsibleSection({
+  title,
+  description,
+  collapsed,
+  onToggle,
+  children,
+}: CollapsibleSectionProps): JSX.Element {
+  return (
+    <section className="collapsible-section">
+      <div className="collapsible-header">
+        <div>
+          <h2>{title}</h2>
+          {!collapsed ? <p className="muted">{description}</p> : null}
+        </div>
+        <button type="button" className="button-secondary collapsible-toggle" onClick={onToggle}>
+          {collapsed ? "Expand" : "Collapse"}
+        </button>
+      </div>
+      {!collapsed ? children : null}
+    </section>
+  );
 }

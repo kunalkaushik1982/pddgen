@@ -1,5 +1,6 @@
 # FastAPI backend runtime dependencies for environments that use pip instead of pyproject installs.
 celery[redis]>=5.4.0
+docx2pdf>=0.1.8
 docxtpl>=0.18.0
 fastapi>=0.115.0
 pydantic-settings>=2.6.1

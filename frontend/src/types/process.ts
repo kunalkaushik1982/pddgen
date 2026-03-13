@@ -28,6 +28,22 @@ export type StepScreenshot = {
   };
 };
 
+export type CandidateScreenshot = {
+  id: string;
+  artifactId: string;
+  sequenceNumber: number;
+  timestamp: string;
+  sourceRole: string;
+  selectionMethod: string;
+  isSelected: boolean;
+  artifact: {
+    id: string;
+    name: string;
+    kind: "screenshot";
+    storagePath: string;
+  };
+};
+
 export type ProcessStep = {
   id: string;
   stepNumber: number;
@@ -42,6 +58,7 @@ export type ProcessStep = {
   confidence: ConfidenceLevel;
   evidenceReferences: EvidenceReference[];
   screenshots: StepScreenshot[];
+  candidateScreenshots: CandidateScreenshot[];
   editedByBa: boolean;
 };
 

@@ -8,7 +8,10 @@ from app.models.draft_session import DraftSessionModel
 from app.models.output_document import OutputDocumentModel
 from app.models.process_note import ProcessNoteModel
 from app.models.process_step import ProcessStepModel
+from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
+from app.models.user import UserModel
+from app.models.user_auth_token import UserAuthTokenModel
 
 __all__ = [
     "ArtifactModel",
@@ -16,5 +19,8 @@ __all__ = [
     "OutputDocumentModel",
     "ProcessNoteModel",
     "ProcessStepModel",
+    "ProcessStepScreenshotCandidateModel",
     "ProcessStepScreenshotModel",
+    "UserModel",
+    "UserAuthTokenModel",
 ]

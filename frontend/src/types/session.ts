@@ -14,7 +14,7 @@ export type InputArtifact = {
 
 export type OutputDocument = {
   id: string;
-  kind: "docx";
+  kind: "docx" | "pdf";
   storagePath: string;
   exportedAt: string;
 };
@@ -28,6 +28,15 @@ export type DraftSession = {
   processSteps: ProcessStep[];
   processNotes: ProcessNote[];
   outputDocuments: OutputDocument[];
+};
+
+export type DraftSessionListItem = {
+  id: string;
+  title: string;
+  status: DraftSession["status"];
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ExportResult = {

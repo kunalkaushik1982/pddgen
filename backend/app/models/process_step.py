@@ -13,6 +13,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.draft_session import DraftSessionModel
+    from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
     from app.models.process_step_screenshot import ProcessStepScreenshotModel
 
 
@@ -41,4 +42,9 @@ class ProcessStepModel(Base):
         back_populates="step",
         cascade="all, delete-orphan",
         order_by="ProcessStepScreenshotModel.sequence_number",
+    )
+    step_screenshot_candidates: Mapped[list["ProcessStepScreenshotCandidateModel"]] = relationship(
+        back_populates="step",
+        cascade="all, delete-orphan",
+        order_by="ProcessStepScreenshotCandidateModel.sequence_number",
     )
