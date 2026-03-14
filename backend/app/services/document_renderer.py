@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models.draft_session import DraftSessionModel
 from app.models.output_document import OutputDocumentModel
+from app.services.process_diagram_service import ProcessDiagramService
 from app.storage.storage_service import StorageService
 
 
@@ -31,6 +32,7 @@ class DocumentRendererService:
     def __init__(self, storage_service: StorageService | None = None) -> None:
         self.storage_service = storage_service or StorageService()
         self.settings = get_settings()
+        self.process_diagram_service = ProcessDiagramService()
 
     def render_docx(self, db: Session, draft_session: DraftSessionModel) -> OutputDocumentModel:
         """Render a DOCX document from the draft session."""
@@ -203,6 +205,14 @@ class DocumentRendererService:
             for artifact in draft_session.artifacts
             if artifact.kind == "screenshot"
         }
+        mermaid_source = self.process_diagram_service.build_mermaid_flowchart(draft_session)
+        diagram_output_path = (
+            self.settings.local_storage_root
+            / draft_session.id
+            / self.settings.docx_output_folder
+            / f"{draft_session.id}_flow.png"
+        )
+        rendered_diagram_path = self.process_diagram_service.render_mermaid_diagram(mermaid_source, diagram_output_path)
         process_steps = [
             self._build_step_context(step, screenshot_map, template_document)
             for step in sorted(draft_session.process_steps, key=lambda item: item.step_number)
@@ -215,6 +225,7 @@ class DocumentRendererService:
             }
             for note in draft_session.process_notes
         ]
+        to_be_recommendations = self.process_diagram_service.build_to_be_suggestions(draft_session)
 
         return {
             # Legacy keys kept for backward compatibility with earlier template experiments.
@@ -238,6 +249,16 @@ class DocumentRendererService:
                     "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
                 },
                 "as_is_steps": process_steps,
+                "to_be_recommendations": to_be_recommendations,
+                "process_flow": {
+                    "mermaid_source": mermaid_source,
+                    "diagram_path": str(rendered_diagram_path) if rendered_diagram_path else "",
+                    "diagram_image": self._build_inline_image(
+                        template_document,
+                        str(rendered_diagram_path) if rendered_diagram_path else "",
+                    ),
+                    "rendered": bool(rendered_diagram_path),
+                },
                 "business_rules": process_notes,
             },
         }

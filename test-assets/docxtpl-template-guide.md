@@ -39,6 +39,11 @@ pdd.overview.document_owner
 pdd.overview.document_status
 pdd.overview.generated_at
 pdd.as_is_steps
+pdd.to_be_recommendations
+pdd.process_flow.mermaid_source
+pdd.process_flow.diagram_path
+pdd.process_flow.diagram_image
+pdd.process_flow.rendered
 pdd.business_rules
 ```
 
@@ -76,6 +81,13 @@ Each entry in `pdd.business_rules` supports:
 rule.text
 rule.inference_type
 rule.confidence
+```
+
+Each entry in `pdd.to_be_recommendations` supports:
+
+```text
+item.title
+item.recommendation
 ```
 
 Backward-compatible aliases also exist:
@@ -131,7 +143,20 @@ Primary Screenshot:
 {% endif %}
 {% endfor %}
 
-4. Business Rules and Notes
+4. TO-BE Suggestions
+{% for item in pdd.to_be_recommendations %}
+- {{ item.title }}: {{ item.recommendation }}
+{% endfor %}
+
+5. Process Flow Diagram
+{% if pdd.process_flow.diagram_image %}
+{{ pdd.process_flow.diagram_image }}
+{% else %}
+Mermaid Source:
+{{ pdd.process_flow.mermaid_source }}
+{% endif %}
+
+6. Business Rules and Notes
 {% for rule in pdd.business_rules %}
 - {{ rule.text }} ({{ rule.inference_type }}, {{ rule.confidence }})
 {% endfor %}
@@ -145,6 +170,8 @@ Primary Screenshot:
 - Do not break one placeholder across multiple text runs manually if possible.
 - `{{ step.screenshot_image }}` is the image placeholder for the exported screenshot.
 - `step.screenshots` is the multi-screenshot list for each step.
+- `{{ pdd.process_flow.diagram_image }}` is the image placeholder for the rendered Mermaid PNG diagram.
+- If Mermaid CLI is not installed, use `{{ pdd.process_flow.mermaid_source }}` as a fallback text block.
 
 ## Ready-To-Use Template
 
