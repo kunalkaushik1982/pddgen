@@ -13,7 +13,16 @@ import type {
 import type { CandidateScreenshot, ProcessNote, ProcessStep, StepScreenshot } from "../types/process";
 import type { ActionLogEntry, DraftSession, DraftSessionListItem, ExportResult, InputArtifact, OutputDocument } from "../types/session";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
+const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "");
+
+function buildApiUrl(path: string): URL {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const origin =
+    typeof window !== "undefined" && window.location?.origin ? window.location.origin : "http://localhost:8000";
+
+  return new URL(`${API_BASE_URL}${normalizedPath}`, origin);
+}
 
 type BackendArtifact = {
   id: string;
@@ -411,7 +420,7 @@ export class ApiClient {
   }
 
   getArtifactContentUrl(artifactId: string): string {
-    const url = new URL(`${API_BASE_URL}/uploads/artifacts/${artifactId}/content`);
+    const url = buildApiUrl(`/uploads/artifacts/${artifactId}/content`);
     if (this.authToken) {
       url.searchParams.set("token", this.authToken);
     }
