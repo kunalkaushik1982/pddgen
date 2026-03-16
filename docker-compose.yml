@@ -88,6 +88,16 @@ services:
     volumes:
       - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: pddgen-tunnel
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
 volumes:
   pddgen_postgres_data:
   pddgen_redis_data:
