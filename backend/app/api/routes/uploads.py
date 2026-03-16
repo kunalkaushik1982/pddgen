@@ -15,11 +15,13 @@ from app.models.user import UserModel
 from app.schemas.common import ArtifactKind
 from app.schemas.draft_session import ArtifactResponse, CreateDraftSessionRequest, DraftSessionResponse
 from app.services.artifact_ingestion import ArtifactIngestionService
+from app.services.action_log_service import ActionLogService
 from app.services.auth_service import AuthService
 from app.services.mappers import map_draft_session
 from app.models.artifact import ArtifactModel
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
+action_log_service = ActionLogService()
 
 
 def _optional_current_user_dependency(
@@ -50,7 +52,21 @@ def create_upload_session(
     current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> DraftSessionResponse:
     """Create an upload session for required and optional artifacts."""
-    session = service.create_session(db, title=payload.title, owner_id=current_user.username)
+    session = service.create_session(
+        db,
+        title=payload.title,
+        owner_id=current_user.username,
+        diagram_type=payload.diagram_type,
+    )
+    action_log_service.record(
+        db,
+        session_id=session.id,
+        event_type="session_created",
+        title="Session created",
+        detail=f"{session.title} ({session.diagram_type})",
+        actor=current_user.username,
+    )
+    db.commit()
     db.refresh(session)
     return map_draft_session(session)
 
@@ -76,6 +92,16 @@ def upload_artifact(
         artifact_kind=artifact_kind,
         owner_id=current_user.username,
     )
+    action_log_service.record(
+        db,
+        session_id=session_id,
+        event_type="artifact_uploaded",
+        title=f"{artifact_kind} uploaded",
+        detail=artifact.name,
+        actor=current_user.username,
+    )
+    db.commit()
+    db.refresh(artifact)
     return ArtifactResponse.model_validate(artifact)
 
 

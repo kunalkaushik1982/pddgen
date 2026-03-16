@@ -3,6 +3,8 @@ Purpose: Service for validating and storing uploaded artifacts.
 Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\artifact_ingestion.py
 """
 
+import base64
+
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
@@ -17,9 +19,9 @@ class ArtifactIngestionService:
     def __init__(self, storage_service: StorageService | None = None) -> None:
         self.storage_service = storage_service or StorageService()
 
-    def create_session(self, db: Session, *, title: str, owner_id: str) -> DraftSessionModel:
+    def create_session(self, db: Session, *, title: str, owner_id: str, diagram_type: str) -> DraftSessionModel:
         """Create and persist a new draft session."""
-        session = DraftSessionModel(title=title, owner_id=owner_id)
+        session = DraftSessionModel(title=title, owner_id=owner_id, diagram_type=diagram_type)
         db.add(session)
         db.commit()
         db.refresh(session)
@@ -54,6 +56,64 @@ class ArtifactIngestionService:
             size_bytes=size_bytes,
         )
         db.add(artifact)
+        db.commit()
+        db.refresh(artifact)
+        return artifact
+
+    def save_diagram_artifact(
+        self,
+        db: Session,
+        *,
+        session_id: str,
+        image_data_url: str,
+        owner_id: str,
+    ) -> ArtifactModel:
+        """Persist a browser-rendered detailed diagram image for export reuse."""
+        session = db.get(DraftSessionModel, session_id)
+        if session is None or session.owner_id != owner_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft session not found.")
+
+        prefix = "data:image/png;base64,"
+        if not image_data_url.startswith(prefix):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Diagram image payload must be a PNG data URL.")
+
+        try:
+            content = base64.b64decode(image_data_url[len(prefix) :], validate=True)
+        except Exception as error:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Diagram image payload is invalid: {error}") from error
+
+        filename = "detailed-process-flow.png"
+        storage_path = self.storage_service.save_bytes(
+            session_id=session_id,
+            folder="diagram",
+            filename=filename,
+            content=content,
+        )
+
+        artifact = (
+            db.query(ArtifactModel)
+            .filter(
+                ArtifactModel.session_id == session_id,
+                ArtifactModel.kind == "diagram",
+                ArtifactModel.name == filename,
+            )
+            .one_or_none()
+        )
+        if artifact is None:
+            artifact = ArtifactModel(
+                session_id=session_id,
+                name=filename,
+                kind="diagram",
+                storage_path=storage_path,
+                content_type="image/png",
+                size_bytes=len(content),
+            )
+            db.add(artifact)
+        else:
+            artifact.storage_path = storage_path
+            artifact.content_type = "image/png"
+            artifact.size_bytes = len(content)
+
         db.commit()
         db.refresh(artifact)
         return artifact

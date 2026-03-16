@@ -27,27 +27,33 @@ async def lifespan(_app: FastAPI):
 
 
 def _ensure_process_step_columns() -> None:
-    """Backfill newly added process step columns for an existing pilot database."""
-    expected_columns = {
-        "start_timestamp": "ALTER TABLE process_steps ADD COLUMN start_timestamp VARCHAR(50) DEFAULT ''",
-        "end_timestamp": "ALTER TABLE process_steps ADD COLUMN end_timestamp VARCHAR(50) DEFAULT ''",
-        "supporting_transcript_text": "ALTER TABLE process_steps ADD COLUMN supporting_transcript_text TEXT DEFAULT ''",
-    }
+    """Backfill newly added columns for an existing pilot database."""
     inspector = inspect(engine)
-    try:
-        existing_columns = {column["name"] for column in inspector.get_columns("process_steps")}
-    except Exception:
-        return
-
-    missing_statements = [
-        statement for column_name, statement in expected_columns.items() if column_name not in existing_columns
-    ]
-    if not missing_statements:
-        return
+    table_updates = {
+        "process_steps": {
+            "start_timestamp": "ALTER TABLE process_steps ADD COLUMN start_timestamp VARCHAR(50) DEFAULT ''",
+            "end_timestamp": "ALTER TABLE process_steps ADD COLUMN end_timestamp VARCHAR(50) DEFAULT ''",
+            "supporting_transcript_text": "ALTER TABLE process_steps ADD COLUMN supporting_transcript_text TEXT DEFAULT ''",
+        },
+        "draft_sessions": {
+            "diagram_type": "ALTER TABLE draft_sessions ADD COLUMN diagram_type VARCHAR(50) DEFAULT 'flowchart'",
+            "overview_diagram_json": "ALTER TABLE draft_sessions ADD COLUMN overview_diagram_json TEXT DEFAULT ''",
+            "detailed_diagram_json": "ALTER TABLE draft_sessions ADD COLUMN detailed_diagram_json TEXT DEFAULT ''",
+        },
+    }
 
     with engine.begin() as connection:
-        for statement in missing_statements:
-            connection.execute(text(statement))
+        for table_name, expected_columns in table_updates.items():
+            try:
+                existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
+            except Exception:
+                continue
+
+            missing_statements = [
+                statement for column_name, statement in expected_columns.items() if column_name not in existing_columns
+            ]
+            for statement in missing_statements:
+                connection.execute(text(statement))
 
 
 def create_app() -> FastAPI:

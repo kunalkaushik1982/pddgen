@@ -11,9 +11,10 @@ import { ConfidenceBadge } from "./ConfidenceBadge";
 
 type StepReviewPanelProps = {
   step: ProcessStep;
-  onEdit: (step: ProcessStep) => void;
-  onSetPrimaryScreenshot: (stepScreenshotId: string) => void;
-  onRemoveScreenshot: (stepScreenshotId: string) => void;
+  onEdit?: (step: ProcessStep) => void;
+  onSetPrimaryScreenshot?: (stepScreenshotId: string) => void;
+  onRemoveScreenshot?: (stepScreenshotId: string) => void;
+  readOnly?: boolean;
 };
 
 export function StepReviewPanel({
@@ -21,6 +22,7 @@ export function StepReviewPanel({
   onEdit,
   onSetPrimaryScreenshot,
   onRemoveScreenshot,
+  readOnly = false,
 }: StepReviewPanelProps): JSX.Element {
   const primaryScreenshot =
     step.screenshots.find((stepScreenshot) => stepScreenshot.isPrimary) ?? step.screenshots[0] ?? null;
@@ -39,9 +41,11 @@ export function StepReviewPanel({
         </div>
         <div className="step-card-header-actions">
           <ConfidenceBadge level={step.confidence} />
-          <button type="button" className="button-secondary" onClick={() => onEdit(step)}>
-            Edit step
-          </button>
+          {!readOnly && onEdit ? (
+            <button type="button" className="button-secondary" onClick={() => onEdit(step)}>
+              Edit step
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -73,11 +77,13 @@ export function StepReviewPanel({
                 <div className="artifact-meta">
                   {primaryScreenshot.role} | {primaryScreenshot.timestamp}
                 </div>
-                <div className="button-row">
-                  <button type="button" className="button-danger" onClick={() => onRemoveScreenshot(primaryScreenshot.id)}>
-                    Remove screenshot
-                  </button>
-                </div>
+                {!readOnly && onRemoveScreenshot ? (
+                  <div className="button-row">
+                    <button type="button" className="button-danger" onClick={() => onRemoveScreenshot(primaryScreenshot.id)}>
+                      Remove screenshot
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -96,14 +102,16 @@ export function StepReviewPanel({
                       <div className="artifact-meta">
                         {stepScreenshot.role} | {stepScreenshot.timestamp} | secondary
                       </div>
-                      <div className="button-row">
-                        <button type="button" className="button-secondary" onClick={() => onSetPrimaryScreenshot(stepScreenshot.id)}>
-                          Make primary
-                        </button>
-                        <button type="button" className="button-danger" onClick={() => onRemoveScreenshot(stepScreenshot.id)}>
-                          Remove screenshot
-                        </button>
-                      </div>
+                      {!readOnly && onSetPrimaryScreenshot && onRemoveScreenshot ? (
+                        <div className="button-row">
+                          <button type="button" className="button-secondary" onClick={() => onSetPrimaryScreenshot(stepScreenshot.id)}>
+                            Make primary
+                          </button>
+                          <button type="button" className="button-danger" onClick={() => onRemoveScreenshot(stepScreenshot.id)}>
+                            Remove screenshot
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>

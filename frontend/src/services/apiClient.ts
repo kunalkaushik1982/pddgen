@@ -4,8 +4,14 @@
  */
 
 import type { User } from "../types/auth";
+import type {
+  DiagramCanvasSettings,
+  DiagramExportPreset,
+  DiagramLayoutNodePosition,
+  DiagramModel,
+} from "../types/diagram";
 import type { CandidateScreenshot, ProcessNote, ProcessStep, StepScreenshot } from "../types/process";
-import type { DraftSession, DraftSessionListItem, ExportResult, InputArtifact, OutputDocument } from "../types/session";
+import type { ActionLogEntry, DraftSession, DraftSessionListItem, ExportResult, InputArtifact, OutputDocument } from "../types/session";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
 
@@ -84,10 +90,21 @@ type BackendDraftSession = {
   title: string;
   status: DraftSession["status"];
   owner_id: string;
+  diagram_type: DraftSession["diagramType"];
   artifacts: BackendArtifact[];
   process_steps: BackendProcessStep[];
   process_notes: BackendProcessNote[];
   output_documents: BackendOutputDocument[];
+  action_logs: BackendActionLog[];
+};
+
+type BackendActionLog = {
+  id: string;
+  event_type: string;
+  title: string;
+  detail: string;
+  actor: string;
+  created_at: string;
 };
 
 type BackendDraftSessionListItem = {
@@ -95,6 +112,7 @@ type BackendDraftSessionListItem = {
   title: string;
   status: DraftSession["status"];
   owner_id: string;
+  diagram_type: DraftSession["diagramType"];
   created_at: string;
   updated_at: string;
 };
@@ -113,6 +131,52 @@ type BackendAuthResponse = {
 type CreateSessionPayload = {
   title: string;
   ownerId: string;
+  diagramType: DraftSession["diagramType"];
+};
+
+type BackendDiagramNode = {
+  id: string;
+  label: string;
+  category: DiagramModel["nodes"][number]["category"];
+  step_range: string;
+  width?: number;
+  height?: number;
+};
+
+type BackendDiagramEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  source_handle?: string;
+  target_handle?: string;
+};
+
+type BackendDiagramModel = {
+  diagram_type: DiagramModel["diagramType"];
+  view_type: DiagramModel["viewType"];
+  title: string;
+  nodes: BackendDiagramNode[];
+  edges: BackendDiagramEdge[];
+};
+
+type BackendDiagramLayoutResponse = {
+  session_id: string;
+  view_type: DiagramModel["viewType"];
+  export_preset: DiagramExportPreset;
+  canvas_settings: {
+    theme: DiagramCanvasSettings["theme"];
+    show_grid: boolean;
+    grid_density: DiagramCanvasSettings["gridDensity"];
+  };
+  nodes: Array<{
+    id: string;
+    x: number;
+    y: number;
+    label?: string;
+    width?: number;
+    height?: number;
+  }>;
 };
 
 type StepUpdatePayload = Partial<{
@@ -220,16 +284,29 @@ function mapProcessNote(note: BackendProcessNote): ProcessNote {
   };
 }
 
+function mapActionLog(actionLog: BackendActionLog): ActionLogEntry {
+  return {
+    id: actionLog.id,
+    eventType: actionLog.event_type,
+    title: actionLog.title,
+    detail: actionLog.detail,
+    actor: actionLog.actor,
+    createdAt: actionLog.created_at,
+  };
+}
+
 function mapDraftSession(session: BackendDraftSession): DraftSession {
   return {
     id: session.id,
     title: session.title,
     status: session.status,
     ownerId: session.owner_id,
+    diagramType: session.diagram_type,
     inputArtifacts: session.artifacts.map(mapArtifact),
     processSteps: session.process_steps.map(mapProcessStep),
     processNotes: session.process_notes.map(mapProcessNote),
     outputDocuments: session.output_documents.map(mapOutputDocument),
+    actionLogs: session.action_logs.map(mapActionLog),
   };
 }
 
@@ -239,8 +316,33 @@ function mapDraftSessionListItem(session: BackendDraftSessionListItem): DraftSes
     title: session.title,
     status: session.status,
     ownerId: session.owner_id,
+    diagramType: session.diagram_type,
     createdAt: session.created_at,
     updatedAt: session.updated_at,
+  };
+}
+
+function mapDiagramModel(diagram: BackendDiagramModel): DiagramModel {
+  return {
+    diagramType: diagram.diagram_type,
+    viewType: diagram.view_type,
+    title: diagram.title,
+    nodes: diagram.nodes.map((node) => ({
+      id: node.id,
+      label: node.label,
+      category: node.category,
+      stepRange: node.step_range,
+      width: node.width,
+      height: node.height,
+    })),
+    edges: diagram.edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      label: edge.label,
+      sourceHandle: edge.source_handle,
+      targetHandle: edge.target_handle,
+    })),
   };
 }
 
@@ -372,6 +474,7 @@ export class ApiClient {
       body: JSON.stringify({
         title: payload.title,
         owner_id: payload.ownerId,
+        diagram_type: payload.diagramType,
       }),
     });
     const session = await parseJsonResponse<BackendDraftSession>(response);
@@ -404,6 +507,104 @@ export class ApiClient {
   async getDraftSession(sessionId: string): Promise<DraftSession> {
     const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}`, {
       headers: this.buildHeaders(),
+    });
+    const session = await parseJsonResponse<BackendDraftSession>(response);
+    return mapDraftSession(session);
+  }
+
+  async getDiagramModel(sessionId: string, viewType: DiagramModel["viewType"] = "overview"): Promise<DiagramModel> {
+    const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/diagram-model?view=${viewType}`, {
+      headers: this.buildHeaders(),
+    });
+    const diagram = await parseJsonResponse<BackendDiagramModel>(response);
+    return mapDiagramModel(diagram);
+  }
+
+  async saveDiagramModel(sessionId: string, model: DiagramModel): Promise<DiagramModel> {
+    const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/diagram-model?view=${model.viewType}`, {
+      method: "PUT",
+      headers: this.buildHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        title: model.title,
+        view_type: model.viewType,
+        nodes: model.nodes.map((node) => ({
+          id: node.id,
+          label: node.label,
+          category: node.category,
+          step_range: node.stepRange,
+          width: node.width,
+          height: node.height,
+        })),
+        edges: model.edges.map((edge) => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          label: edge.label,
+          source_handle: edge.sourceHandle,
+          target_handle: edge.targetHandle,
+        })),
+      }),
+    });
+    const diagram = await parseJsonResponse<BackendDiagramModel>(response);
+    return mapDiagramModel(diagram);
+  }
+
+  async getDiagramLayout(
+    sessionId: string,
+    viewType: DiagramModel["viewType"] = "detailed",
+  ): Promise<{ nodes: DiagramLayoutNodePosition[]; exportPreset: DiagramExportPreset; canvasSettings: DiagramCanvasSettings }> {
+    const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/diagram-layout?view=${viewType}`, {
+      headers: this.buildHeaders(),
+    });
+    const layout = await parseJsonResponse<BackendDiagramLayoutResponse>(response);
+    return {
+      nodes: layout.nodes,
+      exportPreset: layout.export_preset,
+      canvasSettings: {
+        theme: layout.canvas_settings?.theme ?? "dark",
+        showGrid: layout.canvas_settings?.show_grid ?? true,
+        gridDensity: layout.canvas_settings?.grid_density ?? "medium",
+      },
+    };
+  }
+
+  async saveDiagramLayout(
+    sessionId: string,
+    nodes: DiagramLayoutNodePosition[],
+    exportPreset: DiagramExportPreset,
+    canvasSettings: DiagramCanvasSettings,
+    viewType: DiagramModel["viewType"] = "detailed",
+  ): Promise<{ nodes: DiagramLayoutNodePosition[]; exportPreset: DiagramExportPreset; canvasSettings: DiagramCanvasSettings }> {
+    const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/diagram-layout?view=${viewType}`, {
+      method: "PUT",
+      headers: this.buildHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        nodes,
+        export_preset: exportPreset,
+        canvas_settings: {
+          theme: canvasSettings.theme,
+          show_grid: canvasSettings.showGrid,
+          grid_density: canvasSettings.gridDensity,
+        },
+      }),
+    });
+    const layout = await parseJsonResponse<BackendDiagramLayoutResponse>(response);
+    return {
+      nodes: layout.nodes,
+      exportPreset: layout.export_preset,
+      canvasSettings: {
+        theme: layout.canvas_settings?.theme ?? "dark",
+        showGrid: layout.canvas_settings?.show_grid ?? true,
+        gridDensity: layout.canvas_settings?.grid_density ?? "medium",
+      },
+    };
+  }
+
+  async saveDiagramArtifact(sessionId: string, imageDataUrl: string): Promise<DraftSession> {
+    const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/diagram-artifact`, {
+      method: "POST",
+      headers: this.buildHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ image_data_url: imageDataUrl }),
     });
     const session = await parseJsonResponse<BackendDraftSession>(response);
     return mapDraftSession(session);

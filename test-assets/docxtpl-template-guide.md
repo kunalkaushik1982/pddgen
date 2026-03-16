@@ -31,6 +31,7 @@ pdd.title
 pdd.owner_id
 pdd.session_id
 pdd.status
+pdd.diagram_type
 pdd.generated_at
 pdd.step_count
 pdd.note_count
@@ -43,6 +44,8 @@ pdd.to_be_recommendations
 pdd.process_flow.mermaid_source
 pdd.process_flow.diagram_path
 pdd.process_flow.diagram_image
+pdd.process_flow.detailed_path
+pdd.process_flow.detailed_image
 pdd.process_flow.rendered
 pdd.business_rules
 ```
@@ -111,6 +114,7 @@ Document Owner: {{ pdd.overview.document_owner }}
 Generated At: {{ pdd.overview.generated_at }}
 Draft Session ID: {{ pdd.session_id }}
 Document Status: {{ pdd.overview.document_status }}
+Diagram Type: {{ pdd.diagram_type }}
 
 1. Document Overview
 This document captures the AS-IS process observed during the discovery walkthrough.
@@ -148,12 +152,14 @@ Primary Screenshot:
 - {{ item.title }}: {{ item.recommendation }}
 {% endfor %}
 
-5. Process Flow Diagram
-{% if pdd.process_flow.diagram_image %}
+5. Detailed Flow Diagram
+{% if pdd.process_flow.detailed_image %}
+{{ pdd.process_flow.detailed_image }}
+{% elif pdd.process_flow.diagram_image %}
 {{ pdd.process_flow.diagram_image }}
 {% else %}
-Mermaid Source:
-{{ pdd.process_flow.mermaid_source }}
+Diagram Source:
+{{ pdd.process_flow.diagram_source }}
 {% endif %}
 
 6. Business Rules and Notes
@@ -170,8 +176,9 @@ Mermaid Source:
 - Do not break one placeholder across multiple text runs manually if possible.
 - `{{ step.screenshot_image }}` is the image placeholder for the exported screenshot.
 - `step.screenshots` is the multi-screenshot list for each step.
-- `{{ pdd.process_flow.diagram_image }}` is the image placeholder for the rendered Mermaid PNG diagram.
-- If Mermaid CLI is not installed, use `{{ pdd.process_flow.mermaid_source }}` as a fallback text block.
+- `{{ pdd.process_flow.detailed_image }}` is the recommended image placeholder for the detailed flow.
+- `{{ pdd.process_flow.diagram_image }}` remains as the backward-compatible single-diagram alias.
+- If a diagram image is unavailable, use `{{ pdd.process_flow.diagram_source }}` as a fallback text block.
 
 ## Ready-To-Use Template
 

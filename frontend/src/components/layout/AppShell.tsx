@@ -5,13 +5,17 @@
 
 import React, { PropsWithChildren, useEffect, useRef, useState } from "react";
 
+type AppTheme = "midnight" | "graphite" | "ember" | "parchment";
+
+const THEME_STORAGE_KEY = "pdd_generator_theme";
+
 type AppShellProps = PropsWithChildren<{
   title: string;
   subtitle: string;
   statusLabel?: string;
   userLabel?: string;
-  activeView?: "workspace" | "history";
-  onSelectView?: (view: "workspace" | "history") => void;
+  activeView?: "workspace" | "history" | "session";
+  onSelectView?: (view: "workspace" | "history" | "session") => void;
   onLogout?: () => void;
 }>;
 
@@ -26,7 +30,16 @@ export function AppShell({
   onLogout,
 }: AppShellProps): JSX.Element {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<AppTheme>(() => {
+    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return savedTheme === "graphite" || savedTheme === "ember" || savedTheme === "parchment" ? savedTheme : "midnight";
+  });
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!isUserMenuOpen) {
@@ -69,6 +82,13 @@ export function AppShell({
               >
                 Past Runs
               </button>
+              <button
+                type="button"
+                className={activeView === "session" ? "button-primary" : "button-secondary"}
+                onClick={() => onSelectView("session")}
+              >
+                Session Detail
+              </button>
             </div>
           ) : null}
           {(userLabel || onLogout) ? (
@@ -82,6 +102,15 @@ export function AppShell({
               </button>
               {isUserMenuOpen ? (
                 <div className="app-user-menu-dropdown">
+                  <label className="app-user-menu-field">
+                    <span>Theme</span>
+                    <select value={theme} onChange={(event) => setTheme(event.target.value as AppTheme)}>
+                      <option value="midnight">Midnight</option>
+                      <option value="graphite">Graphite</option>
+                      <option value="ember">Ember</option>
+                      <option value="parchment">Parchment</option>
+                    </select>
+                  </label>
                   {onLogout ? (
                     <button
                       type="button"

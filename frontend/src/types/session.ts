@@ -19,15 +19,26 @@ export type OutputDocument = {
   exportedAt: string;
 };
 
+export type ActionLogEntry = {
+  id: string;
+  eventType: string;
+  title: string;
+  detail: string;
+  actor: string;
+  createdAt: string;
+};
+
 export type DraftSession = {
   id: string;
   title: string;
   status: "draft" | "processing" | "review" | "exported" | "failed";
   ownerId: string;
+  diagramType: "flowchart" | "sequence";
   inputArtifacts: InputArtifact[];
   processSteps: ProcessStep[];
   processNotes: ProcessNote[];
   outputDocuments: OutputDocument[];
+  actionLogs: ActionLogEntry[];
 };
 
 export type DraftSessionListItem = {
@@ -35,6 +46,7 @@ export type DraftSessionListItem = {
   title: string;
   status: DraftSession["status"];
   ownerId: string;
+  diagramType: DraftSession["diagramType"];
   createdAt: string;
   updatedAt: string;
 };

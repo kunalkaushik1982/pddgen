@@ -41,6 +41,8 @@ class PipelineOrchestratorService:
             .where(DraftSessionModel.id == session_id)
             .options(
                 selectinload(DraftSessionModel.artifacts),
+                selectinload(DraftSessionModel.action_logs),
+                selectinload(DraftSessionModel.diagram_layouts),
                 selectinload(DraftSessionModel.process_steps).selectinload(ProcessStepModel.step_screenshots).selectinload(ProcessStepScreenshotModel.artifact),
                 selectinload(DraftSessionModel.process_steps).selectinload(ProcessStepModel.step_screenshot_candidates).selectinload(ProcessStepScreenshotCandidateModel.artifact),
                 selectinload(DraftSessionModel.process_notes),
