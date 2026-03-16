@@ -5,11 +5,12 @@
 
 import React from "react";
 
-import type { ArtifactUploadState } from "../types/workflow";
+import type { ArtifactUploadState, DiagramType } from "../types/workflow";
 
 type UploadPageProps = {
   title: string;
   ownerId: string;
+  diagramType: DiagramType;
   uploads: ArtifactUploadState;
   disabled?: boolean;
   showHeader?: boolean;
@@ -19,6 +20,7 @@ type UploadPageProps = {
   actionBar?: React.ReactNode;
   onTitleChange: (value: string) => void;
   onOwnerIdChange: (value: string) => void;
+  onDiagramTypeChange: (value: DiagramType) => void;
   onFilesChange: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", files: FileList | null) => void;
   onSubmit: () => void;
 };
@@ -26,6 +28,7 @@ type UploadPageProps = {
 export function UploadPage({
   title,
   ownerId,
+  diagramType,
   uploads,
   disabled,
   showHeader = true,
@@ -35,6 +38,7 @@ export function UploadPage({
   actionBar,
   onTitleChange,
   onOwnerIdChange,
+  onDiagramTypeChange,
   onFilesChange,
   onSubmit,
 }: UploadPageProps): JSX.Element {
@@ -53,6 +57,13 @@ export function UploadPage({
         <label className="field-group">
           <span>Session title</span>
           <input value={title} onChange={(event) => onTitleChange(event.target.value)} placeholder="Invoice processing PDD" />
+        </label>
+        <label className="field-group">
+          <span>Diagram type</span>
+          <select value={diagramType} onChange={(event) => onDiagramTypeChange(event.target.value as DiagramType)}>
+            <option value="flowchart">Flowchart</option>
+            <option value="sequence">Sequence</option>
+          </select>
         </label>
         {!ownerLocked ? (
           <label className="field-group">

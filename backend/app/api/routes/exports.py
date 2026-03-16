@@ -14,10 +14,12 @@ from app.api.dependencies import get_current_user, get_document_renderer_service
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.draft_session import OutputDocumentResponse
+from app.services.action_log_service import ActionLogService
 from app.services.document_renderer import DocumentRendererService
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
 
 router = APIRouter(prefix="/exports", tags=["exports"])
+action_log_service = ActionLogService()
 
 
 @router.post("/{session_id}/docx", response_model=OutputDocumentResponse)
@@ -31,6 +33,15 @@ def export_docx(
     """Render the reviewed draft into a DOCX document."""
     session = pipeline_service.get_session(db, session_id, owner_id=current_user.username)
     output_document = renderer_service.render_docx(db, session)
+    action_log_service.record(
+        db,
+        session_id=session_id,
+        event_type="export_generated",
+        title="DOCX export generated",
+        detail=output_document.storage_path,
+        actor=current_user.username,
+    )
+    db.commit()
     return OutputDocumentResponse.model_validate(output_document)
 
 
@@ -45,6 +56,15 @@ def export_docx_download(
     """Render the reviewed draft and return the DOCX as a direct download."""
     session = pipeline_service.get_session(db, session_id, owner_id=current_user.username)
     output_document = renderer_service.render_docx(db, session)
+    action_log_service.record(
+        db,
+        session_id=session_id,
+        event_type="export_generated",
+        title="DOCX export generated",
+        detail=output_document.storage_path,
+        actor=current_user.username,
+    )
+    db.commit()
     file_path = Path(output_document.storage_path)
     return FileResponse(
         path=file_path,
@@ -64,6 +84,15 @@ def export_pdf_download(
     """Render the reviewed draft and return the PDF as a direct download."""
     session = pipeline_service.get_session(db, session_id, owner_id=current_user.username)
     output_document = renderer_service.render_pdf(db, session)
+    action_log_service.record(
+        db,
+        session_id=session_id,
+        event_type="export_generated",
+        title="PDF export generated",
+        detail=output_document.storage_path,
+        actor=current_user.username,
+    )
+    db.commit()
     file_path = Path(output_document.storage_path)
     return FileResponse(
         path=file_path,

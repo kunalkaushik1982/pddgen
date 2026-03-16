@@ -17,6 +17,7 @@ from worker.services.transcript_normalizer import TranscriptNormalizer
 from worker.services.video_frame_extractor import ExtractedFrameCandidate, VideoFrameExtractor
 
 from app.models.artifact import ArtifactModel
+from app.models.action_log import ActionLogModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_note import ProcessNoteModel
 from app.models.process_step import ProcessStepModel
@@ -119,6 +120,24 @@ class DraftGenerationWorker:
             for step_number, step in enumerate(all_steps, start=1):
                 step["step_number"] = step_number
 
+            diagram_interpretation = None
+            try:
+                diagram_interpretation = self.ai_transcript_interpreter.interpret_diagrams(
+                    session_title=session.title,
+                    diagram_type=session.diagram_type,
+                    steps=all_steps,
+                    notes=all_notes,
+                )
+            except Exception:
+                diagram_interpretation = None
+
+            if diagram_interpretation is not None:
+                session.overview_diagram_json = json.dumps(diagram_interpretation.overview)
+                session.detailed_diagram_json = json.dumps(diagram_interpretation.detailed)
+            else:
+                session.overview_diagram_json = ""
+                session.detailed_diagram_json = ""
+
             screenshot_artifacts = self._derive_screenshots(
                 db=db,
                 session_id=session_id,
@@ -131,6 +150,15 @@ class DraftGenerationWorker:
             self._persist_step_screenshots(db, step_models, all_steps)
             db.add_all(ProcessNoteModel(session_id=session_id, **note) for note in all_notes)
             session.status = "review"
+            db.add(
+                ActionLogModel(
+                    session_id=session_id,
+                    event_type="draft_generated",
+                    title="Draft generated",
+                    detail=f"{len(all_steps)} steps, {len(all_notes)} notes, {len(screenshot_artifacts)} screenshots.",
+                    actor="system",
+                )
+            )
             db.commit()
 
             return {
@@ -591,4 +619,13 @@ class DraftGenerationWorker:
         if session is None:
             return
         session.status = "failed"
+        db.add(
+            ActionLogModel(
+                session_id=session_id,
+                event_type="generation_failed",
+                title="Draft generation failed",
+                detail="Background draft generation did not complete successfully.",
+                actor="system",
+            )
+        )
         db.commit()

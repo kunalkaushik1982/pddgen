@@ -12,6 +12,7 @@ from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCa
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.schemas.common import EvidenceReference
 from app.schemas.draft_session import (
+    ActionLogResponse,
     CandidateScreenshotResponse,
     DraftSessionListItemResponse,
     DraftSessionResponse,
@@ -106,6 +107,11 @@ def map_process_note(note: ProcessNoteModel) -> ProcessNoteResponse:
     )
 
 
+def map_action_log(action_log) -> ActionLogResponse:
+    """Convert one persisted action log row into an API response."""
+    return ActionLogResponse.model_validate(action_log)
+
+
 def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
     """Convert a full persisted draft session into an API response."""
     return DraftSessionResponse(
@@ -113,12 +119,14 @@ def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
         title=session.title,
         status=session.status,
         owner_id=session.owner_id,
+        diagram_type=session.diagram_type,
         created_at=session.created_at,
         updated_at=session.updated_at,
         artifacts=session.artifacts,
         process_steps=[map_process_step(step) for step in sorted(session.process_steps, key=lambda item: item.step_number)],
         process_notes=[map_process_note(note) for note in session.process_notes],
         output_documents=session.output_documents,
+        action_logs=[map_action_log(item) for item in sorted(session.action_logs, key=lambda item: item.created_at, reverse=True)],
     )
 
 
@@ -129,6 +137,7 @@ def map_draft_session_list_item(session: DraftSessionModel) -> DraftSessionListI
         title=session.title,
         status=session.status,
         owner_id=session.owner_id,
+        diagram_type=session.diagram_type,
         created_at=session.created_at,
         updated_at=session.updated_at,
     )

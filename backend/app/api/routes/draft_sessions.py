@@ -3,26 +3,45 @@ Purpose: API routes for draft session retrieval and BA review actions.
 Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\routes\draft_sessions.py
 """
 
-from typing import Annotated
+import json
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user, get_job_dispatcher_service, get_pipeline_orchestrator_service
+from app.api.dependencies import (
+    get_artifact_ingestion_service,
+    get_current_user,
+    get_job_dispatcher_service,
+    get_pipeline_orchestrator_service,
+)
 from app.db.session import get_db_session
 from app.models.draft_session import DraftSessionModel
 from app.models.user import UserModel
-from app.schemas.draft_session import DraftSessionListItemResponse, DraftSessionResponse, ProcessStepResponse
+from app.schemas.draft_session import (
+    DiagramModelResponse,
+    DraftSessionListItemResponse,
+    DraftSessionResponse,
+    ProcessStepResponse,
+)
+from app.schemas.draft_session import SaveDiagramArtifactRequest, SaveDiagramModelRequest
 from app.schemas.process_step import CandidateScreenshotSelectRequest, ProcessStepUpdateRequest, StepScreenshotUpdateRequest
 from app.models.artifact import ArtifactModel
+from app.models.diagram_layout import DiagramLayoutModel
 from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.mappers import map_draft_session, map_draft_session_list_item, map_process_step
+from app.services.action_log_service import ActionLogService
+from app.services.process_diagram_service import ProcessDiagramService
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.artifact_ingestion import ArtifactIngestionService
+from app.schemas.draft_session import DiagramLayoutResponse, SaveDiagramLayoutRequest
 
 router = APIRouter(prefix="/draft-sessions", tags=["draft-sessions"])
+diagram_service = ProcessDiagramService()
+action_log_service = ActionLogService()
 
 
 @router.get("", response_model=list[DraftSessionListItemResponse])
@@ -51,6 +70,16 @@ def generate_draft_session(
 ) -> DraftSessionResponse:
     """Queue background generation for process steps, notes, and screenshots."""
     session = service.mark_session_processing(db, session_id, owner_id=current_user.username)
+    action_log_service.record(
+        db,
+        session_id=session.id,
+        event_type="generation_queued",
+        title="Draft generation queued",
+        detail="Transcript interpretation and screenshot derivation queued.",
+        actor=current_user.username,
+    )
+    db.commit()
+    session = service.get_session(db, session_id, owner_id=current_user.username)
     task_id = dispatcher.enqueue_draft_generation(session_id)
     response.headers["X-Task-Id"] = task_id
     return map_draft_session(session)
@@ -64,6 +93,187 @@ def get_draft_session(
     current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> DraftSessionResponse:
     """Return the structured draft session for review."""
+    session = service.get_session(db, session_id, owner_id=current_user.username)
+    return map_draft_session(session)
+
+
+@router.get("/{session_id}/diagram-model", response_model=DiagramModelResponse)
+def get_diagram_model(
+    session_id: str,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    view: Literal["overview", "detailed"] = "overview",
+) -> DiagramModelResponse:
+    """Return a frontend-friendly diagram model for preview rendering."""
+    session = service.get_session(db, session_id, owner_id=current_user.username)
+    return DiagramModelResponse.model_validate(diagram_service.build_diagram_model(session, view))
+
+
+@router.put("/{session_id}/diagram-model", response_model=DiagramModelResponse)
+def save_diagram_model(
+    session_id: str,
+    payload: SaveDiagramModelRequest,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    view: Literal["overview", "detailed"] = "detailed",
+) -> DiagramModelResponse:
+    """Persist an edited diagram graph for the requested view."""
+    session = service.get_session(db, session_id, owner_id=current_user.username)
+    model_payload = {
+        "diagram_type": "flowchart",
+        "view_type": view,
+        "title": payload.title,
+        "nodes": [node.model_dump() for node in payload.nodes],
+        "edges": [edge.model_dump() for edge in payload.edges],
+    }
+    if view == "detailed":
+        session.detailed_diagram_json = json.dumps(model_payload)
+    else:
+        session.overview_diagram_json = json.dumps(model_payload)
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return DiagramModelResponse.model_validate(model_payload)
+
+
+@router.get("/{session_id}/diagram-layout", response_model=DiagramLayoutResponse)
+def get_diagram_layout(
+    session_id: str,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    view: Literal["overview", "detailed"] = "detailed",
+) -> DiagramLayoutResponse:
+    """Return the saved node positions for a session diagram view if available."""
+    service.get_session(db, session_id, owner_id=current_user.username)
+    layout = (
+        db.query(DiagramLayoutModel)
+        .filter(DiagramLayoutModel.session_id == session_id, DiagramLayoutModel.view_type == view)
+        .one_or_none()
+    )
+    nodes: list[dict] = []
+    export_preset = "balanced"
+    canvas_settings = {"theme": "dark", "show_grid": True, "grid_density": "medium"}
+    if layout is not None and layout.layout_json:
+        try:
+            parsed = json.loads(layout.layout_json)
+            if isinstance(parsed, dict):
+                nodes = parsed.get("nodes", [])
+                export_preset = parsed.get("export_preset", "balanced") or "balanced"
+                parsed_canvas_settings = parsed.get("canvas_settings", {})
+                if isinstance(parsed_canvas_settings, dict):
+                    canvas_settings = {
+                        "theme": parsed_canvas_settings.get("theme", "dark") or "dark",
+                        "show_grid": bool(parsed_canvas_settings.get("show_grid", True)),
+                        "grid_density": parsed_canvas_settings.get("grid_density", "medium") or "medium",
+                    }
+            elif isinstance(parsed, list):
+                nodes = parsed
+        except json.JSONDecodeError:
+            nodes = []
+    return DiagramLayoutResponse(
+        session_id=session_id,
+        view_type=view,
+        nodes=nodes,
+        export_preset=export_preset,
+        canvas_settings=canvas_settings,
+    )
+
+
+@router.put("/{session_id}/diagram-layout", response_model=DiagramLayoutResponse)
+def save_diagram_layout(
+    session_id: str,
+    payload: SaveDiagramLayoutRequest,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+    view: Literal["overview", "detailed"] = "detailed",
+) -> DiagramLayoutResponse:
+    """Persist draggable node positions for one diagram view."""
+    service.get_session(db, session_id, owner_id=current_user.username)
+    layout = (
+        db.query(DiagramLayoutModel)
+        .filter(DiagramLayoutModel.session_id == session_id, DiagramLayoutModel.view_type == view)
+        .one_or_none()
+    )
+    if layout is None:
+        layout = DiagramLayoutModel(session_id=session_id, view_type=view)
+        db.add(layout)
+
+    previous_canvas_settings = {"theme": "dark", "show_grid": True, "grid_density": "medium"}
+    if layout.layout_json:
+        try:
+            previous_payload = json.loads(layout.layout_json)
+            if isinstance(previous_payload, dict):
+                parsed_previous_canvas = previous_payload.get("canvas_settings", {})
+                if isinstance(parsed_previous_canvas, dict):
+                    previous_canvas_settings = {
+                        "theme": parsed_previous_canvas.get("theme", "dark") or "dark",
+                        "show_grid": bool(parsed_previous_canvas.get("show_grid", True)),
+                        "grid_density": parsed_previous_canvas.get("grid_density", "medium") or "medium",
+                    }
+        except json.JSONDecodeError:
+            previous_canvas_settings = {"theme": "dark", "show_grid": True, "grid_density": "medium"}
+
+    next_canvas_settings = payload.canvas_settings.model_dump()
+    layout.layout_json = json.dumps(
+        {
+            "nodes": [node.model_dump() for node in payload.nodes],
+            "export_preset": payload.export_preset,
+            "canvas_settings": next_canvas_settings,
+        }
+    )
+    theme_changed = previous_canvas_settings.get("theme") != next_canvas_settings.get("theme")
+    grid_changed = previous_canvas_settings.get("show_grid") != next_canvas_settings.get("show_grid")
+    if theme_changed or grid_changed:
+        appearance_parts: list[str] = []
+        if theme_changed:
+            appearance_parts.append(f"theme {next_canvas_settings.get('theme', 'dark')}")
+        if grid_changed:
+            appearance_parts.append(f"grid {'on' if next_canvas_settings.get('show_grid', True) else 'off'}")
+        action_title = "Diagram appearance updated"
+        action_detail = f"{view.capitalize()} diagram saved with " + ", ".join(appearance_parts) + "."
+    else:
+        action_title = "Diagram saved"
+        action_detail = f"{view.capitalize()} layout saved with {len(payload.nodes)} positioned nodes."
+    action_log_service.record(
+        db,
+        session_id=session_id,
+        event_type="diagram_saved",
+        title=action_title,
+        detail=action_detail,
+        actor=current_user.username,
+    )
+    db.commit()
+    db.refresh(layout)
+    parsed = json.loads(layout.layout_json) if layout.layout_json else {"nodes": [], "export_preset": "balanced"}
+    return DiagramLayoutResponse(
+        session_id=session_id,
+        view_type=view,
+        nodes=parsed.get("nodes", []),
+        export_preset=parsed.get("export_preset", "balanced") or "balanced",
+        canvas_settings=parsed.get("canvas_settings", {"theme": "dark", "show_grid": True, "grid_density": "medium"}),
+    )
+
+
+@router.post("/{session_id}/diagram-artifact", response_model=DraftSessionResponse)
+def save_diagram_artifact(
+    session_id: str,
+    payload: SaveDiagramArtifactRequest,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    artifact_service: Annotated[ArtifactIngestionService, Depends(get_artifact_ingestion_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+) -> DraftSessionResponse:
+    """Persist the browser-rendered detailed diagram image for export."""
+    artifact_service.save_diagram_artifact(
+        db,
+        session_id=session_id,
+        image_data_url=payload.image_data_url,
+        owner_id=current_user.username,
+    )
     session = service.get_session(db, session_id, owner_id=current_user.username)
     return map_draft_session(session)
 
@@ -89,6 +299,14 @@ def update_process_step(
 
     session.status = "review"
     db.add(step)
+    action_log_service.record(
+        db,
+        session_id=session_id,
+        event_type="step_edited",
+        title=f"Step {step.step_number} edited",
+        detail=step.action_text,
+        actor=current_user.username,
+    )
     db.commit()
     db.refresh(step)
     return map_process_step(step)
@@ -122,6 +340,14 @@ def update_step_screenshot(
     if "role" in updates:
         step_screenshot.role = updates["role"] or step_screenshot.role
 
+    action_log_service.record(
+        db,
+        session_id=session_id,
+        event_type="screenshot_updated",
+        title=f"Step {step.step_number} screenshot updated",
+        detail=step_screenshot.timestamp or step_screenshot.artifact.name,
+        actor=current_user.username,
+    )
     db.commit()
     db.refresh(step)
     return map_process_step(step)
@@ -174,6 +400,14 @@ def select_candidate_screenshot(
     elif not step.screenshot_id:
         step.screenshot_id = existing.artifact_id
 
+    action_log_service.record(
+        db,
+        session_id=session_id,
+        event_type="candidate_screenshot_selected",
+        title=f"Candidate screenshot selected for step {step.step_number}",
+        detail=candidate.artifact.name,
+        actor=current_user.username,
+    )
     db.commit()
     db.refresh(step)
     return map_process_step(step)
@@ -223,6 +457,14 @@ def delete_step_screenshot(
         if artifact is not None:
             db.delete(artifact)
 
+    action_log_service.record(
+        db,
+        session_id=session_id,
+        event_type="screenshot_removed",
+        title=f"Screenshot removed from step {step.step_number}",
+        detail=removed_artifact_id,
+        actor=current_user.username,
+    )
     db.commit()
     db.refresh(step)
     return map_process_step(step)

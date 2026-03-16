@@ -16,10 +16,13 @@ from docxtpl import DocxTemplate
 from docxtpl import InlineImage
 from docx.shared import Mm
 from fastapi import HTTPException, status
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
+from app.models.diagram_layout import DiagramLayoutModel
 from app.models.output_document import OutputDocumentModel
 from app.services.process_diagram_service import ProcessDiagramService
 from app.storage.storage_service import StorageService
@@ -37,7 +40,7 @@ class DocumentRendererService:
     def render_docx(self, db: Session, draft_session: DraftSessionModel) -> OutputDocumentModel:
         """Render a DOCX document from the draft session."""
         output_path = self._build_output_path(draft_session, "docx")
-        self._render_docx_file(draft_session, output_path)
+        self._render_docx_file(db, draft_session, output_path)
 
         output_document = OutputDocumentModel(
             session_id=draft_session.id,
@@ -55,7 +58,7 @@ class DocumentRendererService:
         output_path = self._build_output_path(draft_session, "pdf")
         with TemporaryDirectory(prefix=f"pdd_{draft_session.id}_") as temp_dir:
             temp_docx_path = Path(temp_dir) / f"{draft_session.id}_draft.docx"
-            self._render_docx_file(draft_session, temp_docx_path)
+            self._render_docx_file(db, draft_session, temp_docx_path)
             self._convert_docx_to_pdf(temp_docx_path, output_path)
 
         output_document = OutputDocumentModel(
@@ -88,10 +91,10 @@ class DocumentRendererService:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         return output_path
 
-    def _render_docx_file(self, draft_session: DraftSessionModel, output_path: Path) -> None:
+    def _render_docx_file(self, db: Session, draft_session: DraftSessionModel, output_path: Path) -> None:
         template_path = self._get_template_path(draft_session)
         doc = DocxTemplate(str(template_path))
-        doc.render(self._build_context(draft_session, doc))
+        doc.render(self._build_context(db, draft_session, doc))
         doc.save(str(output_path))
 
     def _convert_docx_to_pdf(self, source_docx_path: Path, output_pdf_path: Path) -> None:
@@ -198,21 +201,35 @@ class DocumentRendererService:
             conversion_errors.append("LibreOffice completed without producing the expected PDF output")
         return output_pdf_path.exists()
 
-    def _build_context(self, draft_session: DraftSessionModel, template_document: DocxTemplate) -> dict:
+    def _build_context(self, db: Session, draft_session: DraftSessionModel, template_document: DocxTemplate) -> dict:
         """Build the DOCX template context from the session."""
         screenshot_map = {
             artifact.id: artifact
             for artifact in draft_session.artifacts
             if artifact.kind == "screenshot"
         }
-        mermaid_source = self.process_diagram_service.build_mermaid_flowchart(draft_session)
-        diagram_output_path = (
-            self.settings.local_storage_root
-            / draft_session.id
-            / self.settings.docx_output_folder
-            / f"{draft_session.id}_flow.png"
-        )
-        rendered_diagram_path = self.process_diagram_service.render_mermaid_diagram(mermaid_source, diagram_output_path)
+        diagram_source = self.process_diagram_service.build_diagram_source(draft_session)
+        output_dir = self.settings.local_storage_root / draft_session.id / self.settings.docx_output_folder
+        output_dir.mkdir(parents=True, exist_ok=True)
+        detailed_saved_positions = self._load_saved_diagram_positions(db, draft_session.id, "detailed")
+
+        detailed_diagram_path = None
+        if (draft_session.diagram_type or "flowchart").lower() == "flowchart":
+            stored_diagram_path = self._resolve_saved_diagram_artifact_path(db, draft_session.id)
+            if stored_diagram_path:
+                detailed_diagram_path = stored_diagram_path
+            else:
+                detailed_diagram_path = self.process_diagram_service.render_flowchart_view(
+                    draft_session,
+                    "detailed",
+                    output_dir / f"{draft_session.id}_detailed.png",
+                    saved_positions=detailed_saved_positions,
+                )
+        else:
+            detailed_diagram_path = self.process_diagram_service.render_sequence_diagram(
+                draft_session,
+                output_dir / f"{draft_session.id}_sequence.png",
+            )
         process_steps = [
             self._build_step_context(step, screenshot_map, template_document)
             for step in sorted(draft_session.process_steps, key=lambda item: item.step_number)
@@ -239,6 +256,7 @@ class DocumentRendererService:
                 "owner_id": draft_session.owner_id,
                 "session_id": draft_session.id,
                 "status": draft_session.status,
+                "diagram_type": draft_session.diagram_type,
                 "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
                 "step_count": len(process_steps),
                 "note_count": len(process_notes),
@@ -251,17 +269,67 @@ class DocumentRendererService:
                 "as_is_steps": process_steps,
                 "to_be_recommendations": to_be_recommendations,
                 "process_flow": {
-                    "mermaid_source": mermaid_source,
-                    "diagram_path": str(rendered_diagram_path) if rendered_diagram_path else "",
-                    "diagram_image": self._build_inline_image(
+                    "mermaid_source": diagram_source,
+                    "diagram_source": diagram_source,
+                    "diagram_path": str(detailed_diagram_path) if detailed_diagram_path else "",
+                    "diagram_image": self._build_process_diagram_image(
                         template_document,
-                        str(rendered_diagram_path) if rendered_diagram_path else "",
+                        str(detailed_diagram_path) if detailed_diagram_path else "",
                     ),
-                    "rendered": bool(rendered_diagram_path),
+                    "detailed_path": str(detailed_diagram_path) if detailed_diagram_path else "",
+                    "detailed_image": self._build_process_diagram_image(
+                        template_document,
+                        str(detailed_diagram_path) if detailed_diagram_path else "",
+                    ),
+                    "rendered": bool(detailed_diagram_path),
                 },
                 "business_rules": process_notes,
             },
         }
+
+    @staticmethod
+    def _load_saved_diagram_positions(db: Session, session_id: str, view_type: str) -> dict[str, dict[str, float | str]]:
+        layout = (
+            db.query(DiagramLayoutModel)
+            .filter(DiagramLayoutModel.session_id == session_id, DiagramLayoutModel.view_type == view_type)
+            .one_or_none()
+        )
+        if layout is None or not layout.layout_json:
+            return {}
+        try:
+            parsed = json.loads(layout.layout_json)
+        except json.JSONDecodeError:
+            return {}
+        items = parsed.get("nodes", []) if isinstance(parsed, dict) else parsed
+
+        saved_positions: dict[str, dict[str, float | str]] = {}
+        for item in items:
+            node_id = item.get("id")
+            if not node_id:
+                continue
+            saved_positions[node_id] = {
+                "x": float(item.get("x", 0)),
+                "y": float(item.get("y", 0)),
+                "label": str(item.get("label", "")) if item.get("label") else "",
+            }
+        return saved_positions
+
+    @staticmethod
+    def _resolve_saved_diagram_artifact_path(db: Session, session_id: str) -> str:
+        artifact = (
+            db.query(ArtifactModel)
+            .filter(
+                ArtifactModel.session_id == session_id,
+                ArtifactModel.kind == "diagram",
+                ArtifactModel.name == "detailed-process-flow.png",
+            )
+            .order_by(ArtifactModel.created_at.desc())
+            .first()
+        )
+        if artifact is None:
+            return ""
+        diagram_path = Path(artifact.storage_path)
+        return str(diagram_path) if diagram_path.exists() else ""
 
     def _build_step_context(self, step, screenshot_map: dict, template_document: DocxTemplate) -> dict:
         """Build one DOCX context block for a process step."""
@@ -321,3 +389,39 @@ class DocumentRendererService:
             return InlineImage(template_document, screenshot_path, width=Mm(140))
         except Exception:
             return ""
+
+    @staticmethod
+    def _build_process_diagram_image(template_document: DocxTemplate, diagram_path: str):
+        """Build a fitted DOCX image for overview or detailed diagrams."""
+        if not diagram_path:
+            return ""
+        try:
+            with Image.open(diagram_path) as image:
+                width_px, height_px = image.size
+        except Exception:
+            return ""
+
+        max_width_mm = 170.0
+        max_height_mm = 220.0
+        if width_px <= 0 or height_px <= 0:
+            return ""
+
+        aspect_ratio = height_px / width_px
+        target_width_mm = max_width_mm
+        target_height_mm = target_width_mm * aspect_ratio
+        if target_height_mm > max_height_mm:
+            target_height_mm = max_height_mm
+            target_width_mm = target_height_mm / aspect_ratio
+
+        try:
+            return InlineImage(
+                template_document,
+                diagram_path,
+                width=Mm(target_width_mm),
+                height=Mm(target_height_mm),
+            )
+        except Exception:
+            return ""
+
+
+

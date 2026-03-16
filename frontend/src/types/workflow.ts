@@ -18,6 +18,8 @@ export type WorkflowContext = {
   exportResult: ExportResult | null;
 };
 
+export type DiagramType = "flowchart" | "sequence";
+
 export type ArtifactUploadState = {
   videoFiles: File[];
   transcriptFiles: File[];

@@ -15,6 +15,7 @@ class CreateDraftSessionRequest(BaseModel):
 
     title: str = Field(default="Untitled PDD Session", min_length=1, max_length=255)
     owner_id: str = Field(default="pilot-user", min_length=1, max_length=255)
+    diagram_type: str = Field(default="flowchart", min_length=1, max_length=50)
 
 
 class ArtifactResponse(BaseModel):
@@ -107,6 +108,19 @@ class OutputDocumentResponse(BaseModel):
     exported_at: datetime
 
 
+class ActionLogResponse(BaseModel):
+    """Meaningful activity event for one draft session."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    event_type: str
+    title: str
+    detail: str
+    actor: str
+    created_at: datetime
+
+
 class DraftSessionResponse(BaseModel):
     """Full draft session response."""
 
@@ -116,12 +130,14 @@ class DraftSessionResponse(BaseModel):
     title: str
     status: str
     owner_id: str
+    diagram_type: str
     created_at: datetime
     updated_at: datetime
     artifacts: list[ArtifactResponse]
     process_steps: list[ProcessStepResponse]
     process_notes: list[ProcessNoteResponse]
     output_documents: list[OutputDocumentResponse]
+    action_logs: list[ActionLogResponse]
 
 
 class DraftSessionListItemResponse(BaseModel):
@@ -133,5 +149,90 @@ class DraftSessionListItemResponse(BaseModel):
     title: str
     status: str
     owner_id: str
+    diagram_type: str
     created_at: datetime
     updated_at: datetime
+
+
+class DiagramNodeResponse(BaseModel):
+    """Flowchart node response for frontend-driven diagram rendering."""
+
+    id: str
+    label: str
+    category: str
+    step_range: str
+    width: float | None = None
+    height: float | None = None
+
+
+class DiagramEdgeResponse(BaseModel):
+    """Flowchart edge response for frontend-driven diagram rendering."""
+
+    id: str
+    source: str
+    target: str
+    label: str = ""
+    source_handle: str | None = None
+    target_handle: str | None = None
+
+
+class DiagramModelResponse(BaseModel):
+    """Diagram model payload used by the frontend preview renderer."""
+
+    diagram_type: str
+    view_type: str
+    title: str
+    nodes: list[DiagramNodeResponse]
+    edges: list[DiagramEdgeResponse]
+
+
+class DiagramLayoutNodePosition(BaseModel):
+    """Persisted diagram node position for one rendered node."""
+
+    id: str
+    x: float
+    y: float
+    label: str | None = None
+    width: float | None = None
+    height: float | None = None
+
+
+class DiagramCanvasSettingsResponse(BaseModel):
+    """Persisted canvas presentation settings for one diagram view."""
+
+    theme: str = "dark"
+    show_grid: bool = True
+    grid_density: str = "medium"
+
+
+class DiagramLayoutResponse(BaseModel):
+    """Saved diagram layout response for one session view."""
+
+    session_id: str
+    view_type: str
+    nodes: list[DiagramLayoutNodePosition]
+    export_preset: str = "balanced"
+    canvas_settings: DiagramCanvasSettingsResponse = Field(default_factory=DiagramCanvasSettingsResponse)
+
+
+class SaveDiagramLayoutRequest(BaseModel):
+    """Request payload to persist draggable diagram node positions."""
+
+    nodes: list[DiagramLayoutNodePosition]
+    export_preset: str = "balanced"
+    canvas_settings: DiagramCanvasSettingsResponse = Field(default_factory=DiagramCanvasSettingsResponse)
+
+
+class SaveDiagramArtifactRequest(BaseModel):
+    """Persist the browser-rendered diagram image used for export."""
+
+    image_data_url: str
+
+
+class SaveDiagramModelRequest(BaseModel):
+    """Persist the edited diagram graph used by the frontend and export."""
+
+    title: str
+    view_type: str
+    nodes: list[DiagramNodeResponse]
+    edges: list[DiagramEdgeResponse]

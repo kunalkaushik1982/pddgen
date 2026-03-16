@@ -7,14 +7,14 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "./components/layout/AppShell";
 import { AuthPage } from "./pages/AuthPage";
+import { SessionDetailPage } from "./pages/SessionDetailPage";
 import { SessionHistoryPage } from "./pages/SessionHistoryPage";
-import { StepReviewPage } from "./pages/StepReviewPage";
 import { UploadPage } from "./pages/UploadPage";
 import { apiClient } from "./services/apiClient";
 import type { User } from "./types/auth";
 import type { ProcessStep } from "./types/process";
 import type { DraftSession, DraftSessionListItem } from "./types/session";
-import type { ArtifactQueueItem, ArtifactUploadState, WorkflowContext } from "./types/workflow";
+import type { ArtifactQueueItem, ArtifactUploadState, DiagramType, WorkflowContext } from "./types/workflow";
 
 const INITIAL_UPLOAD_STATE: ArtifactUploadState = {
   videoFiles: [],
@@ -37,10 +37,11 @@ const INITIAL_WORKFLOW_CONTEXT: WorkflowContext = {
 export function AppRouter(): JSX.Element {
   const [title, setTitle] = useState("Untitled PDD Session");
   const [ownerId, setOwnerId] = useState("pilot-user");
+  const [diagramType, setDiagramType] = useState<DiagramType>("flowchart");
   const [uploads, setUploads] = useState<ArtifactUploadState>(INITIAL_UPLOAD_STATE);
   const [context, setContext] = useState<WorkflowContext>(INITIAL_WORKFLOW_CONTEXT);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeView, setActiveView] = useState<"workspace" | "history">("workspace");
+  const [activeView, setActiveView] = useState<"workspace" | "history" | "session">("workspace");
   const [sessionHistory, setSessionHistory] = useState<DraftSessionListItem[]>([]);
   const [collapsedSections, setCollapsedSections] = useState({
     controls: false,
@@ -48,7 +49,13 @@ export function AppRouter(): JSX.Element {
   });
 
   const statusLabel = useMemo(() => {
-    return activeView === "history" ? "Past Runs" : "Workspace";
+    if (activeView === "history") {
+      return "Past Runs";
+    }
+    if (activeView === "session") {
+      return "Session Detail";
+    }
+    return "Workspace";
   }, [activeView]);
 
   const canGenerateDraft =
@@ -133,7 +140,7 @@ export function AppRouter(): JSX.Element {
       throw new Error("At least one video, one transcript, and one template are required.");
     }
 
-    const session = await apiClient.createDraftSession({ title, ownerId });
+    const session = await apiClient.createDraftSession({ title, ownerId, diagramType });
     const queue: ArtifactQueueItem[] = [
       ...uploads.videoFiles.map((file) => ({ artifactKind: "video" as const, file })),
       ...uploads.transcriptFiles.map((file) => ({ artifactKind: "transcript" as const, file })),
@@ -174,6 +181,7 @@ export function AppRouter(): JSX.Element {
       }));
       setUploads(INITIAL_UPLOAD_STATE);
       setTitle("Untitled PDD Session");
+      setDiagramType("flowchart");
       await loadSessionHistory();
       setActiveView("history");
       setMessage("info", "PDD generation started. Track progress in Past Runs.");
@@ -237,12 +245,13 @@ export function AppRouter(): JSX.Element {
 
     setBusy(true);
     try {
-      const updatedStep = await apiClient.updateProcessStep(context.currentSession.id, stepId, payload);
-      const updatedSession = replaceStep(context.currentSession, updatedStep);
+      await apiClient.updateProcessStep(context.currentSession.id, stepId, payload);
+      const updatedSession = await apiClient.getDraftSession(context.currentSession.id);
+      const updatedStep = updatedSession.processSteps.find((step) => step.id === stepId) ?? updatedSession.processSteps[0];
       setContext((current) => ({
         ...current,
         currentSession: updatedSession,
-        selectedStepId: updatedStep.id,
+        selectedStepId: updatedStep?.id ?? current.selectedStepId,
       }));
       setMessage("info", "Step changes saved.");
     } catch (error) {
@@ -259,14 +268,15 @@ export function AppRouter(): JSX.Element {
 
     setBusy(true);
     try {
-      const updatedStep = await apiClient.updateStepScreenshot(context.currentSession.id, stepId, stepScreenshotId, {
+      await apiClient.updateStepScreenshot(context.currentSession.id, stepId, stepScreenshotId, {
         isPrimary: true,
       });
-      const updatedSession = replaceStep(context.currentSession, updatedStep);
+      const updatedSession = await apiClient.getDraftSession(context.currentSession.id);
+      const updatedStep = updatedSession.processSteps.find((step) => step.id === stepId) ?? updatedSession.processSteps[0];
       setContext((current) => ({
         ...current,
         currentSession: updatedSession,
-        selectedStepId: updatedStep.id,
+        selectedStepId: updatedStep?.id ?? current.selectedStepId,
       }));
       setMessage("info", "Primary screenshot updated.");
     } catch (error) {
@@ -283,12 +293,13 @@ export function AppRouter(): JSX.Element {
 
     setBusy(true);
     try {
-      const updatedStep = await apiClient.deleteStepScreenshot(context.currentSession.id, stepId, stepScreenshotId);
-      const updatedSession = replaceStep(context.currentSession, updatedStep);
+      await apiClient.deleteStepScreenshot(context.currentSession.id, stepId, stepScreenshotId);
+      const updatedSession = await apiClient.getDraftSession(context.currentSession.id);
+      const updatedStep = updatedSession.processSteps.find((step) => step.id === stepId) ?? updatedSession.processSteps[0];
       setContext((current) => ({
         ...current,
         currentSession: updatedSession,
-        selectedStepId: updatedStep.id,
+        selectedStepId: updatedStep?.id ?? current.selectedStepId,
       }));
       setMessage("info", "Screenshot removed from the step.");
     } catch (error) {
@@ -309,17 +320,18 @@ export function AppRouter(): JSX.Element {
 
     setBusy(true);
     try {
-      const updatedStep = await apiClient.selectCandidateScreenshot(
+      await apiClient.selectCandidateScreenshot(
         context.currentSession.id,
         stepId,
         candidateScreenshotId,
         payload,
       );
-      const updatedSession = replaceStep(context.currentSession, updatedStep);
+      const updatedSession = await apiClient.getDraftSession(context.currentSession.id);
+      const updatedStep = updatedSession.processSteps.find((step) => step.id === stepId) ?? updatedSession.processSteps[0];
       setContext((current) => ({
         ...current,
         currentSession: updatedSession,
-        selectedStepId: updatedStep.id,
+        selectedStepId: updatedStep?.id ?? current.selectedStepId,
       }));
       setMessage("info", "Screenshot selection updated.");
     } catch (error) {
@@ -418,6 +430,7 @@ export function AppRouter(): JSX.Element {
               <UploadPage
                 title={title}
                 ownerId={ownerId}
+                diagramType={diagramType}
                 uploads={uploads}
                 disabled={context.isBusy}
                 showHeader={false}
@@ -437,42 +450,14 @@ export function AppRouter(): JSX.Element {
                 }
                 onTitleChange={setTitle}
                 onOwnerIdChange={setOwnerId}
+                onDiagramTypeChange={setDiagramType}
                 onFilesChange={handleFilesChange}
                 onSubmit={() => void handleGeneratePdd()}
               />
             </CollapsibleSection>
           </div>
-
-          <div className="review-section-fullwidth">
-            <CollapsibleSection
-              title="2. Review and Edit Steps"
-              description="Validate the extracted AS-IS steps, derived screenshots, and confidence markers."
-              collapsed={collapsedSections.review}
-              onToggle={() => toggleSection("review")}
-            >
-              <StepReviewPage
-                session={context.currentSession}
-                selectedStepId={context.selectedStepId}
-                disabled={context.isBusy}
-                showHeader={false}
-                onCloseSession={() =>
-                  setContext((current) => ({
-                    ...current,
-                    currentSession: null,
-                    selectedStepId: null,
-                    exportResult: null,
-                  }))
-                }
-                onSelectStep={(stepId) => setContext((current) => ({ ...current, selectedStepId: stepId }))}
-                onSaveStep={handleSaveStep}
-                onSetPrimaryScreenshot={handleSetPrimaryScreenshot}
-                onRemoveScreenshot={handleRemoveScreenshot}
-                onSelectCandidateScreenshot={handleSelectCandidateScreenshot}
-              />
-            </CollapsibleSection>
-          </div>
         </>
-      ) : (
+      ) : activeView === "history" ? (
         <SessionHistoryPage
           sessions={sessionHistory}
           disabled={context.isBusy}
@@ -480,6 +465,22 @@ export function AppRouter(): JSX.Element {
           onOpen={(sessionId) => void openPastSession(sessionId)}
           onExportDocx={(sessionId) => void handleExportSession(sessionId, "docx")}
           onExportPdf={(sessionId) => void handleExportSession(sessionId, "pdf")}
+        />
+      ) : (
+        <SessionDetailPage
+          session={context.currentSession}
+          selectedStepId={context.selectedStepId}
+          disabled={context.isBusy}
+          onBackToWorkspace={() => setActiveView("workspace")}
+          onRefresh={() => void handleRefreshSession()}
+          onExportDocx={() => context.currentSession ? void handleExportSession(context.currentSession.id, "docx") : undefined}
+          onExportPdf={() => context.currentSession ? void handleExportSession(context.currentSession.id, "pdf") : undefined}
+          onSelectStep={(stepId) => setContext((current) => ({ ...current, selectedStepId: stepId }))}
+          onSaveStep={handleSaveStep}
+          onSetPrimaryScreenshot={handleSetPrimaryScreenshot}
+          onRemoveScreenshot={handleRemoveScreenshot}
+          onRefreshSession={() => handleRefreshSession()}
+          onSelectCandidateScreenshot={handleSelectCandidateScreenshot}
         />
       )}
     </AppShell>
@@ -535,6 +536,7 @@ export function AppRouter(): JSX.Element {
       setUploads(INITIAL_UPLOAD_STATE);
       setActiveView("workspace");
       setOwnerId("pilot-user");
+      setDiagramType("flowchart");
       setBusy(false);
     }
   }
@@ -557,7 +559,7 @@ export function AppRouter(): JSX.Element {
         currentSession: session,
         selectedStepId: session.processSteps[0]?.id ?? null,
       }));
-      setActiveView("workspace");
+      setActiveView("session");
       setMessage("info", `Loaded session ${session.title}.`);
     } catch (error) {
       setMessage("error", getErrorMessage(error));
@@ -565,13 +567,6 @@ export function AppRouter(): JSX.Element {
       setBusy(false);
     }
   }
-}
-
-function replaceStep(session: DraftSession, updatedStep: ProcessStep): DraftSession {
-  return {
-    ...session,
-    processSteps: session.processSteps.map((step) => (step.id === updatedStep.id ? updatedStep : step)),
-  };
 }
 
 function getErrorMessage(error: unknown): string {
