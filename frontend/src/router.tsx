@@ -69,14 +69,15 @@ export function AppRouter(): JSX.Element {
 
   const requiredUploadSelected =
     uploads.videoFiles.length > 0 && uploads.transcriptFiles.length > 0 && Boolean(uploads.templateFile);
+  const hasUploadedDraftReady =
+    Boolean(uploadSessionId) &&
+    uploadItems.length > 0 &&
+    uploadItems.every((item) => item.status === "uploaded");
 
   const canUploadInputs = requiredUploadSelected && !isUploadingInputs && !context.isBusy;
 
   const canGenerateDraft =
-    Boolean(uploadSessionId) &&
-    requiredUploadSelected &&
-    uploadItems.length > 0 &&
-    uploadItems.every((item) => item.status === "uploaded") &&
+    hasUploadedDraftReady &&
     !isUploadingInputs &&
     !context.isBusy;
 
