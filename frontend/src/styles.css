@@ -681,7 +681,7 @@ button {
 
 .history-progress-ready,
 .history-progress-exported {
-  background: linear-gradient(135deg, #111111, #2f2f2f);
+  background: linear-gradient(135deg, #16a34a, #22c55e);
 }
 
 .history-progress-failed {
@@ -1465,17 +1465,12 @@ button {
 
 .history-stage-title-failed,
 .history-progress-label-failed {
-  color: #fb7185;
+  color: #dc2626;
 }
 
 .history-stage-title-ready,
 .history-progress-label-ready {
-  display: inline-flex;
-  width: fit-content;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
-  color: #111111;
+  color: #15803d;
   font-weight: 800;
 }
 

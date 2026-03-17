@@ -58,9 +58,11 @@ export function SessionHistoryPage({
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
+                  {progressTone === "ready" || progressTone === "failed" ? null : (
                     <div className={`artifact-meta history-progress-label history-progress-label-${progressTone}`}>{progressLabel}</div>
-                  </div>
+                  )}
                 </div>
+              </div>
                 <div className="button-row">
                   <button
                     type="button"
@@ -178,7 +180,7 @@ function getSessionProgressLabel(
 }
 
 function getProgressTone(session: DraftSessionListItem): "draft" | "queued" | "screenshots" | "transcript" | "diagram" | "ready" | "exported" | "failed" {
-  if (session.status === "failed") {
+  if (session.status === "failed" || session.failureDetail) {
     return "failed";
   }
   if (session.status === "exported") {
