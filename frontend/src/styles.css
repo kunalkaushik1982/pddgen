@@ -260,6 +260,16 @@ button {
   margin-top: 8px;
 }
 
+.upload-ready-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--surface-soft) 0%, var(--surface-card) 100%);
+}
+
 .upload-workspace {
   display: block;
 }

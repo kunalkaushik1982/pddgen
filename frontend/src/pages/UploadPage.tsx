@@ -17,6 +17,7 @@ type UploadPageProps = {
   diagramType: DiagramType;
   uploads: ArtifactUploadState;
   uploadItems: ArtifactUploadProgressItem[];
+  uploadReady?: boolean;
   disabled?: boolean;
   canUploadInputs?: boolean;
   canGenerateDraft?: boolean;
@@ -39,6 +40,7 @@ export function UploadPage({
   diagramType,
   uploads,
   uploadItems,
+  uploadReady = false,
   disabled,
   canUploadInputs = false,
   canGenerateDraft = false,
@@ -123,6 +125,13 @@ export function UploadPage({
             Selected: {uploads.videoFiles.length} video(s), {uploads.transcriptFiles.length} transcript(s),{" "}
             {uploads.templateFile ? "1 template" : "0 templates"}
           </div>
+
+          {uploadReady ? (
+            <div className="upload-ready-banner">
+              <strong>Inputs uploaded</strong>
+              <span className="artifact-meta">All selected files are on the server. Start processing with Generate Draft.</span>
+            </div>
+          ) : null}
 
           {actionBar ? <div className="session-inline-actions">{actionBar}</div> : null}
 

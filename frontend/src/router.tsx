@@ -80,6 +80,11 @@ export function AppRouter(): JSX.Element {
     !isUploadingInputs &&
     !context.isBusy;
 
+  const visibleSessionHistory = useMemo(
+    () => sessionHistory.filter((session) => session.status !== "draft"),
+    [sessionHistory],
+  );
+
   useEffect(() => {
     void restoreUser();
   }, []);
@@ -533,6 +538,7 @@ export function AppRouter(): JSX.Element {
                 diagramType={diagramType}
                 uploads={uploads}
                 uploadItems={uploadItems}
+                uploadReady={canGenerateDraft}
                 disabled={context.isBusy || isUploadingInputs}
                 canUploadInputs={canUploadInputs}
                 canGenerateDraft={canGenerateDraft}
@@ -570,7 +576,7 @@ export function AppRouter(): JSX.Element {
         </>
       ) : activeView === "history" ? (
         <SessionHistoryPage
-          sessions={sessionHistory}
+          sessions={visibleSessionHistory}
           disabled={context.isBusy}
           onRefresh={() => void loadSessionHistory()}
           onOpen={(sessionId) => void openPastSession(sessionId)}

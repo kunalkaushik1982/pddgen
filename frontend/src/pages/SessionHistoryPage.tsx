@@ -88,7 +88,7 @@ export function SessionHistoryPage({
           ))}
         </div>
       ) : (
-        <div className="empty-state">No past runs found for this user yet.</div>
+        <div className="empty-state">No started runs found yet. Upload-only drafts stay in Workspace until generation begins.</div>
       )}
     </section>
   );
