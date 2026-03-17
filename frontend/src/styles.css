@@ -260,6 +260,28 @@ button {
   margin-top: 8px;
 }
 
+.upload-workspace {
+  display: block;
+}
+
+.upload-workspace-with-sidebar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 18px;
+  align-items: start;
+}
+
+.upload-main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.upload-sidebar {
+  min-width: 0;
+}
+
 .upload-progress-panel {
   display: flex;
   flex-direction: column;
@@ -268,6 +290,11 @@ button {
   border: 1px solid var(--accent-border);
   border-radius: 16px;
   background: var(--surface-card);
+}
+
+.upload-progress-panel-sticky {
+  position: sticky;
+  top: 24px;
 }
 
 .upload-progress-header {
@@ -357,6 +384,16 @@ button {
 
 .upload-progress-fill.upload-progress-failed {
   background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+@media (max-width: 1080px) {
+  .upload-workspace-with-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .upload-progress-panel-sticky {
+    position: static;
+  }
 }
 
 .collapsible-section {
