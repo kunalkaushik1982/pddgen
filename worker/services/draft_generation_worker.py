@@ -167,8 +167,8 @@ class DraftGenerationWorker:
                 "notes_created": len(all_notes),
                 "screenshots_created": len(screenshot_artifacts),
             }
-        except Exception:
-            self._mark_failed(db, session_id)
+        except Exception as exc:
+            self._mark_failed(db, session_id, str(exc))
             raise
         finally:
             db.close()
@@ -614,17 +614,20 @@ class DraftGenerationWorker:
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
     @staticmethod
-    def _mark_failed(db, session_id: str) -> None:
+    def _mark_failed(db, session_id: str, detail: str | None = None) -> None:
         session = db.get(DraftSessionModel, session_id)
         if session is None:
             return
         session.status = "failed"
+        failure_detail = (detail or "Background draft generation did not complete successfully.").strip()
+        if len(failure_detail) > 500:
+            failure_detail = f"{failure_detail[:497]}..."
         db.add(
             ActionLogModel(
                 session_id=session_id,
                 event_type="generation_failed",
                 title="Draft generation failed",
-                detail="Background draft generation did not complete successfully.",
+                detail=failure_detail,
                 actor="system",
             )
         )

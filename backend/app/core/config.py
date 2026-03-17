@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     ai_api_key: str = ""
     ai_model: str = "gpt-4.1-mini"
     ai_base_url: str = "https://api.openai.com/v1"
+    ai_timeout_seconds: float = 180.0
     storage_backend: str = "local"
     local_storage_root: Path = Field(default=DEFAULT_STORAGE_ROOT)
     max_upload_size_mb: int = 1024

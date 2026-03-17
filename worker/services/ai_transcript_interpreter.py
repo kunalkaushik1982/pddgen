@@ -87,10 +87,7 @@ class AITranscriptInterpreter:
         }
         endpoint = f"{self.settings.ai_base_url.rstrip('/')}/chat/completions"
 
-        with httpx.Client(timeout=60.0) as client:
-            response = client.post(endpoint, headers=headers, json=payload)
-            response.raise_for_status()
-            body = response.json()
+        body = self._post_chat_completion(endpoint=endpoint, headers=headers, payload=payload, context="transcript interpretation")
 
         content = self._extract_content(body)
         parsed = self._parse_json_object(content)
@@ -190,10 +187,7 @@ class AITranscriptInterpreter:
         }
         endpoint = f"{self.settings.ai_base_url.rstrip('/')}/chat/completions"
 
-        with httpx.Client(timeout=60.0) as client:
-            response = client.post(endpoint, headers=headers, json=payload)
-            response.raise_for_status()
-            body = response.json()
+        body = self._post_chat_completion(endpoint=endpoint, headers=headers, payload=payload, context="diagram interpretation")
 
         content = self._extract_content(body)
         parsed = self._parse_json_object(content)
@@ -215,6 +209,31 @@ class AITranscriptInterpreter:
         if isinstance(content, str):
             return content
         raise ValueError("AI response content was not in a supported format.")
+
+    def _post_chat_completion(
+        self,
+        *,
+        endpoint: str,
+        headers: dict[str, str],
+        payload: dict[str, Any],
+        context: str,
+    ) -> dict[str, Any]:
+        """POST to the configured OpenAI-compatible endpoint and normalize retryable failures."""
+        timeout = httpx.Timeout(self.settings.ai_timeout_seconds)
+        try:
+            with httpx.Client(timeout=timeout) as client:
+                response = client.post(endpoint, headers=headers, json=payload)
+                response.raise_for_status()
+                return response.json()
+        except httpx.TimeoutException as exc:
+            raise RuntimeError(
+                f"AI {context} timed out after {self.settings.ai_timeout_seconds:.0f} seconds."
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            status_code = exc.response.status_code if exc.response is not None else "unknown"
+            raise RuntimeError(f"AI {context} failed with HTTP {status_code}.") from exc
+        except httpx.HTTPError as exc:
+            raise RuntimeError(f"AI {context} request failed: {exc.__class__.__name__}.") from exc
 
     @staticmethod
     def _parse_json_object(text: str) -> dict[str, Any]:
