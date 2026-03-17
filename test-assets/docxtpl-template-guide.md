@@ -39,6 +39,7 @@ pdd.overview.process_name
 pdd.overview.document_owner
 pdd.overview.document_status
 pdd.overview.generated_at
+pdd.overview.process_summary
 pdd.as_is_steps
 pdd.to_be_recommendations
 pdd.process_flow.mermaid_source
@@ -121,7 +122,10 @@ Diagram Type: {{ pdd.diagram_type }}
 1. Document Overview
 This document captures the AS-IS process observed during the discovery walkthrough.
 
-2. AS-IS Steps
+2. AS-IS Overview
+{{ pdd.overview.process_summary }}
+
+3. AS-IS Steps
 {% for step in pdd.as_is_steps %}
 {{ step.bullet_entry }}
 {% if step.primary_screenshot_image %}
@@ -130,12 +134,12 @@ Primary Screenshot:
 {% endif %}
 {% endfor %}
 
-3. TO-BE Suggestions
+4. TO-BE Suggestions
 {% for item in pdd.to_be_recommendations %}
 - {{ item.title }}: {{ item.recommendation }}
 {% endfor %}
 
-4. Detailed Flow Diagram
+5. Detailed Flow Diagram
 {% if pdd.process_flow.detailed_image %}
 {{ pdd.process_flow.detailed_image }}
 {% elif pdd.process_flow.diagram_image %}
@@ -145,7 +149,7 @@ Diagram Source:
 {{ pdd.process_flow.diagram_source }}
 {% endif %}
 
-5. Business Rules and Notes
+6. Business Rules and Notes
 {% for rule in pdd.business_rules %}
 - {{ rule.text }} ({{ rule.inference_type }}, {{ rule.confidence }})
 {% endfor %}
@@ -158,6 +162,7 @@ Diagram Source:
 - Do not use smart quotes.
 - Do not break one placeholder across multiple text runs manually if possible.
 - Use bold text directly in the Word template for all section headers.
+- `{{ pdd.overview.process_summary }}` is the recommended narrative paragraph for the AS-IS overview section.
 - Use Word bullet formatting on the line that contains `{{ step.bullet_entry }}` if you want true bullet points in the exported document.
 - `{{ step.primary_screenshot_image }}` is the recommended single-image placeholder per step.
 - `step.screenshots` is the multi-screenshot list for each step.

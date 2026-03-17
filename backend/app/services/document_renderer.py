@@ -243,6 +243,7 @@ class DocumentRendererService:
             for note in draft_session.process_notes
         ]
         to_be_recommendations = self.process_diagram_service.build_to_be_suggestions(draft_session)
+        process_summary = self._build_process_summary(draft_session, process_steps, process_notes)
 
         return {
             # Legacy keys kept for backward compatibility with earlier template experiments.
@@ -266,6 +267,7 @@ class DocumentRendererService:
                     "document_owner": draft_session.owner_id,
                     "document_status": draft_session.status,
                     "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    "process_summary": process_summary,
                 },
                 "as_is_steps": process_steps,
                 "to_be_recommendations": to_be_recommendations,
@@ -287,6 +289,69 @@ class DocumentRendererService:
                 "business_rules": process_notes,
             },
         }
+
+    @staticmethod
+    def _build_process_summary(draft_session: DraftSessionModel, process_steps: list[dict], process_notes: list[dict]) -> str:
+        """Build a business-readable overview paragraph for the exported document."""
+        applications = [
+            item
+            for item in dict.fromkeys(
+                str(step.get("application_name", "") or "").strip()
+                for step in process_steps
+            )
+            if item
+        ]
+        action_samples = [
+            str(step.get("action_text", "") or "").strip().rstrip(".")
+            for step in process_steps[:4]
+            if str(step.get("action_text", "") or "").strip()
+        ]
+        note_samples = [
+            str(note.get("text", "") or "").strip().rstrip(".")
+            for note in process_notes[:2]
+            if str(note.get("text", "") or "").strip()
+        ]
+
+        process_name = (draft_session.title or "the observed business process").strip()
+        application_text = ", ".join(applications) if applications else "the supporting business application landscape"
+        step_count = len(process_steps)
+
+        summary_parts = [
+            (
+                f"The AS-IS process documented in this draft captures how {process_name} is currently executed within "
+                f"{application_text}. The walkthrough reflects the observed user activity required to complete the business objective, "
+                f"with the process broken into {step_count} ordered step{'s' if step_count != 1 else ''} for review and refinement."
+            )
+        ]
+
+        if action_samples:
+            if len(action_samples) == 1:
+                action_text = action_samples[0]
+            else:
+                action_text = ", ".join(action_samples[:-1]) + f", and {action_samples[-1]}"
+            summary_parts.append(
+                f"Across the captured flow, the user moves through actions such as {action_text}, showing how the transaction progresses from initiation through validation and completion."
+            )
+
+        if applications:
+            summary_parts.append(
+                f"The applications involved in this process include {application_text}, which together support the operational controls, data entry points, and review checkpoints required to complete the work accurately."
+            )
+
+        if note_samples:
+            if len(note_samples) == 1:
+                note_text = note_samples[0]
+            else:
+                note_text = " and ".join(note_samples)
+            summary_parts.append(
+                f"During the walkthrough, additional business context was also identified, including {note_text}, which helps explain the intent, dependencies, and control expectations behind the recorded steps."
+            )
+
+        summary_parts.append(
+            "This section should be used as a narrative summary of the current-state process before reviewing the detailed step bullets, primary screenshots, and supporting process flow diagram."
+        )
+
+        return " ".join(summary_parts)
 
     @staticmethod
     def _load_saved_diagram_positions(db: Session, session_id: str, view_type: str) -> dict[str, dict[str, float | str]]:
