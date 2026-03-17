@@ -86,8 +86,8 @@ export function AppRouter(): JSX.Element {
     [sessionHistory],
   );
   const resumableDraftSessions = useMemo(
-    () => sessionHistory.filter((session) => session.status === "draft" && session.resumeReady),
-    [sessionHistory],
+    () => sessionHistory.filter((session) => session.status === "draft" && session.resumeReady && session.id !== uploadSessionId),
+    [sessionHistory, uploadSessionId],
   );
 
   useEffect(() => {
