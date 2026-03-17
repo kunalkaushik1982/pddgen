@@ -663,13 +663,25 @@ button {
   background: linear-gradient(135deg, #6d5ba6, #4f46e5);
 }
 
-.history-progress-processing {
+.history-progress-queued {
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+}
+
+.history-progress-transcript {
   background: linear-gradient(135deg, #7c3aed, #8b5cf6);
 }
 
-.history-progress-review,
+.history-progress-screenshots {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+}
+
+.history-progress-diagram {
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+}
+
+.history-progress-ready,
 .history-progress-exported {
-  background: linear-gradient(135deg, #0f9d58, #34d399);
+  background: linear-gradient(135deg, #111111, #2f2f2f);
 }
 
 .history-progress-failed {
@@ -1419,6 +1431,52 @@ button {
 .history-stage-title {
   font-weight: 700;
   color: var(--app-text);
+}
+
+.history-stage-title-draft,
+.history-progress-label-draft {
+  color: #8b5cf6;
+}
+
+.history-stage-title-queued,
+.history-progress-label-queued {
+  color: #38bdf8;
+}
+
+.history-stage-title-transcript,
+.history-progress-label-transcript {
+  color: #a78bfa;
+}
+
+.history-stage-title-screenshots,
+.history-progress-label-screenshots {
+  color: #f59e0b;
+}
+
+.history-stage-title-diagram,
+.history-progress-label-diagram {
+  color: #2dd4bf;
+}
+
+.history-stage-title-exported,
+.history-progress-label-exported {
+  color: #34d399;
+}
+
+.history-stage-title-failed,
+.history-progress-label-failed {
+  color: #fb7185;
+}
+
+.history-stage-title-ready,
+.history-progress-label-ready {
+  display: inline-flex;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #111111;
+  font-weight: 800;
 }
 
 .step-preview {

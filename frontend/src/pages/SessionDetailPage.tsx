@@ -9,12 +9,14 @@ import { StepReviewPage } from "./StepReviewPage";
 import type { ProcessStep } from "../types/process";
 import type { DraftSession } from "../types/session";
 
+type ReviewMode = "view" | "edit";
+
 type SessionDetailPageProps = {
   session: DraftSession | null;
   selectedStepId: string | null;
+  initialReviewMode?: ReviewMode;
   disabled?: boolean;
   onBackToWorkspace: () => void;
-  onRefresh: () => void;
   onExportDocx: () => void;
   onExportPdf: () => void;
   onSelectStep: (stepId: string) => void;
@@ -32,9 +34,9 @@ type SessionDetailPageProps = {
 export function SessionDetailPage({
   session,
   selectedStepId,
+  initialReviewMode = "view",
   disabled,
   onBackToWorkspace,
-  onRefresh,
   onExportDocx,
   onExportPdf,
   onSelectStep,
@@ -66,15 +68,13 @@ export function SessionDetailPage({
       <StepReviewPage
         session={session}
         selectedStepId={selectedStepId}
+        initialReviewMode={initialReviewMode}
         disabled={disabled}
         showHeader={false}
         headerActions={
           <div className="button-row">
             <button type="button" className="button-secondary" onClick={onBackToWorkspace} disabled={disabled}>
               Back to Workspace
-            </button>
-            <button type="button" className="button-secondary" onClick={onRefresh} disabled={disabled}>
-              Refresh
             </button>
             <button type="button" className="button-secondary export-button" onClick={onExportDocx} disabled={disabled}>
               <span className="file-badge file-badge-docx">W</span>

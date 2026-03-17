@@ -41,6 +41,7 @@ const INITIAL_WORKFLOW_CONTEXT: WorkflowContext = {
 };
 
 export function AppRouter(): JSX.Element {
+  const [sessionDetailInitialMode, setSessionDetailInitialMode] = useState<"view" | "edit">("view");
   const [title, setTitle] = useState("Untitled PDD Session");
   const [ownerId, setOwnerId] = useState("pilot-user");
   const [diagramType, setDiagramType] = useState<DiagramType>("flowchart");
@@ -671,8 +672,8 @@ export function AppRouter(): JSX.Element {
         <SessionHistoryPage
           sessions={visibleSessionHistory}
           disabled={context.isBusy}
-          onRefresh={() => void loadSessionHistory()}
-          onOpen={(sessionId) => void openPastSession(sessionId)}
+          onOpenView={(sessionId) => void openPastSession(sessionId, "view")}
+          onOpenEdit={(sessionId) => void openPastSession(sessionId, "edit")}
           onRetry={(sessionId) => void handleRetrySession(sessionId)}
           onExportDocx={(sessionId) => void handleExportSession(sessionId, "docx")}
           onExportPdf={(sessionId) => void handleExportSession(sessionId, "pdf")}
@@ -681,9 +682,9 @@ export function AppRouter(): JSX.Element {
         <SessionDetailPage
           session={context.currentSession}
           selectedStepId={context.selectedStepId}
+          initialReviewMode={sessionDetailInitialMode}
           disabled={context.isBusy}
           onBackToWorkspace={() => setActiveView("workspace")}
-          onRefresh={() => void handleRefreshSession()}
           onExportDocx={() => context.currentSession ? void handleExportSession(context.currentSession.id, "docx") : undefined}
           onExportPdf={() => context.currentSession ? void handleExportSession(context.currentSession.id, "pdf") : undefined}
           onSelectStep={(stepId) => setContext((current) => ({ ...current, selectedStepId: stepId }))}
@@ -763,10 +764,11 @@ export function AppRouter(): JSX.Element {
     }
   }
 
-  async function openPastSession(sessionId: string): Promise<void> {
+  async function openPastSession(sessionId: string, mode: "view" | "edit"): Promise<void> {
     setBusy(true);
     try {
       const session = await apiClient.getDraftSession(sessionId);
+      setSessionDetailInitialMode(mode);
       setContext((current) => ({
         ...current,
         currentSession: session,

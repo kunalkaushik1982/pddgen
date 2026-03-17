@@ -18,6 +18,7 @@ type EditWorkspaceTab = "steps" | "diagram";
 type StepReviewPageProps = {
   session: DraftSession | null;
   selectedStepId: string | null;
+  initialReviewMode?: ReviewMode;
   disabled?: boolean;
   showHeader?: boolean;
   headerActions?: React.ReactNode;
@@ -37,6 +38,7 @@ type StepReviewPageProps = {
 export function StepReviewPage({
   session,
   selectedStepId,
+  initialReviewMode = "view",
   disabled,
   showHeader = true,
   headerActions,
@@ -52,7 +54,7 @@ export function StepReviewPage({
   const [draftValues, setDraftValues] = useState<Partial<ProcessStep>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [candidateIndex, setCandidateIndex] = useState(0);
-  const [reviewMode, setReviewMode] = useState<ReviewMode>("view");
+  const [reviewMode, setReviewMode] = useState<ReviewMode>(initialReviewMode);
   const [activeViewTab, setActiveViewTab] = useState<ViewWorkspaceTab>("summary");
   const [activeEditTab, setActiveEditTab] = useState<EditWorkspaceTab>("steps");
 
@@ -74,10 +76,10 @@ export function StepReviewPage({
   }, [selectedStep?.id]);
 
   useEffect(() => {
-    setReviewMode("view");
+    setReviewMode(initialReviewMode);
     setActiveViewTab("summary");
     setActiveEditTab("steps");
-  }, [session?.id]);
+  }, [initialReviewMode, session?.id]);
 
   if (!session) {
     return (
