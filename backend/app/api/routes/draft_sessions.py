@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.dependencies import (
     get_artifact_ingestion_service,
     get_current_user,
+    get_session_chat_service,
     get_job_dispatcher_service,
     get_pipeline_orchestrator_service,
 )
@@ -24,6 +25,8 @@ from app.schemas.draft_session import (
     DraftSessionListItemResponse,
     DraftSessionResponse,
     ProcessStepResponse,
+    SessionAnswerResponse,
+    SessionQuestionRequest,
 )
 from app.schemas.draft_session import SaveDiagramArtifactRequest, SaveDiagramModelRequest
 from app.schemas.process_step import CandidateScreenshotSelectRequest, ProcessStepUpdateRequest, StepScreenshotUpdateRequest
@@ -36,6 +39,7 @@ from app.services.mappers import map_draft_session, map_draft_session_list_item,
 from app.services.action_log_service import ActionLogService
 from app.services.process_diagram_service import ProcessDiagramService
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.session_chat_service import SessionChatService
 from app.services.artifact_ingestion import ArtifactIngestionService
 from app.schemas.draft_session import DiagramLayoutResponse, SaveDiagramLayoutRequest
 
@@ -99,6 +103,24 @@ def get_draft_session(
     """Return the structured draft session for review."""
     session = service.get_session(db, session_id, owner_id=current_user.username)
     return map_draft_session(session)
+
+
+@router.post("/{session_id}/ask", response_model=SessionAnswerResponse)
+def ask_session(
+    session_id: str,
+    payload: SessionQuestionRequest,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    chat_service: Annotated[SessionChatService, Depends(get_session_chat_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+) -> SessionAnswerResponse:
+    """Answer a grounded question using this session's transcripts, steps, and notes."""
+    session = service.get_session(db, session_id, owner_id=current_user.username)
+    try:
+        answer = chat_service.ask(session=session, question=payload.question)
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    return SessionAnswerResponse.model_validate(answer)
 
 
 @router.get("/{session_id}/diagram-model", response_model=DiagramModelResponse)

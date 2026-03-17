@@ -627,6 +627,71 @@ button {
   color: var(--summary-card-subtle);
 }
 
+.session-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.session-chat-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  background: var(--surface-card);
+}
+
+.session-chat-question {
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.session-chat-answer {
+  color: var(--app-text);
+}
+
+.session-chat-confidence {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.session-chat-confidence-high {
+  background: rgba(22, 163, 74, 0.14);
+  color: #4ade80;
+}
+
+.session-chat-confidence-medium {
+  background: rgba(217, 119, 6, 0.14);
+  color: #fbbf24;
+}
+
+.session-chat-confidence-low {
+  background: rgba(220, 38, 38, 0.14);
+  color: #f87171;
+}
+
+.session-chat-citations {
+  display: grid;
+  gap: 10px;
+}
+
+.session-chat-citation {
+  padding: 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.session-chat-citation-title {
+  font-weight: 700;
+  color: var(--app-text);
+}
+
 .review-subsection {
   gap: 14px;
 }

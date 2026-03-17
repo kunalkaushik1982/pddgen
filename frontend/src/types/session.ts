@@ -56,6 +56,19 @@ export type DraftSessionListItem = {
   canRetry: boolean;
 };
 
+export type SessionAnswerCitation = {
+  id: string;
+  sourceType: string;
+  title: string;
+  snippet: string;
+};
+
+export type SessionAnswer = {
+  answer: string;
+  confidence: "high" | "medium" | "low";
+  citations: SessionAnswerCitation[];
+};
+
 export type ExportResult = {
   id: string;
   kind: string;

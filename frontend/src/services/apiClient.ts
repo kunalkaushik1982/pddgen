@@ -11,7 +11,7 @@ import type {
   DiagramModel,
 } from "../types/diagram";
 import type { CandidateScreenshot, ProcessNote, ProcessStep, StepScreenshot } from "../types/process";
-import type { ActionLogEntry, DraftSession, DraftSessionListItem, ExportResult, InputArtifact, OutputDocument } from "../types/session";
+import type { ActionLogEntry, DraftSession, DraftSessionListItem, ExportResult, InputArtifact, OutputDocument, SessionAnswer } from "../types/session";
 
 const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
 const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "");
@@ -129,6 +129,19 @@ type BackendDraftSessionListItem = {
   failure_detail: string;
   resume_ready: boolean;
   can_retry: boolean;
+};
+
+type BackendSessionAnswerCitation = {
+  id: string;
+  source_type: string;
+  title: string;
+  snippet: string;
+};
+
+type BackendSessionAnswer = {
+  answer: string;
+  confidence: SessionAnswer["confidence"];
+  citations: BackendSessionAnswerCitation[];
 };
 
 type BackendUser = {
@@ -338,6 +351,19 @@ function mapDraftSessionListItem(session: BackendDraftSessionListItem): DraftSes
     failureDetail: session.failure_detail,
     resumeReady: session.resume_ready,
     canRetry: session.can_retry,
+  };
+}
+
+function mapSessionAnswer(answer: BackendSessionAnswer): SessionAnswer {
+  return {
+    answer: answer.answer,
+    confidence: answer.confidence,
+    citations: answer.citations.map((citation) => ({
+      id: citation.id,
+      sourceType: citation.source_type,
+      title: citation.title,
+      snippet: citation.snippet,
+    })),
   };
 }
 
@@ -576,6 +602,16 @@ export class ApiClient {
     });
     const session = await parseJsonResponse<BackendDraftSession>(response);
     return mapDraftSession(session);
+  }
+
+  async askSession(sessionId: string, question: string): Promise<SessionAnswer> {
+    const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/ask`, {
+      method: "POST",
+      headers: this.buildHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ question }),
+    });
+    const answer = await parseJsonResponse<BackendSessionAnswer>(response);
+    return mapSessionAnswer(answer);
   }
 
   async getDiagramModel(sessionId: string, viewType: DiagramModel["viewType"] = "overview"): Promise<DiagramModel> {

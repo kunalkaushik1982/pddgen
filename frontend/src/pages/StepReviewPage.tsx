@@ -6,14 +6,20 @@
 import React, { useEffect, useState } from "react";
 
 import { FlowchartPreviewPanel } from "../components/diagram/FlowchartPreviewPanel";
+import { SessionChatPanel } from "../components/review/SessionChatPanel";
 import { StepReviewPanel } from "../components/review/StepReviewPanel";
 import { apiClient } from "../services/apiClient";
 import type { CandidateScreenshot, ProcessStep } from "../types/process";
-import type { DraftSession } from "../types/session";
+import type { DraftSession, SessionAnswer } from "../types/session";
 
 type ReviewMode = "view" | "edit";
-type ViewWorkspaceTab = "summary" | "steps" | "diagram" | "log";
+type ViewWorkspaceTab = "summary" | "steps" | "diagram" | "ask" | "log";
 type EditWorkspaceTab = "steps" | "diagram";
+type SessionChatEntry = {
+  id: string;
+  question: string;
+  answer: SessionAnswer;
+};
 
 type StepReviewPageProps = {
   session: DraftSession | null;
@@ -57,6 +63,8 @@ export function StepReviewPage({
   const [reviewMode, setReviewMode] = useState<ReviewMode>(initialReviewMode);
   const [activeViewTab, setActiveViewTab] = useState<ViewWorkspaceTab>("summary");
   const [activeEditTab, setActiveEditTab] = useState<EditWorkspaceTab>("steps");
+  const [chatEntries, setChatEntries] = useState<SessionChatEntry[]>([]);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   useEffect(() => {
     setDraftValues(
@@ -79,6 +87,8 @@ export function StepReviewPage({
     setReviewMode(initialReviewMode);
     setActiveViewTab("summary");
     setActiveEditTab("steps");
+    setChatEntries([]);
+    setChatError(null);
   }, [initialReviewMode, session?.id]);
 
   if (!session) {
@@ -212,6 +222,15 @@ export function StepReviewPage({
               <button
                 type="button"
                 role="tab"
+                aria-selected={activeViewTab === "ask"}
+                className={`review-workspace-tab ${activeViewTab === "ask" ? "review-workspace-tab-active" : ""}`}
+                onClick={() => setActiveViewTab("ask")}
+              >
+                Ask
+              </button>
+              <button
+                type="button"
+                role="tab"
                 aria-selected={activeViewTab === "log"}
                 className={`review-workspace-tab ${activeViewTab === "log" ? "review-workspace-tab-active" : ""}`}
                 onClick={() => setActiveViewTab("log")}
@@ -296,6 +315,15 @@ export function StepReviewPage({
               </div>
               <FlowchartPreviewPanel session={session} allowEditing={false} onSessionRefresh={onRefreshSession} />
             </section>
+          ) : null}
+
+          {reviewMode === "view" && activeViewTab === "ask" ? (
+            <SessionChatPanel
+              disabled={disabled}
+              errorMessage={chatError}
+              entries={chatEntries}
+              onAsk={handleAskSession}
+            />
           ) : null}
 
           {reviewMode === "edit" && activeEditTab === "diagram" ? (
@@ -588,5 +616,26 @@ export function StepReviewPage({
 
   async function makeCandidatePrimary(step: ProcessStep, candidate: CandidateScreenshot) {
     await onSelectCandidateScreenshot(step.id, candidate.id, { isPrimary: true });
+  }
+
+  async function handleAskSession(question: string) {
+    if (!session) {
+      return;
+    }
+
+    setChatError(null);
+    try {
+      const answer = await apiClient.askSession(session.id, question);
+      setChatEntries((current) => [
+        {
+          id: `${Date.now()}_${current.length}`,
+          question,
+          answer,
+        },
+        ...current,
+      ]);
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : "Ask this Session could not answer that question.");
+    }
   }
 }

@@ -15,6 +15,7 @@ from app.services.auth_service import AuthService
 from app.services.document_renderer import DocumentRendererService
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.session_chat_service import SessionChatService
 from app.storage.storage_service import StorageService
 
 
@@ -36,6 +37,11 @@ def get_pipeline_orchestrator_service() -> PipelineOrchestratorService:
 def get_document_renderer_service() -> DocumentRendererService:
     """Provide the DOCX rendering service."""
     return DocumentRendererService(storage_service=get_storage_service())
+
+
+def get_session_chat_service() -> SessionChatService:
+    """Provide the session-grounded Q&A service."""
+    return SessionChatService(storage_service=get_storage_service())
 
 
 def get_job_dispatcher_service() -> JobDispatcherService:

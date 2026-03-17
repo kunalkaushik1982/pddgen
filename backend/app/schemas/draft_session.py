@@ -159,6 +159,29 @@ class DraftSessionListItemResponse(BaseModel):
     can_retry: bool = False
 
 
+class SessionQuestionRequest(BaseModel):
+    """Question asked against one session's evidence."""
+
+    question: str = Field(min_length=1, max_length=4000)
+
+
+class SessionAnswerCitationResponse(BaseModel):
+    """Citation used in one grounded session answer."""
+
+    id: str
+    source_type: str
+    title: str
+    snippet: str
+
+
+class SessionAnswerResponse(BaseModel):
+    """Grounded answer for one session question."""
+
+    answer: str
+    confidence: str
+    citations: list[SessionAnswerCitationResponse]
+
+
 class DiagramNodeResponse(BaseModel):
     """Flowchart node response for frontend-driven diagram rendering."""
 
