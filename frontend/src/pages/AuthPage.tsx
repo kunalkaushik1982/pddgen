@@ -20,7 +20,7 @@ export function AuthPage({ disabled, message, onLogin, onRegister }: AuthPagePro
     <main className="auth-shell">
       <section className="panel stack auth-panel">
         <div>
-          <h1 className="app-title">PDD Generator</h1>
+          <h1 className="app-title">BA Process Copilot</h1>
           <p className="app-subtitle">Sign in to create new runs and reopen previous ones.</p>
         </div>
 

@@ -597,7 +597,7 @@ export function AppRouter(): JSX.Element {
 
   return (
     <AppShell
-      title="PDD Generator"
+      title="BA Process Copilot"
       subtitle="Upload discovery evidence, review AI-drafted AS-IS steps, and export a DOCX PDD."
       statusLabel={statusLabel}
       userLabel={currentUser.username}
