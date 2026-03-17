@@ -31,6 +31,19 @@ export type ArtifactUploadState = {
 };
 
 export type ArtifactQueueItem = {
+  key: string;
   artifactKind: InputArtifact["kind"];
   file: File;
+};
+
+export type ArtifactUploadProgressStatus = "pending" | "uploading" | "uploaded" | "failed";
+
+export type ArtifactUploadProgressItem = {
+  key: string;
+  artifactKind: InputArtifact["kind"];
+  name: string;
+  size: number;
+  status: ArtifactUploadProgressStatus;
+  progress: number;
+  error: string | null;
 };

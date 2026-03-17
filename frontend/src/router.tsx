@@ -14,7 +14,13 @@ import { apiClient } from "./services/apiClient";
 import type { User } from "./types/auth";
 import type { ProcessStep } from "./types/process";
 import type { DraftSession, DraftSessionListItem } from "./types/session";
-import type { ArtifactQueueItem, ArtifactUploadState, DiagramType, WorkflowContext } from "./types/workflow";
+import type {
+  ArtifactQueueItem,
+  ArtifactUploadProgressItem,
+  ArtifactUploadState,
+  DiagramType,
+  WorkflowContext,
+} from "./types/workflow";
 
 const INITIAL_UPLOAD_STATE: ArtifactUploadState = {
   videoFiles: [],
@@ -47,6 +53,9 @@ export function AppRouter(): JSX.Element {
     controls: false,
     review: false,
   });
+  const [uploadSessionId, setUploadSessionId] = useState<string | null>(null);
+  const [uploadItems, setUploadItems] = useState<ArtifactUploadProgressItem[]>([]);
+  const [isUploadingInputs, setIsUploadingInputs] = useState(false);
 
   const statusLabel = useMemo(() => {
     if (activeView === "history") {
@@ -58,8 +67,18 @@ export function AppRouter(): JSX.Element {
     return "Workspace";
   }, [activeView]);
 
-  const canGenerateDraft =
+  const requiredUploadSelected =
     uploads.videoFiles.length > 0 && uploads.transcriptFiles.length > 0 && Boolean(uploads.templateFile);
+
+  const canUploadInputs = requiredUploadSelected && !isUploadingInputs && !context.isBusy;
+
+  const canGenerateDraft =
+    Boolean(uploadSessionId) &&
+    requiredUploadSelected &&
+    uploadItems.length > 0 &&
+    uploadItems.every((item) => item.status === "uploaded") &&
+    !isUploadingInputs &&
+    !context.isBusy;
 
   useEffect(() => {
     void restoreUser();
@@ -122,16 +141,20 @@ export function AppRouter(): JSX.Element {
   function handleFilesChange(field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", files: FileList | null): void {
     const nextFiles = files ? Array.from(files) : [];
     setUploads((current) => {
+      let nextState: ArtifactUploadState;
       if (field === "videoFiles" || field === "transcriptFiles") {
-        return { ...current, [field]: nextFiles };
+        nextState = { ...current, [field]: nextFiles };
+      } else if (field === "templateFile") {
+        nextState = { ...current, templateFile: nextFiles[0] ?? null };
+      } else if (field === "sopFiles") {
+        nextState = { ...current, optionalArtifacts: { ...current.optionalArtifacts, sopFiles: nextFiles } };
+      } else {
+        nextState = { ...current, optionalArtifacts: { ...current.optionalArtifacts, diagramFiles: nextFiles } };
       }
-      if (field === "templateFile") {
-        return { ...current, templateFile: nextFiles[0] ?? null };
-      }
-      if (field === "sopFiles") {
-        return { ...current, optionalArtifacts: { ...current.optionalArtifacts, sopFiles: nextFiles } };
-      }
-      return { ...current, optionalArtifacts: { ...current.optionalArtifacts, diagramFiles: nextFiles } };
+
+      setUploadSessionId(null);
+      setUploadItems(createInitialUploadItems(nextState));
+      return nextState;
     });
   }
 
@@ -141,19 +164,70 @@ export function AppRouter(): JSX.Element {
     }
 
     const session = await apiClient.createDraftSession({ title, ownerId, diagramType });
-    const queue: ArtifactQueueItem[] = [
-      ...uploads.videoFiles.map((file) => ({ artifactKind: "video" as const, file })),
-      ...uploads.transcriptFiles.map((file) => ({ artifactKind: "transcript" as const, file })),
-      { artifactKind: "template" as const, file: uploads.templateFile },
-      ...uploads.optionalArtifacts.sopFiles.map((file) => ({ artifactKind: "sop" as const, file })),
-      ...uploads.optionalArtifacts.diagramFiles.map((file) => ({ artifactKind: "diagram" as const, file })),
-    ];
+    const queue = createArtifactQueue(uploads);
+    setUploadItems(createInitialUploadItems(uploads));
 
     for (const item of queue) {
-      await apiClient.uploadArtifact(session.id, item.artifactKind, item.file);
+      setUploadItems((current) =>
+        current.map((entry) =>
+          entry.key === item.key
+            ? {
+                ...entry,
+                status: "uploading",
+                progress: 0,
+                error: null,
+              }
+            : entry,
+        ),
+      );
+      try {
+        await apiClient.uploadArtifactWithProgress(session.id, item.artifactKind, item.file, {
+          onProgress: (progress) => {
+            setUploadItems((current) =>
+              current.map((entry) =>
+                entry.key === item.key
+                  ? {
+                      ...entry,
+                      status: "uploading",
+                      progress,
+                      error: null,
+                    }
+                  : entry,
+              ),
+            );
+          },
+        });
+        setUploadItems((current) =>
+          current.map((entry) =>
+            entry.key === item.key
+              ? {
+                  ...entry,
+                  status: "uploaded",
+                  progress: 100,
+                  error: null,
+                }
+              : entry,
+          ),
+        );
+      } catch (error) {
+        const message = getErrorMessage(error);
+        setUploadItems((current) =>
+          current.map((entry) =>
+            entry.key === item.key
+              ? {
+                  ...entry,
+                  status: "failed",
+                  error: message,
+                }
+              : entry,
+          ),
+        );
+        throw error;
+      }
     }
 
     const refreshed = await apiClient.getDraftSession(session.id);
+    setUploadSessionId(session.id);
     await loadSessionHistory();
     setContext((current) => ({
       ...current,
@@ -164,21 +238,47 @@ export function AppRouter(): JSX.Element {
     return refreshed;
   }
 
+  async function handleUploadInputs(): Promise<void> {
+    if (!requiredUploadSelected) {
+      setMessage("error", "Select at least one video, one transcript, and one DOCX template before uploading.");
+      return;
+    }
+
+    setBusy(true);
+    setIsUploadingInputs(true);
+    try {
+      await createSessionAndUploadArtifacts();
+      setMessage("info", "Inputs uploaded. Click Generate Draft when you are ready to start processing.");
+    } catch (error) {
+      setUploadSessionId(null);
+      setMessage("error", getErrorMessage(error));
+    } finally {
+      setIsUploadingInputs(false);
+      setBusy(false);
+    }
+  }
+
   async function handleGeneratePdd(): Promise<void> {
+    if (!uploadSessionId) {
+      setMessage("error", "Upload the required inputs before starting draft generation.");
+      return;
+    }
+
     if (!canGenerateDraft) {
-      setMessage("error", "Select at least one video, one transcript, and one DOCX template before generating the draft.");
+      setMessage("error", "Finish uploading the selected inputs before generating the draft.");
       return;
     }
 
     setBusy(true);
     try {
-      const uploadedSession = await createSessionAndUploadArtifacts();
-      const generatedSession = await apiClient.generateDraftSession(uploadedSession.id);
+      const generatedSession = await apiClient.generateDraftSession(uploadSessionId);
       setContext((current) => ({
         ...current,
         currentSession: generatedSession,
         selectedStepId: generatedSession.processSteps[0]?.id ?? current.selectedStepId,
       }));
+      setUploadSessionId(null);
+      setUploadItems([]);
       setUploads(INITIAL_UPLOAD_STATE);
       setTitle("Untitled PDD Session");
       setDiagramType("flowchart");
@@ -432,7 +532,10 @@ export function AppRouter(): JSX.Element {
                 ownerId={ownerId}
                 diagramType={diagramType}
                 uploads={uploads}
-                disabled={context.isBusy}
+                uploadItems={uploadItems}
+                disabled={context.isBusy || isUploadingInputs}
+                canUploadInputs={canUploadInputs}
+                canGenerateDraft={canGenerateDraft}
                 showHeader={false}
                 ownerLocked
                 showSubmitButton={false}
@@ -440,9 +543,17 @@ export function AppRouter(): JSX.Element {
                   <div className="session-actions-row">
                     <button
                       type="button"
+                      className="button-secondary"
+                      onClick={() => void handleUploadInputs()}
+                      disabled={!canUploadInputs}
+                    >
+                      {isUploadingInputs ? "Uploading..." : "Upload Inputs"}
+                    </button>
+                    <button
+                      type="button"
                       className="button-primary"
                       onClick={() => void handleGeneratePdd()}
-                      disabled={context.isBusy || !canGenerateDraft}
+                      disabled={!canGenerateDraft}
                     >
                       Generate Draft
                     </button>
@@ -534,6 +645,8 @@ export function AppRouter(): JSX.Element {
       setSessionHistory([]);
       setContext(INITIAL_WORKFLOW_CONTEXT);
       setUploads(INITIAL_UPLOAD_STATE);
+      setUploadSessionId(null);
+      setUploadItems([]);
       setActiveView("workspace");
       setOwnerId("pilot-user");
       setDiagramType("flowchart");
@@ -567,6 +680,44 @@ export function AppRouter(): JSX.Element {
       setBusy(false);
     }
   }
+}
+
+function createArtifactQueue(uploads: ArtifactUploadState): ArtifactQueueItem[] {
+  const queue: ArtifactQueueItem[] = [
+    ...uploads.videoFiles.map((file, index) => ({ key: buildArtifactQueueKey("video", file, index), artifactKind: "video" as const, file })),
+    ...uploads.transcriptFiles.map((file, index) => ({
+      key: buildArtifactQueueKey("transcript", file, index),
+      artifactKind: "transcript" as const,
+      file,
+    })),
+    ...(uploads.templateFile
+      ? [{ key: buildArtifactQueueKey("template", uploads.templateFile, 0), artifactKind: "template" as const, file: uploads.templateFile }]
+      : []),
+    ...uploads.optionalArtifacts.sopFiles.map((file, index) => ({ key: buildArtifactQueueKey("sop", file, index), artifactKind: "sop" as const, file })),
+    ...uploads.optionalArtifacts.diagramFiles.map((file, index) => ({
+      key: buildArtifactQueueKey("diagram", file, index),
+      artifactKind: "diagram" as const,
+      file,
+    })),
+  ];
+
+  return queue;
+}
+
+function createInitialUploadItems(uploads: ArtifactUploadState): ArtifactUploadProgressItem[] {
+  return createArtifactQueue(uploads).map((item) => ({
+    key: item.key,
+    artifactKind: item.artifactKind,
+    name: item.file.name,
+    size: item.file.size,
+    status: "pending",
+    progress: 0,
+    error: null,
+  }));
+}
+
+function buildArtifactQueueKey(kind: ArtifactQueueItem["artifactKind"], file: File, index: number): string {
+  return `${kind}:${file.name}:${file.size}:${file.lastModified}:${index}`;
 }
 
 function getErrorMessage(error: unknown): string {

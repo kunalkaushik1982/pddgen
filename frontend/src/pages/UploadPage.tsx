@@ -5,14 +5,21 @@
 
 import React from "react";
 
-import type { ArtifactUploadState, DiagramType } from "../types/workflow";
+import type {
+  ArtifactUploadProgressItem,
+  ArtifactUploadState,
+  DiagramType,
+} from "../types/workflow";
 
 type UploadPageProps = {
   title: string;
   ownerId: string;
   diagramType: DiagramType;
   uploads: ArtifactUploadState;
+  uploadItems: ArtifactUploadProgressItem[];
   disabled?: boolean;
+  canUploadInputs?: boolean;
+  canGenerateDraft?: boolean;
   showHeader?: boolean;
   ownerLocked?: boolean;
   showSubmitButton?: boolean;
@@ -22,6 +29,7 @@ type UploadPageProps = {
   onOwnerIdChange: (value: string) => void;
   onDiagramTypeChange: (value: DiagramType) => void;
   onFilesChange: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", files: FileList | null) => void;
+  onUploadInputs?: () => void;
   onSubmit: () => void;
 };
 
@@ -30,7 +38,10 @@ export function UploadPage({
   ownerId,
   diagramType,
   uploads,
+  uploadItems,
   disabled,
+  canUploadInputs = false,
+  canGenerateDraft = false,
   showHeader = true,
   ownerLocked = false,
   showSubmitButton = true,
@@ -40,6 +51,7 @@ export function UploadPage({
   onOwnerIdChange,
   onDiagramTypeChange,
   onFilesChange,
+  onUploadInputs,
   onSubmit,
 }: UploadPageProps): JSX.Element {
   return (
@@ -108,15 +120,99 @@ export function UploadPage({
         {uploads.templateFile ? "1 template" : "0 templates"}
       </div>
 
+      {uploadItems.length > 0 ? (
+        <div className="upload-progress-panel">
+          <div className="upload-progress-header">
+            <strong>Upload status</strong>
+            <span className="artifact-meta">
+              {uploadItems.filter((item) => item.status === "uploaded").length}/{uploadItems.length} uploaded
+            </span>
+          </div>
+          <div className="upload-progress-list">
+            {uploadItems.map((item) => (
+              <div key={item.key} className="upload-progress-card">
+                <div className="upload-progress-main">
+                  <div className="upload-progress-title-row">
+                    <strong>{item.name}</strong>
+                    <span className={`upload-progress-badge upload-progress-${item.status}`}>{getStatusLabel(item.status)}</span>
+                  </div>
+                  <div className="artifact-meta">
+                    {formatArtifactKind(item.artifactKind)} | {formatFileSize(item.size)}
+                  </div>
+                  <div className="upload-progress-track" aria-hidden="true">
+                    <div className={`upload-progress-fill upload-progress-${item.status}`} style={{ width: `${item.progress}%` }} />
+                  </div>
+                  <div className="artifact-meta">
+                    {item.status === "failed" && item.error ? item.error : `${item.progress}%`}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {actionBar ? <div className="session-inline-actions">{actionBar}</div> : null}
 
       {showSubmitButton ? (
         <div className="button-row">
+          {onUploadInputs ? (
+            <button type="button" className="button-secondary" onClick={onUploadInputs} disabled={disabled || !canUploadInputs}>
+              Upload inputs
+            </button>
+          ) : null}
           <button type="button" className="button-primary" onClick={onSubmit} disabled={disabled}>
-            {submitLabel}
+            {onUploadInputs ? "Generate Draft" : submitLabel}
           </button>
         </div>
       ) : null}
     </section>
   );
+}
+
+function formatArtifactKind(kind: ArtifactUploadProgressItem["artifactKind"]): string {
+  switch (kind) {
+    case "video":
+      return "Video";
+    case "transcript":
+      return "Transcript";
+    case "template":
+      return "Template";
+    case "sop":
+      return "SOP";
+    case "diagram":
+      return "Diagram";
+    case "screenshot":
+      return "Screenshot";
+    default:
+      return kind;
+  }
+}
+
+function getStatusLabel(status: ArtifactUploadProgressItem["status"]): string {
+  switch (status) {
+    case "pending":
+      return "Pending";
+    case "uploading":
+      return "Uploading";
+    case "uploaded":
+      return "Uploaded";
+    case "failed":
+      return "Failed";
+    default:
+      return status;
+  }
+}
+
+function formatFileSize(size: number): string {
+  if (size >= 1024 * 1024 * 1024) {
+    return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  }
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (size >= 1024) {
+    return `${Math.round(size / 1024)} KB`;
+  }
+  return `${size} B`;
 }
