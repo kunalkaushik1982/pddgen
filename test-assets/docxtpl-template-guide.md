@@ -56,12 +56,14 @@ Each entry in `pdd.as_is_steps` supports:
 step.step_number
 step.application_name
 step.action_text
+step.bullet_entry
 step.source_data_note
 step.timestamp
 step.start_timestamp
 step.end_timestamp
-step.supporting_transcript_text
-step.confidence
+step.primary_screenshot_path
+step.primary_screenshot_image
+step.has_primary_screenshot
 step.screenshot_path
 step.screenshot_image
 step.screenshots
@@ -102,9 +104,9 @@ process_steps
 process_notes
 ```
 
-## Enterprise-Style Template Structure
+## Recommended Lean Template Structure
 
-Use this exact content in a Word document if you want a more realistic PDD layout:
+Use this structure in a Word document if you want a cleaner stakeholder-ready PDD:
 
 ```text
 PROCESS DESIGN DOCUMENT
@@ -119,40 +121,21 @@ Diagram Type: {{ pdd.diagram_type }}
 1. Document Overview
 This document captures the AS-IS process observed during the discovery walkthrough.
 
-2. AS-IS Overview
-Total Steps Identified: {{ pdd.step_count }}
-Total Business Rules Identified: {{ pdd.note_count }}
-
-3. AS-IS Steps
+2. AS-IS Steps
 {% for step in pdd.as_is_steps %}
-Step {{ step.step_number }}
-Application: {{ step.application_name }}
-Action: {{ step.action_text }}
-Source Data: {{ step.source_data_note }}
-Timestamp: {{ step.timestamp }}
-Evidence Window: {{ step.start_timestamp }} to {{ step.end_timestamp }}
-Confidence: {{ step.confidence }}
-{% if step.supporting_transcript_text %}
-Transcript Evidence: {{ step.supporting_transcript_text }}
-{% endif %}
-{% if step.screenshots %}
-Screenshots:
-{% for shot in step.screenshots %}
-{{ shot.role }} | {{ shot.timestamp }}
-{{ shot.image }}
-{% endfor %}
-{% elif step.screenshot_image %}
+{{ step.bullet_entry }}
+{% if step.primary_screenshot_image %}
 Primary Screenshot:
-{{ step.screenshot_image }}
+{{ step.primary_screenshot_image }}
 {% endif %}
 {% endfor %}
 
-4. TO-BE Suggestions
+3. TO-BE Suggestions
 {% for item in pdd.to_be_recommendations %}
 - {{ item.title }}: {{ item.recommendation }}
 {% endfor %}
 
-5. Detailed Flow Diagram
+4. Detailed Flow Diagram
 {% if pdd.process_flow.detailed_image %}
 {{ pdd.process_flow.detailed_image }}
 {% elif pdd.process_flow.diagram_image %}
@@ -162,7 +145,7 @@ Diagram Source:
 {{ pdd.process_flow.diagram_source }}
 {% endif %}
 
-6. Business Rules and Notes
+5. Business Rules and Notes
 {% for rule in pdd.business_rules %}
 - {{ rule.text }} ({{ rule.inference_type }}, {{ rule.confidence }})
 {% endfor %}
@@ -174,11 +157,22 @@ Diagram Source:
 - Keep `{% for ... %}`, `{% endfor %}`, `{% if ... %}`, and `{% endif %}` as plain text in the Word document.
 - Do not use smart quotes.
 - Do not break one placeholder across multiple text runs manually if possible.
-- `{{ step.screenshot_image }}` is the image placeholder for the exported screenshot.
+- Use bold text directly in the Word template for all section headers.
+- Use Word bullet formatting on the line that contains `{{ step.bullet_entry }}` if you want true bullet points in the exported document.
+- `{{ step.primary_screenshot_image }}` is the recommended single-image placeholder per step.
 - `step.screenshots` is the multi-screenshot list for each step.
 - `{{ pdd.process_flow.detailed_image }}` is the recommended image placeholder for the detailed flow.
 - `{{ pdd.process_flow.diagram_image }}` remains as the backward-compatible single-diagram alias.
 - If a diagram image is unavailable, use `{{ pdd.process_flow.diagram_source }}` as a fallback text block.
+
+## Formatting Recommendations
+
+- Heading font: Aptos or Calibri, 14-16 pt, bold
+- Body font: Aptos or Calibri, 10.5-11 pt
+- Paragraph spacing after headings: 6-8 pt
+- Bullet spacing: 3-4 pt after each step bullet
+- Screenshot spacing: 8-10 pt above and below the image
+- Keep one primary screenshot per step to avoid visual clutter
 
 ## Ready-To-Use Template
 

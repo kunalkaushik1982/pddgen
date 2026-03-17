@@ -260,6 +260,7 @@ class DocumentRendererService:
                 "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
                 "step_count": len(process_steps),
                 "note_count": len(process_notes),
+                "step_bullets": [step["bullet_entry"] for step in process_steps],
                 "overview": {
                     "process_name": draft_session.title,
                     "document_owner": draft_session.owner_id,
@@ -352,6 +353,7 @@ class DocumentRendererService:
 
         if not primary_screenshot_path:
             primary_screenshot_path = self._resolve_screenshot_path(step.screenshot_id, screenshot_map)
+        primary_screenshot_image = self._build_inline_image(template_document, primary_screenshot_path)
 
         return {
             "step_number": step.step_number,
@@ -364,8 +366,12 @@ class DocumentRendererService:
             "supporting_transcript_text": step.supporting_transcript_text,
             "confidence": step.confidence,
             "evidence_references": json.loads(step.evidence_references or "[]"),
+            "bullet_entry": f"Step {step.step_number}. {step.action_text}",
+            "primary_screenshot_path": primary_screenshot_path,
+            "primary_screenshot_image": primary_screenshot_image,
+            "has_primary_screenshot": bool(primary_screenshot_path),
             "screenshot_path": primary_screenshot_path,
-            "screenshot_image": self._build_inline_image(template_document, primary_screenshot_path),
+            "screenshot_image": primary_screenshot_image,
             "screenshots": screenshot_items,
         }
 

@@ -26,35 +26,12 @@ Total Business Rules Identified: `{{ pdd.note_count }}`
 
 ### Step {{ step.step_number }}
 
-Application: `{{ step.application_name }}`
+- `{{ step.bullet_entry }}`
 
-Action: `{{ step.action_text }}`
-
-Source Data: `{{ step.source_data_note }}`
-
-Timestamp: `{{ step.timestamp }}`
-
-Evidence Window: `{{ step.start_timestamp }} to {{ step.end_timestamp }}`
-
-Confidence: `{{ step.confidence }}`
-
-{% if step.supporting_transcript_text %}
-Transcript Evidence: `{{ step.supporting_transcript_text }}`
-{% endif %}
-
-{% if step.screenshots %}
-Screenshots:
-{% for shot in step.screenshots %}
-
-{{ shot.role }} | {{ shot.timestamp }}
-
-{{ shot.image }}
-
-{% endfor %}
-{% elif step.screenshot_image %}
+{% if step.primary_screenshot_image %}
 Primary Screenshot:
 
-{{ step.screenshot_image }}
+{{ step.primary_screenshot_image }}
 {% endif %}
 
 {% endfor %}
