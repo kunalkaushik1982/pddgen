@@ -84,6 +84,10 @@ export function AppRouter(): JSX.Element {
     () => sessionHistory.filter((session) => session.status !== "draft"),
     [sessionHistory],
   );
+  const resumableDraftSessions = useMemo(
+    () => sessionHistory.filter((session) => session.status === "draft" && session.resumeReady),
+    [sessionHistory],
+  );
 
   useEffect(() => {
     void restoreUser();
@@ -290,6 +294,60 @@ export function AppRouter(): JSX.Element {
       await loadSessionHistory();
       setActiveView("history");
       setMessage("info", "PDD generation started. Track progress in Past Runs.");
+    } catch (error) {
+      setMessage("error", getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRetrySession(sessionId: string): Promise<void> {
+    setBusy(true);
+    try {
+      const generatedSession = await apiClient.generateDraftSession(sessionId);
+      await loadSessionHistory();
+      setContext((current) => ({
+        ...current,
+        currentSession: generatedSession,
+        selectedStepId: generatedSession.processSteps[0]?.id ?? null,
+      }));
+      setActiveView("history");
+      setMessage("info", "Draft generation retried. Track progress in Past Runs.");
+    } catch (error) {
+      setMessage("error", getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleResumeDraft(sessionId: string): Promise<void> {
+    setBusy(true);
+    try {
+      const session = await apiClient.getDraftSession(sessionId);
+      const uploadArtifacts = session.inputArtifacts.filter((artifact) =>
+        artifact.kind === "video" || artifact.kind === "transcript" || artifact.kind === "template" || artifact.kind === "sop" || artifact.kind === "diagram",
+      );
+      setUploadSessionId(session.id);
+      setUploadItems(
+        uploadArtifacts.map((artifact, index) => ({
+          key: `${artifact.kind}:${artifact.id}:${index}`,
+          artifactKind: artifact.kind,
+          name: artifact.name,
+          size: 0,
+          status: "uploaded",
+          progress: 100,
+          error: null,
+        })),
+      );
+      setUploads(INITIAL_UPLOAD_STATE);
+      setTitle(session.title);
+      setDiagramType(session.diagramType);
+      setContext((current) => ({
+        ...current,
+        currentSession: session,
+      }));
+      setActiveView("workspace");
+      setMessage("info", "Uploaded draft resumed. You can continue with Generate Draft.");
     } catch (error) {
       setMessage("error", getErrorMessage(error));
     } finally {
@@ -573,6 +631,39 @@ export function AppRouter(): JSX.Element {
               />
             </CollapsibleSection>
           </div>
+          {resumableDraftSessions.length > 0 ? (
+            <section className="panel stack">
+              <div className="section-header-inline">
+                <div>
+                  <h2>Ready To Generate</h2>
+                  <p className="muted">These sessions already have uploaded inputs. Resume one to start generation without uploading again.</p>
+                </div>
+              </div>
+              <div className="history-list">
+                {resumableDraftSessions.map((session) => (
+                  <div key={session.id} className="history-card">
+                    <div className="history-card-main">
+                      <strong>{session.title}</strong>
+                      <div className="artifact-meta">
+                        {session.latestStageTitle} | updated {new Date(session.updatedAt).toLocaleString()}
+                      </div>
+                      <div className="artifact-meta">{session.latestStageDetail}</div>
+                    </div>
+                    <div className="button-row">
+                      <button
+                        type="button"
+                        className="button-primary"
+                        disabled={context.isBusy}
+                        onClick={() => void handleResumeDraft(session.id)}
+                      >
+                        Resume
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </>
       ) : activeView === "history" ? (
         <SessionHistoryPage
@@ -580,6 +671,7 @@ export function AppRouter(): JSX.Element {
           disabled={context.isBusy}
           onRefresh={() => void loadSessionHistory()}
           onOpen={(sessionId) => void openPastSession(sessionId)}
+          onRetry={(sessionId) => void handleRetrySession(sessionId)}
           onExportDocx={(sessionId) => void handleExportSession(sessionId, "docx")}
           onExportPdf={(sessionId) => void handleExportSession(sessionId, "pdf")}
         />

@@ -12,6 +12,7 @@ type SessionHistoryPageProps = {
   disabled?: boolean;
   onRefresh: () => void;
   onOpen: (sessionId: string) => void;
+  onRetry: (sessionId: string) => void;
   onExportDocx: (sessionId: string) => void;
   onExportPdf: (sessionId: string) => void;
 };
@@ -21,6 +22,7 @@ export function SessionHistoryPage({
   disabled,
   onRefresh,
   onOpen,
+  onRetry,
   onExportDocx,
   onExportPdf,
 }: SessionHistoryPageProps): JSX.Element {
@@ -46,6 +48,8 @@ export function SessionHistoryPage({
                   {session.status} | updated {new Date(session.updatedAt).toLocaleString()}
                 </div>
                 <div className="artifact-meta">Session ID: {session.id}</div>
+                <div className="artifact-meta history-stage-title">{session.latestStageTitle}</div>
+                <div className="artifact-meta">{session.failureDetail || session.latestStageDetail}</div>
                 <div className="history-progress">
                   <div className="history-progress-bar">
                     <div
@@ -65,6 +69,16 @@ export function SessionHistoryPage({
                 >
                   Edit
                 </button>
+                {session.canRetry ? (
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    disabled={disabled}
+                    onClick={() => onRetry(session.id)}
+                  >
+                    Retry
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="button-secondary export-button"

@@ -1416,6 +1416,11 @@ button {
   align-items: center;
 }
 
+.history-stage-title {
+  font-weight: 700;
+  color: var(--app-text);
+}
+
 .step-preview {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

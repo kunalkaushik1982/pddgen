@@ -124,6 +124,11 @@ type BackendDraftSessionListItem = {
   diagram_type: DraftSession["diagramType"];
   created_at: string;
   updated_at: string;
+  latest_stage_title: string;
+  latest_stage_detail: string;
+  failure_detail: string;
+  resume_ready: boolean;
+  can_retry: boolean;
 };
 
 type BackendUser = {
@@ -328,6 +333,11 @@ function mapDraftSessionListItem(session: BackendDraftSessionListItem): DraftSes
     diagramType: session.diagram_type,
     createdAt: session.created_at,
     updatedAt: session.updated_at,
+    latestStageTitle: session.latest_stage_title,
+    latestStageDetail: session.latest_stage_detail,
+    failureDetail: session.failure_detail,
+    resumeReady: session.resume_ready,
+    canRetry: session.can_retry,
   };
 }
 

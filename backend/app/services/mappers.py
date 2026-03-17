@@ -34,6 +34,52 @@ def _parse_json_list(value: str) -> list:
     return parsed if isinstance(parsed, list) else []
 
 
+def _has_required_uploads(session: DraftSessionModel) -> bool:
+    kinds = {artifact.kind for artifact in session.artifacts}
+    return {"video", "transcript", "template"}.issubset(kinds)
+
+
+def _latest_action_log_by_type(session: DraftSessionModel, event_type: str):
+    return next(
+        (
+            item
+            for item in sorted(session.action_logs, key=lambda action_log: action_log.created_at, reverse=True)
+            if item.event_type == event_type
+        ),
+        None,
+    )
+
+
+def _latest_stage_info(session: DraftSessionModel) -> tuple[str, str]:
+    if session.status == "failed":
+        failure_log = _latest_action_log_by_type(session, "generation_failed")
+        return "Run failed", failure_log.detail if failure_log is not None else "Generation failed."
+
+    if session.status == "processing":
+        stage_log = next(
+            (
+                item
+                for item in sorted(session.action_logs, key=lambda action_log: action_log.created_at, reverse=True)
+                if item.event_type in {"generation_stage", "generation_queued"}
+            ),
+            None,
+        )
+        if stage_log is not None:
+            return stage_log.title, stage_log.detail
+        return "Generation in progress", "Draft generation is running."
+
+    if session.status == "draft" and _has_required_uploads(session):
+        return "Inputs uploaded", "Upload complete. Resume this draft to start generation."
+
+    if session.status == "review":
+        return "Ready for review", "Draft generation completed successfully."
+
+    if session.status == "exported":
+        return "Export completed", "A document export is available for this run."
+
+    return "Session created", "Session created."
+
+
 def map_process_step(step: ProcessStepModel) -> ProcessStepResponse:
     """Convert a persisted process step into an API response."""
     evidence_references = [
@@ -132,6 +178,8 @@ def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
 
 def map_draft_session_list_item(session: DraftSessionModel) -> DraftSessionListItemResponse:
     """Convert one draft session into a compact history-list item."""
+    latest_stage_title, latest_stage_detail = _latest_stage_info(session)
+    failure_log = _latest_action_log_by_type(session, "generation_failed")
     return DraftSessionListItemResponse(
         id=session.id,
         title=session.title,
@@ -140,4 +188,9 @@ def map_draft_session_list_item(session: DraftSessionModel) -> DraftSessionListI
         diagram_type=session.diagram_type,
         created_at=session.created_at,
         updated_at=session.updated_at,
+        latest_stage_title=latest_stage_title,
+        latest_stage_detail=latest_stage_detail,
+        failure_detail=failure_log.detail if failure_log is not None else "",
+        resume_ready=session.status == "draft" and _has_required_uploads(session),
+        can_retry=session.status == "failed",
     )

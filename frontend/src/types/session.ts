@@ -49,6 +49,11 @@ export type DraftSessionListItem = {
   diagramType: DraftSession["diagramType"];
   createdAt: string;
   updatedAt: string;
+  latestStageTitle: string;
+  latestStageDetail: string;
+  failureDetail: string;
+  resumeReady: boolean;
+  canRetry: boolean;
 };
 
 export type ExportResult = {

@@ -126,6 +126,12 @@ export function UploadPage({
             {uploads.templateFile ? "1 template" : "0 templates"}
           </div>
 
+          {uploads.videoFiles.length > 1 || uploads.transcriptFiles.length > 1 ? (
+            <div className="artifact-meta">
+              Multiple videos and transcripts are paired by upload order during screenshot extraction.
+            </div>
+          ) : null}
+
           {uploadReady ? (
             <div className="upload-ready-banner">
               <strong>Inputs uploaded</strong>

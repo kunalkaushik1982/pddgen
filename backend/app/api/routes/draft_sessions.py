@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.dependencies import (
     get_artifact_ingestion_service,
@@ -53,6 +53,10 @@ def list_draft_sessions(
     statement = (
         select(DraftSessionModel)
         .where(DraftSessionModel.owner_id == current_user.username)
+        .options(
+            selectinload(DraftSessionModel.artifacts),
+            selectinload(DraftSessionModel.action_logs),
+        )
         .order_by(DraftSessionModel.updated_at.desc())
     )
     sessions = list(db.execute(statement).scalars().all())

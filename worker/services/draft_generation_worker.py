@@ -23,6 +23,7 @@ from app.models.process_note import ProcessNoteModel
 from app.models.process_step import ProcessStepModel
 from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
+from app.services.action_log_service import ActionLogService
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
 
@@ -58,6 +59,7 @@ class DraftGenerationWorker:
         self.step_extractor = StepExtractionService()
         self.note_extractor = TranscriptIntelligenceService()
         self.frame_extractor = VideoFrameExtractor()
+        self.action_log_service = ActionLogService()
 
     def run(self, session_id: str) -> dict[str, int | str]:
         """Generate draft steps, notes, and derived screenshots for a session."""
@@ -91,6 +93,13 @@ class DraftGenerationWorker:
 
             all_steps: list[dict] = []
             all_notes: list[dict] = []
+            steps_by_transcript: dict[str, list[dict]] = {}
+            self._record_stage(
+                db,
+                session_id,
+                "Interpreting transcript",
+                f"Processing {len(transcript_artifacts)} transcript artifact(s).",
+            )
             for transcript in transcript_artifacts:
                 normalized_text = self.transcript_normalizer.normalize(transcript.storage_path, transcript.name)
                 interpretation = self.ai_transcript_interpreter.interpret(
@@ -101,15 +110,16 @@ class DraftGenerationWorker:
                 if interpretation is not None and interpretation.steps:
                     self._ground_ai_step_spans(interpretation.steps, normalized_text)
                     all_steps.extend(interpretation.steps)
+                    steps_by_transcript.setdefault(transcript.id, []).extend(interpretation.steps)
                     all_notes.extend(interpretation.notes)
                     continue
 
-                all_steps.extend(
-                    self.step_extractor.extract_steps(
-                        transcript_artifact_id=transcript.id,
-                        transcript_text=normalized_text,
-                    )
+                transcript_steps = self.step_extractor.extract_steps(
+                    transcript_artifact_id=transcript.id,
+                    transcript_text=normalized_text,
                 )
+                all_steps.extend(transcript_steps)
+                steps_by_transcript.setdefault(transcript.id, []).extend(transcript_steps)
                 all_notes.extend(
                     self.note_extractor.extract_notes(
                         transcript_artifact_id=transcript.id,
@@ -120,6 +130,29 @@ class DraftGenerationWorker:
             for step_number, step in enumerate(all_steps, start=1):
                 step["step_number"] = step_number
 
+            screenshot_artifacts: list[ArtifactModel] = []
+            if video_artifacts:
+                self._record_stage(
+                    db,
+                    session_id,
+                    "Extracting screenshots",
+                    self._build_pairing_detail(transcript_artifacts, video_artifacts),
+                )
+                for transcript_index, transcript in enumerate(transcript_artifacts):
+                    transcript_steps = steps_by_transcript.get(transcript.id, [])
+                    if not transcript_steps:
+                        continue
+                    paired_video = video_artifacts[min(transcript_index, len(video_artifacts) - 1)]
+                    screenshot_artifacts.extend(
+                        self._derive_screenshots(
+                            db=db,
+                            session_id=session_id,
+                            video_artifacts=[paired_video],
+                            step_candidates=transcript_steps,
+                        )
+                    )
+
+            self._record_stage(db, session_id, "Building diagram", "Generating the session diagram model.")
             diagram_interpretation = None
             try:
                 diagram_interpretation = self.ai_transcript_interpreter.interpret_diagrams(
@@ -138,12 +171,6 @@ class DraftGenerationWorker:
                 session.overview_diagram_json = ""
                 session.detailed_diagram_json = ""
 
-            screenshot_artifacts = self._derive_screenshots(
-                db=db,
-                session_id=session_id,
-                video_artifacts=video_artifacts,
-                step_candidates=all_steps,
-            )
             step_models = [ProcessStepModel(session_id=session_id, **self._to_step_record(step)) for step in all_steps]
             db.add_all(step_models)
             db.flush()
@@ -154,7 +181,7 @@ class DraftGenerationWorker:
                 ActionLogModel(
                     session_id=session_id,
                     event_type="draft_generated",
-                    title="Draft generated",
+                    title="Ready for review",
                     detail=f"{len(all_steps)} steps, {len(all_notes)} notes, {len(screenshot_artifacts)} screenshots.",
                     actor="system",
                 )
@@ -632,3 +659,28 @@ class DraftGenerationWorker:
             )
         )
         db.commit()
+
+    def _record_stage(self, db, session_id: str, title: str, detail: str) -> None:
+        self.action_log_service.record(
+            db,
+            session_id=session_id,
+            event_type="generation_stage",
+            title=title,
+            detail=detail,
+            actor="system",
+        )
+        db.commit()
+
+    @staticmethod
+    def _build_pairing_detail(transcript_artifacts: list[ArtifactModel], video_artifacts: list[ArtifactModel]) -> str:
+        if not transcript_artifacts or not video_artifacts:
+            return "No video/transcript pairing available."
+        if len(video_artifacts) == 1 and len(transcript_artifacts) > 1:
+            return "Using the first uploaded video for all transcripts because only one video is available."
+        if len(video_artifacts) < len(transcript_artifacts):
+            return (
+                f"Pairing by upload order for the first {len(video_artifacts)} transcript/video set(s); "
+                "remaining transcripts reuse the last uploaded video."
+            )
+        pair_count = min(len(transcript_artifacts), len(video_artifacts))
+        return f"Pairing transcripts to videos by upload order for {pair_count} set(s)."

@@ -152,6 +152,11 @@ class DraftSessionListItemResponse(BaseModel):
     diagram_type: str
     created_at: datetime
     updated_at: datetime
+    latest_stage_title: str = ""
+    latest_stage_detail: str = ""
+    failure_detail: str = ""
+    resume_ready: bool = False
+    can_retry: bool = False
 
 
 class DiagramNodeResponse(BaseModel):
