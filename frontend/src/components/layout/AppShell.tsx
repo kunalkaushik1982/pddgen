@@ -80,7 +80,7 @@ export function AppShell({
                 className={activeView === "history" ? "button-primary" : "button-secondary"}
                 onClick={() => onSelectView("history")}
               >
-                Past Runs
+                My Projects
               </button>
               <button
                 type="button"

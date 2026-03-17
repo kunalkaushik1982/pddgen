@@ -59,7 +59,7 @@ export function AppRouter(): JSX.Element {
 
   const statusLabel = useMemo(() => {
     if (activeView === "history") {
-      return "Past Runs";
+      return "My Projects";
     }
     if (activeView === "session") {
       return "Session Detail";
@@ -295,7 +295,7 @@ export function AppRouter(): JSX.Element {
       setDiagramType("flowchart");
       setActiveView("history");
       void loadSessionHistory();
-      setMessage("info", "PDD generation started. Track progress in Past Runs.");
+      setMessage("info", "PDD generation started. Track progress in My Projects.");
     } catch (error) {
       setMessage("error", getErrorMessage(error));
     } finally {
@@ -314,7 +314,7 @@ export function AppRouter(): JSX.Element {
       }));
       setActiveView("history");
       void loadSessionHistory();
-      setMessage("info", "Draft generation retried. Track progress in Past Runs.");
+      setMessage("info", "Draft generation retried. Track progress in My Projects.");
     } catch (error) {
       setMessage("error", getErrorMessage(error));
     } finally {
@@ -371,7 +371,7 @@ export function AppRouter(): JSX.Element {
 
       if (session.status === "review") {
         void loadSessionHistory();
-        setMessage("info", "Draft generation completed. Open the run from Past Runs to review the extracted steps.");
+        setMessage("info", "Draft generation completed. Open the run from My Projects to review the extracted steps.");
       }
       if (session.status === "failed") {
         void loadSessionHistory();
@@ -638,7 +638,7 @@ export function AppRouter(): JSX.Element {
               <div className="section-header-inline">
                 <div>
                   <h2>Ready To Generate</h2>
-                  <p className="muted">These sessions already have uploaded inputs. Resume one to start generation without uploading again.</p>
+                  <p className="muted">These sessions already have uploaded inputs. Continue one to start generation without uploading again.</p>
                 </div>
               </div>
               <div className="history-list">
@@ -658,7 +658,7 @@ export function AppRouter(): JSX.Element {
                         disabled={context.isBusy}
                         onClick={() => void handleResumeDraft(session.id)}
                       >
-                        Resume
+                        Continue Draft
                       </button>
                     </div>
                   </div>

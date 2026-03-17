@@ -50,7 +50,7 @@ export function SessionDetailPage({
         <div className="section-header-inline">
           <div>
             <h2>Session Detail</h2>
-            <p className="muted">Open a session from Past Runs or create a new one from Workspace.</p>
+            <p className="muted">Open a session from My Projects or create a new one from Workspace.</p>
           </div>
           <button type="button" className="button-secondary" onClick={onBackToWorkspace}>
             Back to Workspace

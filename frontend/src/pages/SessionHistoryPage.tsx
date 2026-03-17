@@ -30,7 +30,7 @@ export function SessionHistoryPage({
     <section className="panel stack">
       <div className="section-header-inline">
         <div>
-          <h2>Past Runs</h2>
+          <h2>My Projects</h2>
           <p className="muted">Edit any previous draft session or download the final Word or PDF when it is ready.</p>
         </div>
         <button type="button" className="button-secondary" disabled={disabled} onClick={onRefresh}>
