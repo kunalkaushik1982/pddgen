@@ -282,6 +282,7 @@ export function AppRouter(): JSX.Element {
     setBusy(true);
     try {
       const generatedSession = await apiClient.generateDraftSession(uploadSessionId);
+      setSessionHistory((current) => current.filter((session) => session.id !== uploadSessionId));
       setContext((current) => ({
         ...current,
         currentSession: generatedSession,
@@ -292,8 +293,8 @@ export function AppRouter(): JSX.Element {
       setUploads(INITIAL_UPLOAD_STATE);
       setTitle("Untitled PDD Session");
       setDiagramType("flowchart");
-      await loadSessionHistory();
       setActiveView("history");
+      void loadSessionHistory();
       setMessage("info", "PDD generation started. Track progress in Past Runs.");
     } catch (error) {
       setMessage("error", getErrorMessage(error));
@@ -306,13 +307,13 @@ export function AppRouter(): JSX.Element {
     setBusy(true);
     try {
       const generatedSession = await apiClient.generateDraftSession(sessionId);
-      await loadSessionHistory();
       setContext((current) => ({
         ...current,
         currentSession: generatedSession,
         selectedStepId: generatedSession.processSteps[0]?.id ?? null,
       }));
       setActiveView("history");
+      void loadSessionHistory();
       setMessage("info", "Draft generation retried. Track progress in Past Runs.");
     } catch (error) {
       setMessage("error", getErrorMessage(error));
