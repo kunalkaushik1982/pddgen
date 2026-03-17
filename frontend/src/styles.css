@@ -633,6 +633,13 @@ button {
   gap: 12px;
 }
 
+.session-chat-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
 .session-chat-card {
   display: grid;
   gap: 10px;
@@ -681,14 +688,50 @@ button {
 }
 
 .session-chat-citation {
+  width: 100%;
+  border: 1px solid var(--accent-border);
+  text-align: left;
+  cursor: pointer;
   padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.session-chat-citation:hover {
+  border-color: color-mix(in srgb, var(--button-primary-end) 45%, var(--accent-border));
+}
+
+.session-chat-citation-title {
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.session-evidence-panel {
+  position: sticky;
+  top: 20px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  background: var(--surface-card);
+}
+
+.session-evidence-panel h4 {
+  margin: 0 0 4px;
+}
+
+.session-evidence-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid var(--accent-border);
   border-radius: 14px;
   background: var(--surface-soft);
 }
 
-.session-chat-citation-title {
-  font-weight: 700;
+.session-evidence-snippet {
+  white-space: pre-wrap;
   color: var(--app-text);
 }
 
@@ -1820,6 +1863,14 @@ button {
   .summary-meta-grid,
   .summary-meta-grid-secondary {
     grid-template-columns: 1fr;
+  }
+
+  .session-chat-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .session-evidence-panel {
+    position: static;
   }
 
   .diagram-editor-layout-pinned {

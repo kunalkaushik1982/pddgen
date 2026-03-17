@@ -9,8 +9,8 @@ import { FlowchartPreviewPanel } from "../components/diagram/FlowchartPreviewPan
 import { SessionChatPanel } from "../components/review/SessionChatPanel";
 import { StepReviewPanel } from "../components/review/StepReviewPanel";
 import { apiClient } from "../services/apiClient";
-import type { CandidateScreenshot, ProcessStep } from "../types/process";
-import type { DraftSession, SessionAnswer } from "../types/session";
+import type { CandidateScreenshot, ProcessNote, ProcessStep } from "../types/process";
+import type { DraftSession, SessionAnswer, SessionAnswerCitation } from "../types/session";
 
 type ReviewMode = "view" | "edit";
 type ViewWorkspaceTab = "summary" | "steps" | "diagram" | "ask" | "log";
@@ -20,6 +20,10 @@ type SessionChatEntry = {
   question: string;
   answer: SessionAnswer;
 };
+type EvidencePreview =
+  | { kind: "step"; title: string; step: ProcessStep }
+  | { kind: "note"; title: string; note: ProcessNote }
+  | { kind: "transcript"; title: string; snippet: string };
 
 type StepReviewPageProps = {
   session: DraftSession | null;
@@ -65,6 +69,7 @@ export function StepReviewPage({
   const [activeEditTab, setActiveEditTab] = useState<EditWorkspaceTab>("steps");
   const [chatEntries, setChatEntries] = useState<SessionChatEntry[]>([]);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [selectedEvidence, setSelectedEvidence] = useState<EvidencePreview | null>(null);
 
   useEffect(() => {
     setDraftValues(
@@ -89,6 +94,7 @@ export function StepReviewPage({
     setActiveEditTab("steps");
     setChatEntries([]);
     setChatError(null);
+    setSelectedEvidence(null);
   }, [initialReviewMode, session?.id]);
 
   if (!session) {
@@ -322,6 +328,8 @@ export function StepReviewPage({
               disabled={disabled}
               errorMessage={chatError}
               entries={chatEntries}
+              selectedEvidence={selectedEvidence}
+              onSelectCitation={handleSelectCitation}
               onAsk={handleAskSession}
             />
           ) : null}
@@ -634,8 +642,47 @@ export function StepReviewPage({
         },
         ...current,
       ]);
+      if (answer.citations[0]) {
+        handleSelectCitation(answer.citations[0]);
+      }
     } catch (error) {
       setChatError(error instanceof Error ? error.message : "Ask this Session could not answer that question.");
     }
+  }
+
+  function handleSelectCitation(citation: SessionAnswerCitation) {
+    if (citation.sourceType === "step") {
+      const stepNumberMatch = citation.id.match(/^step-(\d+)$/);
+      const stepNumber = stepNumberMatch ? Number(stepNumberMatch[1]) : NaN;
+      const matchingStep = session?.processSteps.find((step) => step.stepNumber === stepNumber);
+      if (matchingStep) {
+        setSelectedEvidence({
+          kind: "step",
+          title: `Step ${matchingStep.stepNumber}`,
+          step: matchingStep,
+        });
+        return;
+      }
+    }
+
+    if (citation.sourceType === "note") {
+      const noteIndexMatch = citation.id.match(/^note-(\d+)$/);
+      const noteIndex = noteIndexMatch ? Number(noteIndexMatch[1]) - 1 : -1;
+      const matchingNote = noteIndex >= 0 ? session?.processNotes[noteIndex] : undefined;
+      if (matchingNote) {
+        setSelectedEvidence({
+          kind: "note",
+          title: citation.title,
+          note: matchingNote,
+        });
+        return;
+      }
+    }
+
+    setSelectedEvidence({
+      kind: "transcript",
+      title: citation.title,
+      snippet: citation.snippet,
+    });
   }
 }
