@@ -58,7 +58,7 @@ export function SessionHistoryPage({
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
-                  {progressTone === "ready" || progressTone === "failed" ? null : (
+                  {progressTone === "ready" || progressTone === "failed" || progressTone === "exported" ? null : (
                     <div className={`artifact-meta history-progress-label history-progress-label-${progressTone}`}>{progressLabel}</div>
                   )}
                 </div>
