@@ -131,6 +131,29 @@ export function AppRouter(): JSX.Element {
     };
   }, [currentUser?.id, sessionHistory]);
 
+  useEffect(() => {
+    if (!context.message) {
+      return undefined;
+    }
+
+    const timeoutMs = context.message.tone === "error" ? 6500 : 4200;
+    const timeoutId = window.setTimeout(() => {
+      setContext((current) => {
+        if (current.message !== context.message) {
+          return current;
+        }
+        return {
+          ...current,
+          message: null,
+        };
+      });
+    }, timeoutMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [context.message]);
+
   function setMessage(tone: "info" | "error", text: string): void {
     setContext((current) => ({
       ...current,
@@ -582,7 +605,11 @@ export function AppRouter(): JSX.Element {
       onSelectView={setActiveView}
       onLogout={() => void handleLogout()}
     >
-      {context.message ? <div className={`status-banner ${context.message.tone === "error" ? "error" : ""}`}>{context.message.text}</div> : null}
+      {context.message ? (
+        <div className={`status-toast ${context.message.tone === "error" ? "status-toast-error" : "status-toast-info"}`}>
+          {context.message.text}
+        </div>
+      ) : null}
 
       {activeView === "workspace" ? (
         <>
