@@ -1,0 +1,6 @@
+# Celery worker runtime dependencies. Keep pinned and independent from backend installs.
+celery[redis]==5.5.3
+httpx==0.28.1
+pydantic-settings==2.10.1
+psycopg[binary]==3.2.10
+sqlalchemy==2.0.41
