@@ -8,8 +8,16 @@ import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-const releaseManifest = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "../release.json"), "utf-8"),
+const releaseManifestPath = path.resolve(__dirname, "../release.json");
+const releaseManifest = (
+  fs.existsSync(releaseManifestPath)
+    ? JSON.parse(fs.readFileSync(releaseManifestPath, "utf-8"))
+    : {
+        release: "0.0.0-dev",
+        frontend: "0.0.0-dev",
+        backend: "0.0.0-dev",
+        worker: "0.0.0-dev",
+      }
 ) as {
   release: string;
   frontend: string;

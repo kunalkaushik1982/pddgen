@@ -10,6 +10,7 @@ RUN npm ci
 
 COPY frontend /app/frontend
 COPY tsconfig.base.json /app/tsconfig.base.json
+COPY release.json /app/release.json
 RUN npm run build
 
 FROM nginx:1.27-alpine
