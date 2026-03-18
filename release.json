@@ -1,6 +1,6 @@
 {
-  "release": "0.2.1",
-  "frontend": "0.2.1",
-  "backend": "0.2.1",
-  "worker": "0.2.1"
+  "release": "1.0.0",
+  "frontend": "1.0.0",
+  "backend": "1.0.0",
+  "worker": "1.0.0"
 }
