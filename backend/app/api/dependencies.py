@@ -88,3 +88,13 @@ def get_current_user(
         set_log_context(actor=user.username)
         return user
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
+
+
+def get_current_admin_user(
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+) -> UserModel:
+    """Resolve the current authenticated admin user."""
+    settings = get_settings()
+    if current_user.username not in settings.admin_usernames:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required.")
+    return current_user

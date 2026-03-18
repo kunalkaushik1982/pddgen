@@ -14,8 +14,9 @@ type AppShellProps = PropsWithChildren<{
   subtitle: string;
   statusLabel?: string;
   userLabel?: string;
-  activeView?: "workspace" | "history" | "session" | "about";
-  onSelectView?: (view: "workspace" | "history" | "session" | "about") => void;
+  activeView?: "workspace" | "history" | "session" | "admin" | "about";
+  onSelectView?: (view: "workspace" | "history" | "session" | "admin" | "about") => void;
+  showAdminView?: boolean;
   onOpenAbout?: () => void;
   onLogout?: () => void;
 }>;
@@ -28,6 +29,7 @@ export function AppShell({
   userLabel,
   activeView = "workspace",
   onSelectView,
+  showAdminView = false,
   onOpenAbout,
   onLogout,
 }: AppShellProps): React.JSX.Element {
@@ -91,6 +93,15 @@ export function AppShell({
               >
                 Session Detail
               </button>
+              {showAdminView ? (
+                <button
+                  type="button"
+                  className={activeView === "admin" ? "button-primary" : "button-secondary"}
+                  onClick={() => onSelectView("admin")}
+                >
+                  Admin
+                </button>
+              ) : null}
             </div>
           ) : null}
           {(userLabel || onLogout) ? (

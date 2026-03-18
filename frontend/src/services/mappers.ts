@@ -1,4 +1,5 @@
 import type { User } from "../types/auth";
+import type { AdminUserSummary } from "../types/admin";
 import type {
   DiagramCanvasSettings,
   DiagramExportPreset,
@@ -9,6 +10,7 @@ import type { CandidateScreenshot, ProcessNote, ProcessStep, StepScreenshot } fr
 import type { ActionLogEntry, DraftSession, DraftSessionListItem, InputArtifact, OutputDocument, SessionAnswer } from "../types/session";
 import type {
   BackendActionLog,
+  BackendAdminUserSummary,
   BackendArtifact,
   BackendCandidateScreenshot,
   BackendDiagramLayoutResponse,
@@ -214,5 +216,17 @@ export function mapUser(user: BackendUser): User {
     id: user.id,
     username: user.username,
     createdAt: user.created_at,
+    isAdmin: user.is_admin,
+  };
+}
+
+export function mapAdminUserSummary(user: BackendAdminUserSummary): AdminUserSummary {
+  return {
+    id: user.id,
+    username: user.username,
+    createdAt: user.created_at,
+    isAdmin: user.is_admin,
+    totalJobs: user.total_jobs,
+    activeJobs: user.active_jobs,
   };
 }

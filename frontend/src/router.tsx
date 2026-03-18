@@ -18,6 +18,11 @@ const AboutRoute = lazy(async () => {
   return { default: module.AboutRoute };
 });
 
+const AdminRoute = lazy(async () => {
+  const module = await import("./routes/AdminRoute");
+  return { default: module.AdminRoute };
+});
+
 const ProjectsRoute = lazy(async () => {
   const module = await import("./routes/ProjectsRoute");
   return { default: module.ProjectsRoute };
@@ -54,6 +59,7 @@ export function AppRouter(): React.JSX.Element {
           <Route element={withRouteBoundary("Application Shell", <AppFrame />)}>
             <Route index element={<Navigate to="/workspace" replace />} />
             <Route path="/about" element={withRouteBoundary("About", <AboutRoute />)} />
+            <Route path="/admin" element={withRouteBoundary("Admin", <AdminRoute />)} />
             <Route path="/workspace" element={withRouteBoundary("Workspace", <WorkspaceRoute />)} />
             <Route path="/projects" element={withRouteBoundary("My Projects", <ProjectsRoute />)} />
             <Route path="/session" element={withRouteBoundary("Session Detail", <SessionRoute />)} />

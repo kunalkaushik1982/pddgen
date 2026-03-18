@@ -36,7 +36,7 @@ def register(
         auth_status=auth_session.status,
         challenge_type=auth_session.challenge_type,
         challenge_token=auth_session.challenge_token,
-        user=UserResponse.model_validate(auth_session.user),
+        user=_build_user_response(auth_session.user),
     )
 
 
@@ -55,7 +55,7 @@ def login(
         auth_status=auth_session.status,
         challenge_type=auth_session.challenge_type,
         challenge_token=auth_session.challenge_token,
-        user=UserResponse.model_validate(auth_session.user),
+        user=_build_user_response(auth_session.user),
     )
 
 
@@ -68,7 +68,7 @@ def get_me(
     """Return the currently authenticated user."""
     if not csrf_cookie:
         _set_csrf_cookie(response)
-    return UserResponse.model_validate(current_user)
+    return _build_user_response(current_user)
 
 
 @router.post("/logout", status_code=204)
@@ -118,3 +118,12 @@ def _clear_auth_cookie(response: Response) -> None:
 
 def _clear_csrf_cookie(response: Response) -> None:
     csrf_service.clear_cookie(response)
+
+
+def _build_user_response(user: UserModel) -> UserResponse:
+    return UserResponse(
+        id=user.id,
+        username=user.username,
+        created_at=user.created_at,
+        is_admin=user.username in settings.admin_usernames,
+    )

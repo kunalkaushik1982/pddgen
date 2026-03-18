@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     auth_provider: str = "password"
     auth_session_backend: str = "database_token"
     auth_registration_enabled: bool = True
+    admin_usernames: list[str] = Field(default_factory=list)
     auth_token_days: int = 7
     auth_cookie_name: str = "pdd_generator_session"
     auth_cookie_secure: bool = False

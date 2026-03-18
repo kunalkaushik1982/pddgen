@@ -4,6 +4,7 @@ export const uiCopy = {
   workspaceLabel: "Workspace",
   projectsLabel: "My Projects",
   sessionDetailLabel: "Session Detail",
+  adminLabel: "Admin",
   aboutLabel: "About",
   loadingSessionSubtitle: "Loading session...",
   loadingApplicationMessage: "Loading application...",

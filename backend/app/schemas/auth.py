@@ -23,6 +23,7 @@ class UserResponse(BaseModel):
     id: str
     username: str
     created_at: datetime
+    is_admin: bool = False
 
 
 class AuthResponse(BaseModel):

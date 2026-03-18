@@ -6,6 +6,7 @@ import type {
 } from "../types/diagram";
 import type { ProcessNote, ProcessStep } from "../types/process";
 import type { DraftSession, InputArtifact, SessionAnswer } from "../types/session";
+import type { AdminUserSummary } from "../types/admin";
 
 export type BackendArtifact = {
   id: string;
@@ -131,6 +132,16 @@ export type BackendUser = {
   id: string;
   username: string;
   created_at: string;
+  is_admin: boolean;
+};
+
+export type BackendAdminUserSummary = {
+  id: string;
+  username: string;
+  created_at: string;
+  is_admin: boolean;
+  total_jobs: number;
+  active_jobs: number;
 };
 
 export type BackendAuthResponse = {
@@ -206,3 +217,4 @@ export type StepUpdatePayload = Partial<{
 }>;
 
 export type BackendMappedUser = User;
+export type BackendMappedAdminUserSummary = AdminUserSummary;

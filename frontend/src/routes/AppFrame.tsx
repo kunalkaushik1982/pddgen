@@ -29,6 +29,8 @@ export function AppFrame(): React.JSX.Element {
   const activeView =
     location.pathname.startsWith("/projects")
       ? "history"
+      : location.pathname.startsWith("/admin")
+        ? "admin"
       : location.pathname.startsWith("/about")
         ? "about"
       : location.pathname.startsWith("/session")
@@ -44,13 +46,20 @@ export function AppFrame(): React.JSX.Element {
           ? uiCopy.projectsLabel
           : activeView === "session"
             ? uiCopy.sessionDetailLabel
+            : activeView === "admin"
+              ? uiCopy.adminLabel
             : uiCopy.workspaceLabel
       }
       userLabel={user.username}
       activeView={activeView}
+      showAdminView={user.isAdmin}
       onSelectView={(view) => {
         if (view === "history") {
           navigate("/projects");
+          return;
+        }
+        if (view === "admin") {
+          navigate("/admin");
           return;
         }
         if (view === "session") {
