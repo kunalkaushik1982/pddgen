@@ -29,11 +29,8 @@ class DraftGenerationWorkerTests(unittest.TestCase):
 
         result = worker.run("session-1")
 
-        self.assertEqual(
-            order,
-            ["load_session", "prepare", "transcript", "screenshots", "diagram", "persist"],
-        )
-        self.assertEqual(result["session_id"], "session-1")
+        assert order == ["load_session", "prepare", "transcript", "screenshots", "diagram", "persist"]
+        assert result["session_id"] == "session-1"
         db.close.assert_called_once()
 
     @patch("worker.services.draft_generation_worker.get_db_session")
