@@ -16,6 +16,8 @@ from app.services.artifact_validation import ArtifactValidationService
 from app.services.auth_service import AuthService
 from app.services.auth_provider_registry import AuthProviderRegistry
 from app.services.database_session_service import DatabaseSessionService
+from app.services.draft_session_diagram_service import DraftSessionDiagramService
+from app.services.draft_session_review_service import DraftSessionReviewService
 from app.services.document_renderer import DocumentRendererService
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
@@ -44,6 +46,16 @@ def get_pipeline_orchestrator_service() -> PipelineOrchestratorService:
 def get_document_renderer_service() -> DocumentRendererService:
     """Provide the DOCX rendering service."""
     return DocumentRendererService(storage_service=get_storage_service())
+
+
+def get_draft_session_diagram_service() -> DraftSessionDiagramService:
+    """Provide the draft-session diagram mutation service."""
+    return DraftSessionDiagramService()
+
+
+def get_draft_session_review_service() -> DraftSessionReviewService:
+    """Provide the BA review mutation service."""
+    return DraftSessionReviewService()
 
 
 def get_session_chat_service() -> SessionChatService:
