@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     app_name: str = "BA Process Copilot API"
     app_env: str = "development"
     app_debug: bool = False
+    log_level: str = "INFO"
     api_prefix: str = "/api"
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/pdd_generator"

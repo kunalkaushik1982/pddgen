@@ -18,6 +18,7 @@ from app.api.dependencies import (
     get_pipeline_orchestrator_service,
     get_session_chat_service,
 )
+from app.core.observability import bind_log_context, get_logger
 from app.db.session import get_db_session
 from app.models.draft_session import DraftSessionModel
 from app.models.user import UserModel
@@ -47,6 +48,7 @@ from app.services.session_chat_service import SessionChatService
 router = APIRouter(prefix="/draft-sessions", tags=["draft-sessions"])
 diagram_service = ProcessDiagramService()
 action_log_service = ActionLogService()
+logger = get_logger(__name__)
 
 
 @router.get("", response_model=list[DraftSessionListItemResponse])
@@ -78,20 +80,25 @@ def generate_draft_session(
     current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> DraftSessionResponse:
     """Queue background generation for process steps, notes, and screenshots."""
-    session = service.mark_session_processing(db, session_id, owner_id=current_user.username)
-    action_log_service.record(
-        db,
-        session_id=session.id,
-        event_type="generation_queued",
-        title="Draft generation queued",
-        detail="Transcript interpretation and screenshot derivation queued.",
-        actor=current_user.username,
-    )
-    db.commit()
-    session = service.get_session(db, session_id, owner_id=current_user.username)
-    task_id = dispatcher.enqueue_draft_generation(session_id)
-    response.headers["X-Task-Id"] = task_id
-    return map_draft_session(session)
+    with bind_log_context(session_id=session_id):
+        session = service.mark_session_processing(db, session_id, owner_id=current_user.username)
+        action_log_service.record(
+            db,
+            session_id=session.id,
+            event_type="generation_queued",
+            title="Draft generation queued",
+            detail="Transcript interpretation and screenshot derivation queued.",
+            actor=current_user.username,
+        )
+        db.commit()
+        session = service.get_session(db, session_id, owner_id=current_user.username)
+        task_id = dispatcher.enqueue_draft_generation(session_id)
+        logger.info(
+            "Draft generation accepted",
+            extra={"event": "draft_generation.accepted", "task_id": task_id},
+        )
+        response.headers["X-Task-Id"] = task_id
+        return map_draft_session(session)
 
 
 @router.get("/{session_id}", response_model=DraftSessionResponse)

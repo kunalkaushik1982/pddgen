@@ -9,6 +9,7 @@ from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.observability import set_log_context
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.services.artifact_ingestion import ArtifactIngestionService
@@ -83,5 +84,7 @@ def get_current_user(
 ) -> UserModel:
     """Resolve the current authenticated user from the configured session transport."""
     if session_cookie:
-        return auth_service.authenticate_token(db, token=session_cookie)
+        user = auth_service.authenticate_token(db, token=session_cookie)
+        set_log_context(actor=user.username)
+        return user
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")

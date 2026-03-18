@@ -10,8 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import auth, draft_sessions, exports, meta, uploads
 from app.core.config import get_settings
+from app.core.observability import configure_logging, get_logger
 from app.db.schema_validation import validate_database_schema
 from app.middleware.csrf import CSRFMiddleware
+from app.middleware.request_context import RequestContextMiddleware
+
+
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -20,18 +25,21 @@ async def lifespan(_app: FastAPI):
     settings = get_settings()
     settings.local_storage_root.mkdir(parents=True, exist_ok=True)
     validate_database_schema()
+    logger.info("Backend startup validation complete", extra={"event": "app.startup"})
     yield
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
+    configure_logging(settings.log_level)
     app = FastAPI(
         title=settings.app_name,
         debug=settings.app_debug,
         lifespan=lifespan,
     )
 
+    app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
+from app.core.observability import bind_log_context, get_logger
 from sqlalchemy import delete, select
 
 from app.models.action_log import ActionLogModel
@@ -34,37 +35,48 @@ from worker.services.draft_generation_support import (
 from worker.services.transcript_normalizer import TranscriptNormalizer
 from worker.services.video_frame_extractor import ExtractedFrameCandidate, VideoFrameExtractor
 
+logger = get_logger(__name__)
+
 
 class SessionPreparationStage:
     """Load session inputs and clear stale generated entities."""
 
     def load_and_prepare(self, db, session) -> DraftGenerationContext:  # type: ignore[no-untyped-def]
-        session.status = "processing"
-        db.commit()
+        with bind_log_context(stage="session_preparation"):
+            session.status = "processing"
+            db.commit()
 
-        transcript_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "transcript"]
-        video_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "video"]
-        if not transcript_artifacts:
-            raise ValueError("No transcript artifacts found for draft generation.")
+            transcript_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "transcript"]
+            video_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "video"]
+            if not transcript_artifacts:
+                raise ValueError("No transcript artifacts found for draft generation.")
 
-        step_ids_subquery = select(ProcessStepModel.id).where(ProcessStepModel.session_id == session.id)
-        db.execute(delete(ProcessStepScreenshotModel).where(ProcessStepScreenshotModel.step_id.in_(step_ids_subquery)))
-        db.execute(
-            delete(ProcessStepScreenshotCandidateModel).where(
-                ProcessStepScreenshotCandidateModel.step_id.in_(step_ids_subquery)
+            step_ids_subquery = select(ProcessStepModel.id).where(ProcessStepModel.session_id == session.id)
+            db.execute(delete(ProcessStepScreenshotModel).where(ProcessStepScreenshotModel.step_id.in_(step_ids_subquery)))
+            db.execute(
+                delete(ProcessStepScreenshotCandidateModel).where(
+                    ProcessStepScreenshotCandidateModel.step_id.in_(step_ids_subquery)
+                )
             )
-        )
-        db.execute(delete(ProcessStepModel).where(ProcessStepModel.session_id == session.id))
-        db.execute(delete(ProcessNoteModel).where(ProcessNoteModel.session_id == session.id))
-        db.execute(delete(ArtifactModel).where(ArtifactModel.session_id == session.id, ArtifactModel.kind == "screenshot"))
-        db.commit()
+            db.execute(delete(ProcessStepModel).where(ProcessStepModel.session_id == session.id))
+            db.execute(delete(ProcessNoteModel).where(ProcessNoteModel.session_id == session.id))
+            db.execute(delete(ArtifactModel).where(ArtifactModel.session_id == session.id, ArtifactModel.kind == "screenshot"))
+            db.commit()
+            logger.info(
+                "Prepared session for generation",
+                extra={
+                    "event": "draft_generation.stage_completed",
+                    "transcript_artifact_count": len(transcript_artifacts),
+                    "video_artifact_count": len(video_artifacts),
+                },
+            )
 
-        return DraftGenerationContext(
-            session_id=session.id,
-            session=session,
-            transcript_artifacts=transcript_artifacts,
-            video_artifacts=video_artifacts,
-        )
+            return DraftGenerationContext(
+                session_id=session.id,
+                session=session,
+                transcript_artifacts=transcript_artifacts,
+                video_artifacts=video_artifacts,
+            )
 
 
 class TranscriptInterpretationStage:
@@ -86,45 +98,55 @@ class TranscriptInterpretationStage:
         self.action_log_service = action_log_service or ActionLogService()
 
     def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
-        self.action_log_service.record(
-            db,
-            session_id=context.session_id,
-            event_type="generation_stage",
-            title="Interpreting transcript",
-            detail=f"Processing {len(context.transcript_artifacts)} transcript artifact(s).",
-            actor="system",
-        )
-        db.commit()
-
-        for transcript in context.transcript_artifacts:
-            normalized_text = self.transcript_normalizer.normalize(transcript.storage_path, transcript.name)
-            interpretation = self.ai_transcript_interpreter.interpret(
-                transcript_artifact_id=transcript.id,
-                transcript_text=normalized_text,
+        with bind_log_context(stage="transcript_interpretation"):
+            self.action_log_service.record(
+                db,
+                session_id=context.session_id,
+                event_type="generation_stage",
+                title="Interpreting transcript",
+                detail=f"Processing {len(context.transcript_artifacts)} transcript artifact(s).",
+                actor="system",
             )
+            db.commit()
 
-            if interpretation is not None and interpretation.steps:
-                self._ground_ai_step_spans(interpretation.steps, normalized_text)
-                context.all_steps.extend(interpretation.steps)
-                context.steps_by_transcript.setdefault(transcript.id, []).extend(interpretation.steps)
-                context.all_notes.extend(interpretation.notes)
-                continue
-
-            transcript_steps = self.step_extractor.extract_steps(
-                transcript_artifact_id=transcript.id,
-                transcript_text=normalized_text,
-            )
-            context.all_steps.extend(transcript_steps)
-            context.steps_by_transcript.setdefault(transcript.id, []).extend(transcript_steps)
-            context.all_notes.extend(
-                self.note_extractor.extract_notes(
+            for transcript in context.transcript_artifacts:
+                normalized_text = self.transcript_normalizer.normalize(transcript.storage_path, transcript.name)
+                interpretation = self.ai_transcript_interpreter.interpret(
                     transcript_artifact_id=transcript.id,
                     transcript_text=normalized_text,
                 )
-            )
 
-        for step_number, step in enumerate(context.all_steps, start=1):
-            step["step_number"] = step_number
+                if interpretation is not None and interpretation.steps:
+                    self._ground_ai_step_spans(interpretation.steps, normalized_text)
+                    context.all_steps.extend(interpretation.steps)
+                    context.steps_by_transcript.setdefault(transcript.id, []).extend(interpretation.steps)
+                    context.all_notes.extend(interpretation.notes)
+                    continue
+
+                transcript_steps = self.step_extractor.extract_steps(
+                    transcript_artifact_id=transcript.id,
+                    transcript_text=normalized_text,
+                )
+                context.all_steps.extend(transcript_steps)
+                context.steps_by_transcript.setdefault(transcript.id, []).extend(transcript_steps)
+                context.all_notes.extend(
+                    self.note_extractor.extract_notes(
+                        transcript_artifact_id=transcript.id,
+                        transcript_text=normalized_text,
+                    )
+                )
+
+            for step_number, step in enumerate(context.all_steps, start=1):
+                step["step_number"] = step_number
+
+            logger.info(
+                "Transcript interpretation completed",
+                extra={
+                    "event": "draft_generation.stage_completed",
+                    "step_count": len(context.all_steps),
+                    "note_count": len(context.all_notes),
+                },
+            )
 
     def _ground_ai_step_spans(self, step_candidates: list[dict], transcript_text: str) -> None:
         transcript_timestamps = extract_transcript_timestamps(transcript_text)
@@ -157,31 +179,43 @@ class ScreenshotDerivationStage:
         self.action_log_service = action_log_service or ActionLogService()
 
     def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
-        if not context.video_artifacts:
-            return
-
-        self.action_log_service.record(
-            db,
-            session_id=context.session_id,
-            event_type="generation_stage",
-            title="Extracting screenshots",
-            detail=build_pairing_detail(context.transcript_artifacts, context.video_artifacts),
-            actor="system",
-        )
-        db.commit()
-
-        for transcript_index, transcript in enumerate(context.transcript_artifacts):
-            transcript_steps = context.steps_by_transcript.get(transcript.id, [])
-            if not transcript_steps:
-                continue
-            paired_video = context.video_artifacts[min(transcript_index, len(context.video_artifacts) - 1)]
-            context.screenshot_artifacts.extend(
-                self._derive_screenshots(
-                    db=db,
-                    session_id=context.session_id,
-                    video_artifacts=[paired_video],
-                    step_candidates=transcript_steps,
+        with bind_log_context(stage="screenshot_derivation"):
+            if not context.video_artifacts:
+                logger.info(
+                    "Skipping screenshot derivation because no video artifacts are present",
+                    extra={"event": "draft_generation.stage_skipped"},
                 )
+                return
+
+            self.action_log_service.record(
+                db,
+                session_id=context.session_id,
+                event_type="generation_stage",
+                title="Extracting screenshots",
+                detail=build_pairing_detail(context.transcript_artifacts, context.video_artifacts),
+                actor="system",
+            )
+            db.commit()
+
+            for transcript_index, transcript in enumerate(context.transcript_artifacts):
+                transcript_steps = context.steps_by_transcript.get(transcript.id, [])
+                if not transcript_steps:
+                    continue
+                paired_video = context.video_artifacts[min(transcript_index, len(context.video_artifacts) - 1)]
+                context.screenshot_artifacts.extend(
+                    self._derive_screenshots(
+                        db=db,
+                        session_id=context.session_id,
+                        video_artifacts=[paired_video],
+                        step_candidates=transcript_steps,
+                    )
+                )
+            logger.info(
+                "Screenshot derivation completed",
+                extra={
+                    "event": "draft_generation.stage_completed",
+                    "screenshot_count": len(context.screenshot_artifacts),
+                },
             )
 
     def _derive_screenshots(self, *, db, session_id: str, video_artifacts: list[ArtifactModel], step_candidates: list[dict]) -> list[ArtifactModel]:
@@ -428,69 +462,75 @@ class DiagramAssemblyStage:
         self.action_log_service = action_log_service or ActionLogService()
 
     def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
-        self.action_log_service.record(
-            db,
-            session_id=context.session_id,
-            event_type="generation_stage",
-            title="Building diagram",
-            detail="Generating the session diagram model.",
-            actor="system",
-        )
-        db.commit()
-
-        diagram_interpretation = None
-        try:
-            diagram_interpretation = self.ai_transcript_interpreter.interpret_diagrams(
-                session_title=context.session.title,
-                diagram_type=context.session.diagram_type,
-                steps=context.all_steps,
-                notes=context.all_notes,
+        with bind_log_context(stage="diagram_assembly"):
+            self.action_log_service.record(
+                db,
+                session_id=context.session_id,
+                event_type="generation_stage",
+                title="Building diagram",
+                detail="Generating the session diagram model.",
+                actor="system",
             )
-        except Exception:
+            db.commit()
+
             diagram_interpretation = None
+            try:
+                diagram_interpretation = self.ai_transcript_interpreter.interpret_diagrams(
+                    session_title=context.session.title,
+                    diagram_type=context.session.diagram_type,
+                    steps=context.all_steps,
+                    notes=context.all_notes,
+                )
+            except Exception:
+                diagram_interpretation = None
 
-        if diagram_interpretation is None:
-            context.overview_diagram_json = ""
-            context.detailed_diagram_json = ""
-            return
+            if diagram_interpretation is None:
+                context.overview_diagram_json = ""
+                context.detailed_diagram_json = ""
+                logger.info("Diagram assembly produced no renderable output", extra={"event": "draft_generation.stage_completed"})
+                return
 
-        context.overview_diagram_json = json.dumps(diagram_interpretation.overview)
-        context.detailed_diagram_json = json.dumps(diagram_interpretation.detailed)
+            context.overview_diagram_json = json.dumps(diagram_interpretation.overview)
+            context.detailed_diagram_json = json.dumps(diagram_interpretation.detailed)
+            logger.info("Diagram assembly completed", extra={"event": "draft_generation.stage_completed"})
 
 
 class PersistenceStage:
     """Persist generated steps, notes, screenshots, and final status."""
 
     def run(self, db, context: DraftGenerationContext) -> dict[str, int | str]:  # type: ignore[no-untyped-def]
-        context.session.overview_diagram_json = context.overview_diagram_json
-        context.session.detailed_diagram_json = context.detailed_diagram_json
+        with bind_log_context(stage="persistence"):
+            context.session.overview_diagram_json = context.overview_diagram_json
+            context.session.detailed_diagram_json = context.detailed_diagram_json
 
-        step_models = [ProcessStepModel(session_id=context.session_id, **self._to_step_record(step)) for step in context.all_steps]
-        db.add_all(step_models)
-        db.flush()
-        self._persist_step_screenshots(db, step_models, context.all_steps)
-        db.add_all(ProcessNoteModel(session_id=context.session_id, **note) for note in context.all_notes)
-        context.session.status = "review"
-        db.add(
-            ActionLogModel(
-                session_id=context.session_id,
-                event_type="draft_generated",
-                title="Ready for review",
-                detail=(
-                    f"{len(context.all_steps)} steps, "
-                    f"{len(context.all_notes)} notes, "
-                    f"{len(context.screenshot_artifacts)} screenshots."
-                ),
-                actor="system",
+            step_models = [ProcessStepModel(session_id=context.session_id, **self._to_step_record(step)) for step in context.all_steps]
+            db.add_all(step_models)
+            db.flush()
+            self._persist_step_screenshots(db, step_models, context.all_steps)
+            db.add_all(ProcessNoteModel(session_id=context.session_id, **note) for note in context.all_notes)
+            context.session.status = "review"
+            db.add(
+                ActionLogModel(
+                    session_id=context.session_id,
+                    event_type="draft_generated",
+                    title="Ready for review",
+                    detail=(
+                        f"{len(context.all_steps)} steps, "
+                        f"{len(context.all_notes)} notes, "
+                        f"{len(context.screenshot_artifacts)} screenshots."
+                    ),
+                    actor="system",
+                )
             )
-        )
-        db.commit()
-        return {
-            "session_id": context.session_id,
-            "steps_created": len(context.all_steps),
-            "notes_created": len(context.all_notes),
-            "screenshots_created": len(context.screenshot_artifacts),
-        }
+            db.commit()
+            result = {
+                "session_id": context.session_id,
+                "steps_created": len(context.all_steps),
+                "notes_created": len(context.all_notes),
+                "screenshots_created": len(context.screenshot_artifacts),
+            }
+            logger.info("Persistence stage completed", extra={"event": "draft_generation.stage_completed", **result})
+            return result
 
     @staticmethod
     def _attach_screenshot_evidence(step: dict) -> None:
@@ -557,20 +597,25 @@ class FailureStage:
     def mark_failed(db, session_id: str, detail: str | None = None) -> None:  # type: ignore[no-untyped-def]
         from app.models.draft_session import DraftSessionModel
 
-        session = db.get(DraftSessionModel, session_id)
-        if session is None:
-            return
-        session.status = "failed"
-        failure_detail = (detail or "Background draft generation did not complete successfully.").strip()
-        if len(failure_detail) > 500:
-            failure_detail = f"{failure_detail[:497]}..."
-        db.add(
-            ActionLogModel(
-                session_id=session_id,
-                event_type="generation_failed",
-                title="Draft generation failed",
-                detail=failure_detail,
-                actor="system",
+        with bind_log_context(stage="failure"):
+            session = db.get(DraftSessionModel, session_id)
+            if session is None:
+                return
+            session.status = "failed"
+            failure_detail = (detail or "Background draft generation did not complete successfully.").strip()
+            if len(failure_detail) > 500:
+                failure_detail = f"{failure_detail[:497]}..."
+            db.add(
+                ActionLogModel(
+                    session_id=session_id,
+                    event_type="generation_failed",
+                    title="Draft generation failed",
+                    detail=failure_detail,
+                    actor="system",
+                )
             )
-        )
-        db.commit()
+            db.commit()
+            logger.error(
+                "Failure stage persisted draft generation error",
+                extra={"event": "draft_generation.stage_failed", "failure_detail": failure_detail},
+            )
