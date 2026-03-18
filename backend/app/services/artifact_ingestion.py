@@ -11,13 +11,19 @@ from sqlalchemy.orm import Session
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.storage.storage_service import StorageService
+from app.services.artifact_validation import ArtifactValidationService
 
 
 class ArtifactIngestionService:
     """Coordinate draft session creation and artifact intake."""
 
-    def __init__(self, storage_service: StorageService | None = None) -> None:
+    def __init__(
+        self,
+        storage_service: StorageService | None = None,
+        validation_service: ArtifactValidationService | None = None,
+    ) -> None:
         self.storage_service = storage_service or StorageService()
+        self.validation_service = validation_service or ArtifactValidationService()
 
     def create_session(self, db: Session, *, title: str, owner_id: str, diagram_type: str) -> DraftSessionModel:
         """Create and persist a new draft session."""
@@ -41,6 +47,7 @@ class ArtifactIngestionService:
         if session is None or session.owner_id != owner_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft session not found.")
 
+        self.validation_service.validate_upload(upload=upload, artifact_kind=artifact_kind)
         storage_path, size_bytes = self.storage_service.save_upload(
             session_id=session_id,
             upload=upload,

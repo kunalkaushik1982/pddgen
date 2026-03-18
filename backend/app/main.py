@@ -13,6 +13,7 @@ from app.api.routes import auth, draft_sessions, exports, uploads
 from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import engine
+from app.middleware.csrf import CSRFMiddleware
 import app.models  # noqa: F401
 
 
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(CSRFMiddleware)
 
     app.include_router(uploads.router, prefix=settings.api_prefix)
     app.include_router(auth.router, prefix=settings.api_prefix)

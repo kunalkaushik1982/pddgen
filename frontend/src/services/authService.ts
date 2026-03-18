@@ -1,6 +1,5 @@
 import type { User } from "../types/auth";
 import type { BackendAuthResponse, BackendUser } from "./contracts";
-import { authStorage } from "./authStorage";
 import { fetchJson } from "./http";
 import { mapUser } from "./mappers";
 
@@ -11,7 +10,9 @@ export const authService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    authStorage.setToken(payload.token);
+    if (!payload.user) {
+      throw new Error(payload.challenge_type ?? "Additional authentication challenge required.");
+    }
     return mapUser(payload.user);
   },
 
@@ -21,22 +22,16 @@ export const authService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    authStorage.setToken(payload.token);
+    if (!payload.user) {
+      throw new Error(payload.challenge_type ?? "Additional authentication challenge required.");
+    }
     return mapUser(payload.user);
   },
 
   async logout(): Promise<void> {
-    const token = authStorage.getToken();
-    if (!token) {
-      return;
-    }
-    try {
-      await fetchJson<void>("/auth/logout", {
-        method: "POST",
-      });
-    } finally {
-      authStorage.clearToken();
-    }
+    await fetchJson<void>("/auth/logout", {
+      method: "POST",
+    });
   },
 
   async getCurrentUser(): Promise<User> {
@@ -45,6 +40,6 @@ export const authService = {
   },
 
   clearAuthToken(): void {
-    authStorage.clearToken();
+    return;
   },
 };

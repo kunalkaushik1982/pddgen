@@ -134,8 +134,11 @@ export type BackendUser = {
 };
 
 export type BackendAuthResponse = {
-  token: string;
-  user: BackendUser;
+  auth_status?: string;
+  challenge_type?: string | null;
+  challenge_token?: string | null;
+  token?: string | null;
+  user?: BackendUser;
 };
 
 export type BackendDiagramNode = {

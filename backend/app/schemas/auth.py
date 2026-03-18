@@ -26,7 +26,10 @@ class UserResponse(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    """API token plus authenticated user."""
+    """Authenticated user and any next-step auth metadata."""
 
-    token: str
+    auth_status: str = "authenticated"
+    challenge_type: str | None = None
+    challenge_token: str | None = None
+    token: str | None = None
     user: UserResponse

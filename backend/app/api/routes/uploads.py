@@ -5,43 +5,22 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\routes\uploa
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_artifact_ingestion_service, get_auth_service, get_current_user
+from app.api.dependencies import get_artifact_ingestion_service, get_current_user
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.common import ArtifactKind
 from app.schemas.draft_session import ArtifactResponse, CreateDraftSessionRequest, DraftSessionResponse
 from app.services.artifact_ingestion import ArtifactIngestionService
 from app.services.action_log_service import ActionLogService
-from app.services.auth_service import AuthService
 from app.services.mappers import map_draft_session
 from app.models.artifact import ArtifactModel
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 action_log_service = ActionLogService()
-
-
-def _optional_current_user_dependency(
-    db: Annotated[Session, Depends(get_db_session)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
-) -> UserModel | None:
-    if not authorization:
-        return None
-    scheme, _, bearer_token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not bearer_token:
-        return None
-    return auth_service.authenticate_token(db, token=bearer_token)
-
-
-def get_current_user_optional(
-    current_user: Annotated[UserModel | None, Depends(_optional_current_user_dependency)],
-) -> UserModel | None:
-    """Provide the current user when auth exists, without forcing 401 before query-token fallback."""
-    return current_user
 
 
 @router.post("/sessions", response_model=DraftSessionResponse, status_code=status.HTTP_201_CREATED)
@@ -109,17 +88,10 @@ def upload_artifact(
 def get_artifact_content(
     artifact_id: str,
     db: Annotated[Session, Depends(get_db_session)],
-    current_user: Annotated[UserModel | None, Depends(get_current_user_optional)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    token: Annotated[str | None, Query()] = None,
+    current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> FileResponse:
     """Serve one stored artifact file for frontend preview."""
-    resolved_user = current_user
-    if resolved_user is None and token:
-        resolved_user = auth_service.authenticate_token(db, token=token)
-    if resolved_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
     artifact = db.get(ArtifactModel, artifact_id)
-    if artifact is None or artifact.session.owner_id != resolved_user.username:
+    if artifact is None or artifact.session.owner_id != current_user.username:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found.")
     return FileResponse(path=artifact.storage_path, media_type=artifact.content_type, filename=artifact.name)

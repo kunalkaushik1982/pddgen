@@ -1,12 +1,20 @@
 import type { ExportResult } from "../types/session";
 import type { BackendOutputDocument } from "./contracts";
-import { buildAuthHeaders, getDownloadFilename, parseJsonResponse, triggerBlobDownload, API_BASE_URL } from "./http";
+import {
+  buildAuthHeaders,
+  buildSecurityHeaders,
+  getDownloadFilename,
+  parseJsonResponse,
+  triggerBlobDownload,
+  API_BASE_URL,
+} from "./http";
 
 export const exportService = {
   async exportDocx(sessionId: string): Promise<ExportResult> {
     const response = await fetch(`${API_BASE_URL}/exports/${sessionId}/docx`, {
       method: "POST",
-      headers: buildAuthHeaders(),
+      headers: buildSecurityHeaders("POST", buildAuthHeaders()),
+      credentials: "include",
     });
     const output = await parseJsonResponse<BackendOutputDocument>(response);
     return {
@@ -20,7 +28,8 @@ export const exportService = {
   async downloadExportDocx(sessionId: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/exports/${sessionId}/docx/download`, {
       method: "POST",
-      headers: buildAuthHeaders(),
+      headers: buildSecurityHeaders("POST", buildAuthHeaders()),
+      credentials: "include",
     });
 
     if (!response.ok) {
@@ -36,7 +45,8 @@ export const exportService = {
   async downloadExportPdf(sessionId: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/exports/${sessionId}/pdf/download`, {
       method: "POST",
-      headers: buildAuthHeaders(),
+      headers: buildSecurityHeaders("POST", buildAuthHeaders()),
+      credentials: "include",
     });
 
     if (!response.ok) {

@@ -1,6 +1,7 @@
 import type { InputArtifact } from "../types/session";
 import type { BackendArtifact } from "./contracts";
 import { API_BASE_URL, buildAuthHeaders } from "./http";
+import { getCookieValue } from "./csrf";
 import { mapArtifact } from "./mappers";
 
 export const uploadService = {
@@ -21,11 +22,16 @@ export const uploadService = {
     return new Promise<InputArtifact>((resolve, reject) => {
       const request = new XMLHttpRequest();
       request.open("POST", `${API_BASE_URL}/uploads/sessions/${sessionId}/artifacts`);
+      request.withCredentials = true;
 
       const headers = buildAuthHeaders();
       Object.entries(headers).forEach(([key, value]) => {
         request.setRequestHeader(key, value);
       });
+      const csrfToken = getCookieValue("pdd_generator_csrf");
+      if (csrfToken) {
+        request.setRequestHeader("X-CSRF-Token", csrfToken);
+      }
 
       request.upload.addEventListener("progress", (event) => {
         if (!options?.onProgress) {

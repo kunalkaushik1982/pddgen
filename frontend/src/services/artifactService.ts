@@ -4,6 +4,7 @@ export const artifactService = {
   async fetchArtifactBlob(artifactId: string): Promise<Blob> {
     const response = await fetch(`${API_BASE_URL}/uploads/artifacts/${artifactId}/content`, {
       headers: buildAuthHeaders(),
+      credentials: "include",
     });
 
     if (!response.ok) {

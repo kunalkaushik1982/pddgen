@@ -1,8 +1,10 @@
 import { appConfig } from "../config/appConfig";
-import { authStorage } from "./authStorage";
+import { getCookieValue } from "./csrf";
 
 const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? appConfig.apiBaseUrlFallback;
 export const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "");
+const CSRF_COOKIE_NAME = "pdd_generator_csrf";
+const CSRF_HEADER_NAME = "X-CSRF-Token";
 
 export function buildApiUrl(path: string): URL {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -13,13 +15,23 @@ export function buildApiUrl(path: string): URL {
 }
 
 export function buildAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
-  const authToken = authStorage.getToken();
-  return authToken
-    ? {
-        Authorization: `Bearer ${authToken}`,
-        ...extraHeaders,
-      }
-    : extraHeaders;
+  return { ...extraHeaders };
+}
+
+export function buildSecurityHeaders(method: string | undefined, headers: Record<string, string>): Record<string, string> {
+  if (!method || ["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())) {
+    return headers;
+  }
+
+  const csrfToken = getCookieValue(CSRF_COOKIE_NAME);
+  if (!csrfToken) {
+    return headers;
+  }
+
+  return {
+    ...headers,
+    [CSRF_HEADER_NAME]: csrfToken,
+  };
 }
 
 export async function parseJsonResponse<T>(response: Response): Promise<T> {
@@ -31,10 +43,14 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
 }
 
 export async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = buildAuthHeaders(init.headers ? (init.headers as Record<string, string>) : {});
+  const headers = buildSecurityHeaders(
+    init.method,
+    buildAuthHeaders(init.headers ? (init.headers as Record<string, string>) : {}),
+  );
   const response = await fetch(`${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`, {
     ...init,
     headers,
+    credentials: "include",
   });
   return parseJsonResponse<T>(response);
 }

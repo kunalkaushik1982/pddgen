@@ -25,7 +25,17 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/pdd_generator"
     redis_url: str = "redis://localhost:6379/0"
+    auth_provider: str = "password"
+    auth_session_backend: str = "database_token"
+    auth_registration_enabled: bool = True
     auth_token_days: int = 7
+    auth_cookie_name: str = "pdd_generator_session"
+    auth_cookie_secure: bool = False
+    auth_cookie_samesite: str = "lax"
+    auth_cookie_domain: str | None = None
+    auth_csrf_protection_enabled: bool = True
+    auth_csrf_cookie_name: str = "pdd_generator_csrf"
+    auth_csrf_header_name: str = "X-CSRF-Token"
     ai_enabled: bool = False
     ai_provider: str = "openai_compatible"
     ai_api_key: str = ""

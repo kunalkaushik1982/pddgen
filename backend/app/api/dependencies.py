@@ -5,13 +5,17 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\dependencies
 
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.services.artifact_ingestion import ArtifactIngestionService
+from app.services.artifact_validation import ArtifactValidationService
 from app.services.auth_service import AuthService
+from app.services.auth_provider_registry import AuthProviderRegistry
+from app.services.database_session_service import DatabaseSessionService
 from app.services.document_renderer import DocumentRendererService
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
@@ -26,7 +30,10 @@ def get_storage_service() -> StorageService:
 
 def get_artifact_ingestion_service() -> ArtifactIngestionService:
     """Provide the artifact ingestion service."""
-    return ArtifactIngestionService(storage_service=get_storage_service())
+    return ArtifactIngestionService(
+        storage_service=get_storage_service(),
+        validation_service=ArtifactValidationService(),
+    )
 
 
 def get_pipeline_orchestrator_service() -> PipelineOrchestratorService:
@@ -50,19 +57,19 @@ def get_job_dispatcher_service() -> JobDispatcherService:
 
 
 def get_auth_service() -> AuthService:
-    """Provide the simple auth service."""
-    return AuthService()
+    """Provide the configured auth facade."""
+    settings = get_settings()
+    identity_provider = AuthProviderRegistry().build(settings)
+    session_service = DatabaseSessionService() if settings.auth_session_backend == "database_token" else None
+    return AuthService(identity_provider=identity_provider, session_service=session_service)
 
 
 def get_current_user(
-    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    session_cookie: Annotated[str | None, Cookie(alias=get_settings().auth_cookie_name)] = None,
     db: Annotated[Session, Depends(get_db_session)] = None,
     auth_service: Annotated[AuthService, Depends(get_auth_service)] = None,
 ) -> UserModel:
-    """Resolve the current authenticated user from the Bearer token."""
-    if not authorization:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
-    return auth_service.authenticate_token(db, token=token)
+    """Resolve the current authenticated user from the configured session transport."""
+    if session_cookie:
+        return auth_service.authenticate_token(db, token=session_cookie)
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
