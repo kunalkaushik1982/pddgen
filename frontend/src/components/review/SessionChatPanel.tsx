@@ -35,7 +35,7 @@ export function SessionChatPanel({
   selectedEvidence,
   onSelectCitation,
   onAsk,
-}: SessionChatPanelProps): JSX.Element {
+}: SessionChatPanelProps): React.JSX.Element {
   const [question, setQuestion] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

@@ -24,7 +24,7 @@ export function EditableEdge({
   style,
   label,
   data,
-}: EdgeProps<EditableEdgeData>): JSX.Element {
+}: EdgeProps<EditableEdgeData>): React.JSX.Element {
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,

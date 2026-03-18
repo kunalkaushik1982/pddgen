@@ -1,0 +1,355 @@
+/**
+ * Purpose: Workspace, upload, and project list styles.
+ * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\styles\workspace.css
+ */
+
+.review-section-fullwidth {
+  margin-top: 24px;
+}
+
+.session-controls-section {
+  margin-bottom: 24px;
+}
+
+.session-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.session-inline-actions {
+  margin-top: 8px;
+}
+
+.upload-ready-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--surface-soft) 0%, var(--surface-card) 100%);
+}
+
+.upload-workspace {
+  display: block;
+}
+
+.upload-workspace-with-sidebar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 18px;
+  align-items: start;
+}
+
+.upload-main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.upload-sidebar {
+  min-width: 0;
+}
+
+.upload-progress-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  background: var(--surface-card);
+}
+
+.upload-progress-panel-sticky {
+  position: sticky;
+  top: 24px;
+}
+
+.upload-progress-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.upload-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upload-progress-card {
+  padding: 12px 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.upload-progress-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-progress-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.upload-progress-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.upload-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--accent-border);
+}
+
+.upload-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  transition: width 160ms ease;
+}
+
+.upload-progress-pending {
+  background: rgba(148, 163, 184, 0.22);
+  color: var(--app-muted);
+}
+
+.upload-progress-uploading {
+  background: rgba(37, 99, 235, 0.16);
+  color: #60a5fa;
+}
+
+.upload-progress-uploaded {
+  background: rgba(22, 163, 74, 0.16);
+  color: #4ade80;
+}
+
+.upload-progress-failed {
+  background: rgba(220, 38, 38, 0.16);
+  color: #f87171;
+}
+
+.upload-progress-fill.upload-progress-pending {
+  background: rgba(148, 163, 184, 0.55);
+}
+
+.upload-progress-fill.upload-progress-uploaded {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.upload-progress-fill.upload-progress-failed {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  background: var(--surface-card);
+}
+
+.history-card-main {
+  min-width: 0;
+}
+
+.history-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.history-progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(53, 41, 84, 0.88);
+}
+
+.history-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.history-progress-draft {
+  background: linear-gradient(135deg, #6d5ba6, #4f46e5);
+}
+
+.history-progress-queued {
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+}
+
+.history-progress-transcript {
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+}
+
+.history-progress-screenshots {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+}
+
+.history-progress-diagram {
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+}
+
+.history-progress-ready,
+.history-progress-exported {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+
+.history-progress-failed {
+  background: linear-gradient(135deg, #b91c1c, #fb7185);
+}
+
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.upload-field-card {
+  padding: 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  background: var(--surface-card);
+}
+
+.upload-field-card input[type="file"] {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.file-badge-docx {
+  background: rgba(37, 99, 235, 0.22);
+  color: #bfdbfe;
+}
+
+.file-badge-pdf {
+  background: rgba(220, 38, 38, 0.22);
+  color: #fecaca;
+}
+
+.history-stage-title {
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.history-stage-title-draft,
+.history-progress-label-draft {
+  color: #8b5cf6;
+}
+
+.history-stage-title-queued,
+.history-progress-label-queued {
+  color: #38bdf8;
+}
+
+.history-stage-title-transcript,
+.history-progress-label-transcript {
+  color: #a78bfa;
+}
+
+.history-stage-title-screenshots,
+.history-progress-label-screenshots {
+  color: #f59e0b;
+}
+
+.history-stage-title-diagram,
+.history-progress-label-diagram {
+  color: #2dd4bf;
+}
+
+.history-stage-title-exported,
+.history-progress-label-exported {
+  color: #34d399;
+}
+
+.history-stage-title-failed,
+.history-progress-label-failed {
+  color: #dc2626;
+}
+
+.history-stage-title-ready,
+.history-progress-label-ready {
+  color: #15803d;
+  font-weight: 800;
+}
+
+.export-panel {
+  gap: 12px;
+}
+
+.export-panel h2 {
+  margin-bottom: 0;
+}
+
+.export-result-card {
+  padding: 12px 14px;
+}
+
+@media (max-width: 1080px) {
+  .upload-workspace-with-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .upload-progress-panel-sticky {
+    position: static;
+  }
+}
+
+@media (max-width: 960px) {
+  .history-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .upload-grid {
+    grid-template-columns: 1fr;
+  }
+}

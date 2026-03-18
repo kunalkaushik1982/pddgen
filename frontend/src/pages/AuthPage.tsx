@@ -12,7 +12,7 @@ type AuthPageProps = {
   onRegister: (username: string, password: string) => Promise<void>;
 };
 
-export function AuthPage({ disabled, message, onLogin, onRegister }: AuthPageProps): JSX.Element {
+export function AuthPage({ disabled, message, onLogin, onRegister }: AuthPageProps): React.JSX.Element {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 

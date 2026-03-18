@@ -3,27 +3,28 @@
  * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\pages\StepReviewPage.tsx
  */
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy } from "react";
 
-import { FlowchartPreviewPanel } from "../components/diagram/FlowchartPreviewPanel";
-import { SessionChatPanel } from "../components/review/SessionChatPanel";
-import { StepReviewPanel } from "../components/review/StepReviewPanel";
-import { apiClient } from "../services/apiClient";
-import type { CandidateScreenshot, ProcessNote, ProcessStep } from "../types/process";
-import type { DraftSession, SessionAnswer, SessionAnswerCitation } from "../types/session";
+import { ReviewWorkspaceTabs } from "../components/review/ReviewWorkspaceTabs";
+import { SessionActionLogPanel } from "../components/review/SessionActionLogPanel";
+import { SessionDiagramSection } from "../components/review/SessionDiagramSection";
+import { SessionProcessSection } from "../components/review/SessionProcessSection";
+import { SessionSummaryPanel } from "../components/review/SessionSummaryPanel";
+import { useAskSession } from "../hooks/useAskSession";
+import { useReviewWorkspace, type ReviewMode } from "../hooks/useReviewWorkspace";
+import { useStepEditor } from "../hooks/useStepEditor";
+import type { ProcessStep } from "../types/process";
+import type { DraftSession } from "../types/session";
 
-type ReviewMode = "view" | "edit";
-type ViewWorkspaceTab = "summary" | "steps" | "diagram" | "ask" | "log";
-type EditWorkspaceTab = "steps" | "diagram";
-type SessionChatEntry = {
-  id: string;
-  question: string;
-  answer: SessionAnswer;
-};
-type EvidencePreview =
-  | { kind: "step"; title: string; step: ProcessStep }
-  | { kind: "note"; title: string; note: ProcessNote }
-  | { kind: "transcript"; title: string; snippet: string };
+const FlowchartPreviewPanel = lazy(async () => {
+  const module = await import("../components/diagram/FlowchartPreviewPanel");
+  return { default: module.FlowchartPreviewPanel };
+});
+
+const SessionChatPanel = lazy(async () => {
+  const module = await import("../components/review/SessionChatPanel");
+  return { default: module.SessionChatPanel };
+});
 
 type StepReviewPageProps = {
   session: DraftSession | null;
@@ -59,43 +60,14 @@ export function StepReviewPage({
   onRemoveScreenshot,
   onRefreshSession,
   onSelectCandidateScreenshot,
-}: StepReviewPageProps): JSX.Element {
+}: StepReviewPageProps): React.JSX.Element {
   const selectedStep = session?.processSteps.find((step) => step.id === selectedStepId) ?? session?.processSteps[0] ?? null;
-  const [draftValues, setDraftValues] = useState<Partial<ProcessStep>>({});
-  const [isEditing, setIsEditing] = useState(false);
-  const [candidateIndex, setCandidateIndex] = useState(0);
-  const [reviewMode, setReviewMode] = useState<ReviewMode>(initialReviewMode);
-  const [activeViewTab, setActiveViewTab] = useState<ViewWorkspaceTab>("summary");
-  const [activeEditTab, setActiveEditTab] = useState<EditWorkspaceTab>("steps");
-  const [chatEntries, setChatEntries] = useState<SessionChatEntry[]>([]);
-  const [chatError, setChatError] = useState<string | null>(null);
-  const [selectedEvidence, setSelectedEvidence] = useState<EvidencePreview | null>(null);
-
-  useEffect(() => {
-    setDraftValues(
-      selectedStep
-        ? {
-            actionText: selectedStep.actionText,
-            sourceDataNote: selectedStep.sourceDataNote,
-            confidence: selectedStep.confidence,
-          }
-        : {},
-    );
-    setIsEditing(false);
-  }, [selectedStep]);
-
-  useEffect(() => {
-    setCandidateIndex(0);
-  }, [selectedStep?.id]);
-
-  useEffect(() => {
-    setReviewMode(initialReviewMode);
-    setActiveViewTab("summary");
-    setActiveEditTab("steps");
-    setChatEntries([]);
-    setChatError(null);
-    setSelectedEvidence(null);
-  }, [initialReviewMode, session?.id]);
+  const askSession = useAskSession(session);
+  const stepEditor = useStepEditor(selectedStep);
+  const workspace = useReviewWorkspace({
+    initialReviewMode,
+    sessionId: session?.id ?? null,
+  });
 
   if (!session) {
     return (
@@ -111,10 +83,10 @@ export function StepReviewPage({
     if (!selectedStep) {
       return;
     }
-    await onSaveStep(selectedStep.id, draftValues);
+    await onSaveStep(selectedStep.id, stepEditor.draftValues);
   }
 
-  const currentCandidate = selectedStep?.candidateScreenshots[candidateIndex] ?? null;
+  const currentCandidate = stepEditor.currentCandidate;
   const applications = Array.from(new Set(session.processSteps.map((step) => step.applicationName).filter(Boolean)));
   const editedSteps = session.processSteps.filter((step) => step.editedByBa);
   const screenshotCount = session.processSteps.reduce((total, step) => total + step.screenshots.length, 0);
@@ -127,23 +99,18 @@ export function StepReviewPage({
   const summaryBullets = session.processSteps.slice(0, 12).map((step) => step.actionText);
   const actionLogEntries = session.actionLogs;
 
-  function switchMode(nextMode: ReviewMode) {
-    setReviewMode(nextMode);
-    if (nextMode === "edit") {
-      if (activeViewTab === "diagram") {
-        setActiveEditTab("diagram");
-      } else {
-        setActiveEditTab("steps");
-      }
-      return;
-    }
-    if (activeEditTab === "diagram") {
-      setActiveViewTab("diagram");
-    } else if (activeViewTab === "summary" || activeViewTab === "log") {
-      setActiveViewTab(activeViewTab);
-    } else {
-      setActiveViewTab("steps");
-    }
+  function renderLazyPanel(children: React.ReactNode, message: string) {
+    return (
+      <Suspense
+        fallback={
+          <div className="empty-state">
+            {message}
+          </div>
+        }
+      >
+        {children}
+      </Suspense>
+    );
   }
 
   return (
@@ -168,18 +135,18 @@ export function StepReviewPage({
             <button
               type="button"
               role="tab"
-              aria-selected={reviewMode === "view"}
-              className={`review-mode-tab ${reviewMode === "view" ? "review-mode-tab-active" : ""}`}
-              onClick={() => switchMode("view")}
+              aria-selected={workspace.reviewMode === "view"}
+              className={`review-mode-tab ${workspace.reviewMode === "view" ? "review-mode-tab-active" : ""}`}
+              onClick={() => workspace.switchMode("view")}
             >
               View
             </button>
             <button
               type="button"
               role="tab"
-              aria-selected={reviewMode === "edit"}
-              className={`review-mode-tab ${reviewMode === "edit" ? "review-mode-tab-active" : ""}`}
-              onClick={() => switchMode("edit")}
+              aria-selected={workspace.reviewMode === "edit"}
+              className={`review-mode-tab ${workspace.reviewMode === "edit" ? "review-mode-tab-active" : ""}`}
+              onClick={() => workspace.switchMode("edit")}
             >
               Edit
             </button>
@@ -196,493 +163,136 @@ export function StepReviewPage({
         <div className="empty-state">No steps have been generated yet.</div>
       ) : (
         <div className="review-subsection-stack">
-          {reviewMode === "view" ? (
-            <div className="review-workspace-tabs" role="tablist" aria-label="View workspace">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeViewTab === "summary"}
-                className={`review-workspace-tab ${activeViewTab === "summary" ? "review-workspace-tab-active" : ""}`}
-                onClick={() => setActiveViewTab("summary")}
-              >
-                Summary
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeViewTab === "steps"}
-                className={`review-workspace-tab ${activeViewTab === "steps" ? "review-workspace-tab-active" : ""}`}
-                onClick={() => setActiveViewTab("steps")}
-              >
-                Process
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeViewTab === "diagram"}
-                className={`review-workspace-tab ${activeViewTab === "diagram" ? "review-workspace-tab-active" : ""}`}
-                onClick={() => setActiveViewTab("diagram")}
-              >
-                Diagram
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeViewTab === "ask"}
-                className={`review-workspace-tab ${activeViewTab === "ask" ? "review-workspace-tab-active" : ""}`}
-                onClick={() => setActiveViewTab("ask")}
-              >
-                Ask
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeViewTab === "log"}
-                className={`review-workspace-tab ${activeViewTab === "log" ? "review-workspace-tab-active" : ""}`}
-                onClick={() => setActiveViewTab("log")}
-              >
-                Action Log
-              </button>
-            </div>
-          ) : (
-            <div className="review-workspace-tabs" role="tablist" aria-label="Edit workspace">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeEditTab === "steps"}
-                className={`review-workspace-tab ${activeEditTab === "steps" ? "review-workspace-tab-active" : ""}`}
-                onClick={() => setActiveEditTab("steps")}
-              >
-                Process
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeEditTab === "diagram"}
-                className={`review-workspace-tab ${activeEditTab === "diagram" ? "review-workspace-tab-active" : ""}`}
-                onClick={() => setActiveEditTab("diagram")}
-              >
-                Diagram
-              </button>
-            </div>
-          )}
+          <ReviewWorkspaceTabs
+            reviewMode={workspace.reviewMode}
+            activeViewTab={workspace.activeViewTab}
+            activeEditTab={workspace.activeEditTab}
+            onSelectViewTab={workspace.setActiveViewTab}
+            onSelectEditTab={workspace.setActiveEditTab}
+          />
 
-          {reviewMode === "view" && activeViewTab === "summary" ? (
-            <section className="review-subsection panel stack" role="tabpanel" aria-label="Summary">
-              <div>
-                <h3>Summary</h3>
-                <div className="artifact-meta">Narrative summary for review before detailed process editing or export.</div>
-              </div>
-
-              <div className="summary-document">
-                <div className="summary-document-label">Process summary</div>
-                <div className="summary-document-card">
-                  <h4 className="summary-document-title">{summaryHeading}</h4>
-                  <div className="summary-document-subtitle">{summarySubheading}</div>
-                  <ul className="summary-document-list">
-                    {summaryBullets.map((bullet, index) => (
-                      <li key={`${index}_${bullet}`}>{bullet}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              <div className="summary-meta-grid">
-                <div className="summary-meta-card">
-                  <div className="artifact-meta">Session</div>
-                  <strong>{session.title}</strong>
-                  <div className="summary-muted">{session.processSteps.length} steps | {session.diagramType}</div>
-                </div>
-                <div className="summary-meta-card">
-                  <div className="artifact-meta">Applications</div>
-                  <strong>{applications.length > 0 ? applications.join(", ") : "Not detected"}</strong>
-                  <div className="summary-muted">{applications.length} application(s) involved</div>
-                </div>
-                <div className="summary-meta-card">
-                  <div className="artifact-meta">Evidence</div>
-                  <strong>{screenshotCount} screenshots</strong>
-                  <div className="summary-muted">{primaryScreenshotCount} primary selections</div>
-                </div>
-                <div className="summary-meta-card">
-                  <div className="artifact-meta">BA edits</div>
-                  <strong>{editedSteps.length} edited steps</strong>
-                  <div className="summary-muted">{session.processNotes.length} notes captured</div>
-                </div>
-              </div>
-
+          {workspace.reviewMode === "view" && workspace.activeViewTab === "summary" ? (
+            <section role="tabpanel" id="review-view-panel-summary" aria-labelledby="review-view-tab-summary">
+              <SessionSummaryPanel
+                heading={summaryHeading}
+                subheading={summarySubheading}
+                summaryBullets={summaryBullets}
+                sessionTitle={session.title}
+                stepCount={session.processSteps.length}
+                diagramType={session.diagramType}
+                applicationsLabel={applications.length > 0 ? applications.join(", ") : "Not detected"}
+                applicationCount={applications.length}
+                screenshotCount={screenshotCount}
+                primaryScreenshotCount={primaryScreenshotCount}
+                editedStepCount={editedSteps.length}
+                noteCount={session.processNotes.length}
+              />
             </section>
           ) : null}
 
-          {reviewMode === "view" && activeViewTab === "diagram" ? (
-            <section className="review-subsection panel stack" role="tabpanel" aria-label="Diagram view">
-              <div>
-                <h3>Diagram</h3>
-                <div className="artifact-meta">Read-only process diagram preview.</div>
-              </div>
-              <FlowchartPreviewPanel session={session} allowEditing={false} onSessionRefresh={onRefreshSession} />
+          {workspace.reviewMode === "view" && workspace.activeViewTab === "diagram" ? (
+            <SessionDiagramSection
+              panelId="review-view-panel-diagram"
+              labelledBy="review-view-tab-diagram"
+              title="Diagram"
+              subtitle="Read-only process diagram preview."
+            >
+              {renderLazyPanel(
+                <FlowchartPreviewPanel session={session} allowEditing={false} onSessionRefresh={onRefreshSession} />,
+                "Loading diagram preview...",
+              )}
+            </SessionDiagramSection>
+          ) : null}
+
+          {workspace.reviewMode === "view" && workspace.activeViewTab === "ask" ? (
+            <section role="tabpanel" id="review-view-panel-ask" aria-labelledby="review-view-tab-ask">
+              {renderLazyPanel(
+                <SessionChatPanel
+                  disabled={disabled}
+                  errorMessage={askSession.errorMessage}
+                  entries={askSession.entries}
+                  selectedEvidence={askSession.selectedEvidence}
+                  onSelectCitation={askSession.selectCitation}
+                  onAsk={askSession.ask}
+                />,
+                "Loading session Q&A...",
+              )}
             </section>
           ) : null}
 
-          {reviewMode === "view" && activeViewTab === "ask" ? (
-            <SessionChatPanel
+          {workspace.reviewMode === "edit" && workspace.activeEditTab === "diagram" ? (
+            <SessionDiagramSection
+              panelId="review-edit-panel-diagram"
+              labelledBy="review-edit-tab-diagram"
+              title="Diagram Editor"
+              subtitle="Edit the saved detailed process diagram used in review and export."
+            >
+              {renderLazyPanel(
+                <FlowchartPreviewPanel session={session} allowEditing onSessionRefresh={onRefreshSession} />,
+                "Loading diagram editor...",
+              )}
+            </SessionDiagramSection>
+          ) : null}
+
+          {workspace.reviewMode === "view" && workspace.activeViewTab === "steps" ? (
+            <SessionProcessSection
+              panelId="review-view-panel-steps"
+              labelledBy="review-view-tab-steps"
+              title="Process"
+              subtitle="Read-only process step review with screenshots and evidence."
+              mode="view"
+              stepEditor={stepEditor}
+              selectedStep={selectedStep}
+              steps={session.processSteps}
+              selectedStepId={selectedStep?.id ?? null}
               disabled={disabled}
-              errorMessage={chatError}
-              entries={chatEntries}
-              selectedEvidence={selectedEvidence}
-              onSelectCitation={handleSelectCitation}
-              onAsk={handleAskSession}
+              onSelectStep={onSelectStep}
+              onSaveStep={handleSubmit}
+              onSetPrimaryScreenshot={async () => undefined}
+              onRemoveScreenshot={async () => undefined}
+              onSelectCandidateScreenshot={async () => undefined}
             />
           ) : null}
 
-          {reviewMode === "edit" && activeEditTab === "diagram" ? (
-            <section className="review-subsection panel stack" role="tabpanel" aria-label="Diagram editor">
-              <div>
-                <h3>Diagram Editor</h3>
-                <div className="artifact-meta">Edit the saved detailed process diagram used in review and export.</div>
-              </div>
-              <FlowchartPreviewPanel session={session} allowEditing onSessionRefresh={onRefreshSession} />
-            </section>
+          {workspace.reviewMode === "edit" && workspace.activeEditTab === "steps" ? (
+            <SessionProcessSection
+              panelId="review-edit-panel-steps"
+              labelledBy="review-edit-tab-steps"
+              title="Process Step Editor"
+              subtitle="Review screenshots, update extracted step text, and save BA corrections."
+              mode="edit"
+              stepEditor={stepEditor}
+              selectedStep={selectedStep}
+              steps={session.processSteps}
+              selectedStepId={selectedStep?.id ?? null}
+              disabled={disabled}
+              onSelectStep={onSelectStep}
+              onSaveStep={handleSubmit}
+              onSetPrimaryScreenshot={async (stepScreenshotId) => {
+                if (!selectedStep) {
+                  return;
+                }
+                await onSetPrimaryScreenshot(selectedStep.id, stepScreenshotId);
+              }}
+              onRemoveScreenshot={async (stepScreenshotId) => {
+                if (!selectedStep) {
+                  return;
+                }
+                await onRemoveScreenshot(selectedStep.id, stepScreenshotId);
+              }}
+              onSelectCandidateScreenshot={async (step, candidate, makePrimary) => {
+                await onSelectCandidateScreenshot(step.id, candidate.id, { isPrimary: makePrimary });
+              }}
+            />
           ) : null}
 
-          {reviewMode === "view" && activeViewTab === "steps" ? (
-            <section className="review-subsection panel stack" role="tabpanel" aria-label="Process view">
-              <div>
-                <h3>Process</h3>
-                <div className="artifact-meta">Read-only process step review with screenshots and evidence.</div>
-              </div>
-
-              <div className="review-layout">
-                <div className="step-list review-step-list">
-                  {session.processSteps.map((step) => (
-                    <button
-                      key={step.id}
-                      type="button"
-                      className={`button-secondary review-step-button ${selectedStep?.id === step.id ? "review-step-button-active" : ""}`}
-                      onClick={() => onSelectStep(step.id)}
-                    >
-                      Step {step.stepNumber}: {step.actionText.slice(0, 80)}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="review-detail-column">
-                  {selectedStep ? (
-                    <StepReviewPanel
-                      step={selectedStep}
-                      readOnly
-                    />
-                  ) : null}
-                </div>
-              </div>
-            </section>
-          ) : null}
-
-          {reviewMode === "edit" && activeEditTab === "steps" ? (
-            <section className="review-subsection panel stack" role="tabpanel" aria-label="Process step editor">
-              <div>
-                <h3>Process Step Editor</h3>
-                <div className="artifact-meta">Review screenshots, update extracted step text, and save BA corrections.</div>
-              </div>
-
-              <div className="review-layout">
-                <div className={`step-list review-step-list ${isEditing ? "step-list-editing" : ""}`}>
-                  {session.processSteps.map((step) => (
-                    <button
-                      key={step.id}
-                      type="button"
-                      className={`button-secondary review-step-button ${selectedStep?.id === step.id ? "review-step-button-active" : ""}`}
-                      onClick={() => onSelectStep(step.id)}
-                    >
-                      Step {step.stepNumber}: {step.actionText.slice(0, 80)}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="review-detail-column">
-                  {selectedStep ? (
-                    <>
-                      <StepReviewPanel
-                        step={selectedStep}
-                        onEdit={(step) => {
-                          onSelectStep(step.id);
-                          setIsEditing(true);
-                        }}
-                        onSetPrimaryScreenshot={(stepScreenshotId) => onSetPrimaryScreenshot(selectedStep.id, stepScreenshotId)}
-                        onRemoveScreenshot={(stepScreenshotId) => onRemoveScreenshot(selectedStep.id, stepScreenshotId)}
-                      />
-
-                      {isEditing ? (
-                        <div className="editor-overlay" role="dialog" aria-modal="true" aria-label={`Edit step ${selectedStep.stepNumber}`}>
-                          <div className="editor-workspace">
-                            <div className="editor-workspace-header">
-                              <div>
-                                <h3>Edit Step {selectedStep.stepNumber}</h3>
-                                <div className="artifact-meta">
-                                  {selectedStep.applicationName || "Application pending"} | {selectedStep.timestamp || "No timestamp"}
-                                </div>
-                              </div>
-                              <button type="button" className="button-secondary" onClick={() => setIsEditing(false)} disabled={disabled}>
-                                Close editor
-                              </button>
-                            </div>
-
-                            <div className="editor-workspace-grid">
-                              <div className="editor-visual-column">
-                                {currentCandidate ? (
-                                  <div className="candidate-carousel candidate-carousel-editor">
-                                    <div className="candidate-carousel-header">
-                                      <div>
-                                        <strong>Candidate screenshots</strong>
-                                        <div className="artifact-meta">
-                                          Browse generated screenshots and choose the best evidence for this step.
-                                        </div>
-                                      </div>
-                                      <div className="artifact-meta">
-                                        {candidateIndex + 1} / {selectedStep.candidateScreenshots.length}
-                                      </div>
-                                    </div>
-
-                                    <div className="editor-intent-card">
-                                      <div className="editor-intent-title">Step intent</div>
-                                      <div className="editor-intent-text">{draftValues.actionText ?? selectedStep.actionText}</div>
-                                      {draftValues.sourceDataNote ?? selectedStep.sourceDataNote ? (
-                                        <div className="artifact-meta">
-                                          Source: {draftValues.sourceDataNote ?? selectedStep.sourceDataNote}
-                                        </div>
-                                      ) : null}
-                                      {draftValues.supportingTranscriptText ?? selectedStep.supportingTranscriptText ? (
-                                        <div className="artifact-meta">
-                                          Evidence: {draftValues.supportingTranscriptText ?? selectedStep.supportingTranscriptText}
-                                        </div>
-                                      ) : null}
-                                    </div>
-
-                                    <div className="candidate-carousel-body">
-                                      <div className="screenshot-preview candidate-preview candidate-preview-editor">
-                                        <img
-                                          src={apiClient.getArtifactContentUrl(currentCandidate.artifactId)}
-                                          alt={`Candidate screenshot ${candidateIndex + 1} for step ${selectedStep.stepNumber}`}
-                                        />
-                                      </div>
-                                      <div className="artifact-meta">
-                                        {currentCandidate.timestamp} | source {currentCandidate.sourceRole} | {" "}
-                                        {currentCandidate.isSelected ? "already selected" : "available"}
-                                      </div>
-                                      <div className="button-row">
-                                        <button
-                                          type="button"
-                                          className="button-secondary"
-                                          onClick={() =>
-                                            setCandidateIndex((current) =>
-                                              current === 0 ? selectedStep.candidateScreenshots.length - 1 : current - 1,
-                                            )
-                                          }
-                                        >
-                                          Previous
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="button-secondary"
-                                          onClick={() =>
-                                            setCandidateIndex((current) =>
-                                              current === selectedStep.candidateScreenshots.length - 1 ? 0 : current + 1,
-                                            )
-                                          }
-                                        >
-                                          Next
-                                        </button>
-                                        {currentCandidate.isSelected ? (
-                                          <button
-                                            type="button"
-                                            className="button-primary"
-                                            disabled={disabled}
-                                            onClick={() => void makeCandidatePrimary(selectedStep, currentCandidate)}
-                                          >
-                                            Make selected screenshot primary
-                                          </button>
-                                        ) : (
-                                          <>
-                                            <button
-                                              type="button"
-                                              className="button-secondary"
-                                              disabled={disabled}
-                                              onClick={() => void addCandidateToStep(selectedStep, currentCandidate, false)}
-                                            >
-                                              Add screenshot to step
-                                            </button>
-                                            <button
-                                              type="button"
-                                              className="button-primary"
-                                              disabled={disabled}
-                                              onClick={() => void addCandidateToStep(selectedStep, currentCandidate, true)}
-                                            >
-                                              Add as primary
-                                            </button>
-                                          </>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="empty-state">No candidate screenshots available for this step.</div>
-                                )}
-                              </div>
-
-                              <form className="stack editor-form-column" onSubmit={handleSubmit}>
-                                <div className="editor-form-actions">
-                                  <button type="submit" className="button-primary" disabled={disabled}>
-                                    Save step changes
-                                  </button>
-                                </div>
-
-                                <label className="field-group">
-                                  <span>Action text</span>
-                                  <textarea
-                                    rows={4}
-                                    value={draftValues.actionText ?? ""}
-                                    onChange={(event) => setDraftValues((current) => ({ ...current, actionText: event.target.value }))}
-                                  />
-                                </label>
-
-                                <label className="field-group">
-                                  <span>Source data note</span>
-                                  <textarea
-                                    rows={3}
-                                    value={draftValues.sourceDataNote ?? ""}
-                                    onChange={(event) => setDraftValues((current) => ({ ...current, sourceDataNote: event.target.value }))}
-                                  />
-                                </label>
-
-                                <label className="field-group">
-                                  <span>Confidence</span>
-                                  <select
-                                    value={draftValues.confidence ?? "medium"}
-                                    onChange={(event) =>
-                                      setDraftValues((current) => ({
-                                        ...current,
-                                        confidence: event.target.value as ProcessStep["confidence"],
-                                      }))
-                                    }
-                                  >
-                                    <option value="high">High</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="low">Low</option>
-                                    <option value="unknown">Unknown</option>
-                                  </select>
-                                </label>
-
-                              </form>
-                            </div>
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
-              </div>
-            </section>
-          ) : null}
-
-          {reviewMode === "view" && activeViewTab === "log" ? (
-            <section className="review-subsection panel stack" role="tabpanel" aria-label="Action log">
-              <div>
-                <h3>Action Log</h3>
-                <div className="artifact-meta">Meaningful session events that affect the final PDD output.</div>
-              </div>
-
-              {actionLogEntries.length > 0 ? (
-                <div className="summary-document">
-                  <div className="summary-document-label">Session activity</div>
-                  <div className="summary-document-card action-log-document-card">
-                    <div className="summary-document-title">Review and export activity</div>
-                    <ul className="action-log-document-list">
-                      {actionLogEntries.map((entry) => (
-                        <li key={entry.id} className="action-log-document-item">
-                          <div className="action-log-document-title">{entry.title}</div>
-                          <div className="action-log-document-detail">{entry.detail}</div>
-                          <div className="artifact-meta">
-                            {entry.actor} | {new Date(entry.createdAt).toLocaleString()}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <div className="empty-state">No session activity is available yet.</div>
-              )}
+          {workspace.reviewMode === "view" && workspace.activeViewTab === "log" ? (
+            <section role="tabpanel" id="review-view-panel-log" aria-labelledby="review-view-tab-log">
+              <SessionActionLogPanel entries={actionLogEntries} />
             </section>
           ) : null}
         </div>
       )}
     </section>
   );
-
-  async function addCandidateToStep(step: ProcessStep, candidate: CandidateScreenshot, makePrimary: boolean) {
-    await onSelectCandidateScreenshot(step.id, candidate.id, { isPrimary: makePrimary });
-  }
-
-  async function makeCandidatePrimary(step: ProcessStep, candidate: CandidateScreenshot) {
-    await onSelectCandidateScreenshot(step.id, candidate.id, { isPrimary: true });
-  }
-
-  async function handleAskSession(question: string) {
-    if (!session) {
-      return;
-    }
-
-    setChatError(null);
-    try {
-      const answer = await apiClient.askSession(session.id, question);
-      setChatEntries((current) => [
-        {
-          id: `${Date.now()}_${current.length}`,
-          question,
-          answer,
-        },
-        ...current,
-      ]);
-      if (answer.citations[0]) {
-        handleSelectCitation(answer.citations[0]);
-      }
-    } catch (error) {
-      setChatError(error instanceof Error ? error.message : "Ask this Session could not answer that question.");
-    }
-  }
-
-  function handleSelectCitation(citation: SessionAnswerCitation) {
-    if (citation.sourceType === "step") {
-      const stepNumberMatch = citation.id.match(/^step-(\d+)$/);
-      const stepNumber = stepNumberMatch ? Number(stepNumberMatch[1]) : NaN;
-      const matchingStep = session?.processSteps.find((step) => step.stepNumber === stepNumber);
-      if (matchingStep) {
-        setSelectedEvidence({
-          kind: "step",
-          title: `Step ${matchingStep.stepNumber}`,
-          step: matchingStep,
-        });
-        return;
-      }
-    }
-
-    if (citation.sourceType === "note") {
-      const noteIndexMatch = citation.id.match(/^note-(\d+)$/);
-      const noteIndex = noteIndexMatch ? Number(noteIndexMatch[1]) - 1 : -1;
-      const matchingNote = noteIndex >= 0 ? session?.processNotes[noteIndex] : undefined;
-      if (matchingNote) {
-        setSelectedEvidence({
-          kind: "note",
-          title: citation.title,
-          note: matchingNote,
-        });
-        return;
-      }
-    }
-
-    setSelectedEvidence({
-      kind: "transcript",
-      title: citation.title,
-      snippet: citation.snippet,
-    });
-  }
 }

@@ -5,6 +5,13 @@
 
 import React from "react";
 
+import {
+  canExportSession,
+  canOpenSession,
+  getProgressTone,
+  getSessionProgress,
+  getSessionProgressLabel,
+} from "../selectors/sessionPresentation";
 import type { DraftSessionListItem } from "../types/session";
 
 type SessionHistoryPageProps = {
@@ -25,7 +32,7 @@ export function SessionHistoryPage({
   onRetry,
   onExportDocx,
   onExportPdf,
-}: SessionHistoryPageProps): JSX.Element {
+}: SessionHistoryPageProps): React.JSX.Element {
   return (
     <section className="panel stack">
       <div className="section-header-inline">
@@ -41,6 +48,7 @@ export function SessionHistoryPage({
             const progressTone = getProgressTone(session);
             const progressPercent = getSessionProgress(progressTone);
             const progressLabel = getSessionProgressLabel(session, progressTone);
+
             return (
               <div key={session.id} className="history-card">
                 <div className="history-card-main">
@@ -58,11 +66,13 @@ export function SessionHistoryPage({
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
-                  {progressTone === "ready" || progressTone === "failed" || progressTone === "exported" ? null : (
-                    <div className={`artifact-meta history-progress-label history-progress-label-${progressTone}`}>{progressLabel}</div>
-                  )}
+                    {progressTone === "ready" || progressTone === "failed" || progressTone === "exported" ? null : (
+                      <div className={`artifact-meta history-progress-label history-progress-label-${progressTone}`}>
+                        {progressLabel}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
                 <div className="button-row">
                   <button
                     type="button"
@@ -96,7 +106,7 @@ export function SessionHistoryPage({
                     disabled={disabled || !canExportSession(session.status)}
                     onClick={() => onExportDocx(session.id)}
                   >
-                    <span className="file-badge file-badge-docx">W</span>
+                    <span className="file-badge file-badge-docx" aria-hidden="true">W</span>
                     <span>Word</span>
                   </button>
                   <button
@@ -105,7 +115,7 @@ export function SessionHistoryPage({
                     disabled={disabled || !canExportSession(session.status)}
                     onClick={() => onExportPdf(session.id)}
                   >
-                    <span className="file-badge file-badge-pdf">P</span>
+                    <span className="file-badge file-badge-pdf" aria-hidden="true">P</span>
                     <span>PDF</span>
                   </button>
                 </div>
@@ -118,90 +128,4 @@ export function SessionHistoryPage({
       )}
     </section>
   );
-}
-
-function canOpenSession(status: DraftSessionListItem["status"]): boolean {
-  return status === "review" || status === "exported" || status === "failed";
-}
-
-function canExportSession(status: DraftSessionListItem["status"]): boolean {
-  return status === "review" || status === "exported";
-}
-
-function getSessionProgress(tone: ReturnType<typeof getProgressTone>): number {
-  switch (tone) {
-    case "draft":
-      return 20;
-    case "queued":
-      return 35;
-    case "transcript":
-      return 55;
-    case "screenshots":
-      return 72;
-    case "diagram":
-      return 88;
-    case "ready":
-    case "exported":
-    case "failed":
-      return 100;
-    default:
-      return 60;
-  }
-}
-
-function getSessionProgressLabel(
-  session: DraftSessionListItem,
-  tone: ReturnType<typeof getProgressTone>,
-): string {
-  if (session.failureDetail) {
-    return "Run failed";
-  }
-
-  switch (tone) {
-    case "draft":
-      return "Inputs uploaded";
-    case "queued":
-      return "Generation queued";
-    case "transcript":
-      return "Interpreting transcript";
-    case "screenshots":
-      return "Extracting screenshots";
-    case "diagram":
-      return "Building diagram";
-    case "ready":
-      return "Ready for review";
-    case "exported":
-      return "Export completed";
-    case "failed":
-      return "Run failed";
-    default:
-      return session.latestStageTitle || "Generation in progress";
-  }
-}
-
-function getProgressTone(session: DraftSessionListItem): "draft" | "queued" | "screenshots" | "transcript" | "diagram" | "ready" | "exported" | "failed" {
-  if (session.status === "failed" || session.failureDetail) {
-    return "failed";
-  }
-  if (session.status === "exported") {
-    return "exported";
-  }
-
-  const normalizedTitle = session.latestStageTitle.trim().toLowerCase();
-  if (normalizedTitle === "ready for review" || session.status === "review") {
-    return "ready";
-  }
-  if (normalizedTitle === "building diagram") {
-    return "diagram";
-  }
-  if (normalizedTitle === "extracting screenshots") {
-    return "screenshots";
-  }
-  if (normalizedTitle === "interpreting transcript") {
-    return "transcript";
-  }
-  if (normalizedTitle === "generation queued") {
-    return "queued";
-  }
-  return "draft";
 }

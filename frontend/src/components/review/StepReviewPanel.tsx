@@ -5,8 +5,8 @@
 
 import React from "react";
 
+import { AuthenticatedArtifactImage } from "../common/AuthenticatedArtifactImage";
 import type { ProcessStep } from "../../types/process";
-import { apiClient } from "../../services/apiClient";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 
 type StepReviewPanelProps = {
@@ -23,7 +23,7 @@ export function StepReviewPanel({
   onSetPrimaryScreenshot,
   onRemoveScreenshot,
   readOnly = false,
-}: StepReviewPanelProps): JSX.Element {
+}: StepReviewPanelProps): React.JSX.Element {
   const primaryScreenshot =
     step.screenshots.find((stepScreenshot) => stepScreenshot.isPrimary) ?? step.screenshots[0] ?? null;
   const secondaryScreenshots = primaryScreenshot
@@ -69,8 +69,8 @@ export function StepReviewPanel({
               <div className="screenshot-card screenshot-card-primary">
                 <div className="screenshot-preview screenshot-preview-primary">
                   <span className="screenshot-badge">Primary</span>
-                  <img
-                    src={apiClient.getArtifactContentUrl(primaryScreenshot.artifactId)}
+                  <AuthenticatedArtifactImage
+                    artifactId={primaryScreenshot.artifactId}
                     alt={`Primary screenshot for step ${step.stepNumber}`}
                   />
                 </div>
@@ -94,8 +94,8 @@ export function StepReviewPanel({
                   {secondaryScreenshots.map((stepScreenshot) => (
                     <div key={stepScreenshot.id} className="screenshot-card">
                       <div className="screenshot-preview">
-                        <img
-                          src={apiClient.getArtifactContentUrl(stepScreenshot.artifactId)}
+                        <AuthenticatedArtifactImage
+                          artifactId={stepScreenshot.artifactId}
                           alt={`${stepScreenshot.role} screenshot for step ${step.stepNumber}`}
                         />
                       </div>

@@ -20,7 +20,7 @@ type DiagramNodeData = {
 
 const HANDLE_OFFSETS = [20, 40, 60, 80];
 
-function SideHandles({ type, side }: { type: "source" | "target"; side: Position }): JSX.Element {
+function SideHandles({ type, side }: { type: "source" | "target"; side: Position }): React.JSX.Element {
   return (
     <>
       {HANDLE_OFFSETS.map((offset, index) => {
@@ -36,7 +36,7 @@ function SideHandles({ type, side }: { type: "source" | "target"; side: Position
   );
 }
 
-function LabelContent({ data }: { data: DiagramNodeData }): JSX.Element {
+function LabelContent({ data }: { data: DiagramNodeData }): React.JSX.Element {
   if (data.editable && data.onLabelChange) {
     return (
       <textarea
@@ -51,7 +51,7 @@ function LabelContent({ data }: { data: DiagramNodeData }): JSX.Element {
   return <div className="diagram-node-title">{data.label}</div>;
 }
 
-function BaseNode({ data, className }: { data: DiagramNodeData; className: string }): JSX.Element {
+function BaseNode({ data, className }: { data: DiagramNodeData; className: string }): React.JSX.Element {
   const classes = [className, `diagram-node-theme-${data.canvasTheme ?? "dark"}`];
   if (data.selected) {
     classes.push("diagram-node-selected");
@@ -85,19 +85,19 @@ function BaseNode({ data, className }: { data: DiagramNodeData; className: strin
   );
 }
 
-export function ProcessNode({ data }: NodeProps<DiagramNodeData>): JSX.Element {
+export function ProcessNode({ data }: NodeProps<DiagramNodeData>): React.JSX.Element {
   return <BaseNode data={data} className="diagram-node-card" />;
 }
 
-export function StartNode({ data }: NodeProps<DiagramNodeData>): JSX.Element {
+export function StartNode({ data }: NodeProps<DiagramNodeData>): React.JSX.Element {
   return <BaseNode data={data} className="diagram-node-card diagram-node-card-start" />;
 }
 
-export function TerminalNode({ data }: NodeProps<DiagramNodeData>): JSX.Element {
+export function TerminalNode({ data }: NodeProps<DiagramNodeData>): React.JSX.Element {
   return <BaseNode data={data} className="diagram-node-card diagram-node-card-terminal" />;
 }
 
-export function DecisionNode({ data }: NodeProps<DiagramNodeData>): JSX.Element {
+export function DecisionNode({ data }: NodeProps<DiagramNodeData>): React.JSX.Element {
   const classes = ["diagram-node-decision-card", `diagram-node-theme-${data.canvasTheme ?? "dark"}`];
   if (data.selected) {
     classes.push("diagram-node-selected");

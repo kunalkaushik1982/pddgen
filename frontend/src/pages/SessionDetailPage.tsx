@@ -3,11 +3,15 @@
  * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\pages\SessionDetailPage.tsx
  */
 
-import React from "react";
+import React, { Suspense, lazy } from "react";
 
-import { StepReviewPage } from "./StepReviewPage";
 import type { ProcessStep } from "../types/process";
 import type { DraftSession } from "../types/session";
+
+const StepReviewPage = lazy(async () => {
+  const module = await import("./StepReviewPage");
+  return { default: module.StepReviewPage };
+});
 
 type ReviewMode = "view" | "edit";
 
@@ -45,7 +49,7 @@ export function SessionDetailPage({
   onRemoveScreenshot,
   onRefreshSession,
   onSelectCandidateScreenshot,
-}: SessionDetailPageProps): JSX.Element {
+}: SessionDetailPageProps): React.JSX.Element {
   if (!session) {
     return (
       <section className="panel stack">
@@ -65,34 +69,42 @@ export function SessionDetailPage({
 
   return (
     <section className="stack">
-      <StepReviewPage
-        session={session}
-        selectedStepId={selectedStepId}
-        initialReviewMode={initialReviewMode}
-        disabled={disabled}
-        showHeader={false}
-        headerActions={
-          <div className="button-row">
-            <button type="button" className="button-secondary" onClick={onBackToWorkspace} disabled={disabled}>
-              Back to Workspace
-            </button>
-            <button type="button" className="button-secondary export-button" onClick={onExportDocx} disabled={disabled}>
-              <span className="file-badge file-badge-docx">W</span>
-              <span>Word</span>
-            </button>
-            <button type="button" className="button-secondary export-button" onClick={onExportPdf} disabled={disabled}>
-              <span className="file-badge file-badge-pdf">P</span>
-              <span>PDF</span>
-            </button>
-          </div>
+      <Suspense
+        fallback={
+          <section className="panel">
+            <div className="empty-state">Loading session detail...</div>
+          </section>
         }
-        onSelectStep={onSelectStep}
-        onSaveStep={onSaveStep}
-        onSetPrimaryScreenshot={onSetPrimaryScreenshot}
-        onRemoveScreenshot={onRemoveScreenshot}
-        onRefreshSession={onRefreshSession}
-        onSelectCandidateScreenshot={onSelectCandidateScreenshot}
-      />
+      >
+        <StepReviewPage
+          session={session}
+          selectedStepId={selectedStepId}
+          initialReviewMode={initialReviewMode}
+          disabled={disabled}
+          showHeader={false}
+          headerActions={
+            <div className="button-row">
+              <button type="button" className="button-secondary" onClick={onBackToWorkspace} disabled={disabled}>
+                Back to Workspace
+              </button>
+              <button type="button" className="button-secondary export-button" onClick={onExportDocx} disabled={disabled}>
+                <span className="file-badge file-badge-docx" aria-hidden="true">W</span>
+                <span>Word</span>
+              </button>
+              <button type="button" className="button-secondary export-button" onClick={onExportPdf} disabled={disabled}>
+                <span className="file-badge file-badge-pdf" aria-hidden="true">P</span>
+                <span>PDF</span>
+              </button>
+            </div>
+          }
+          onSelectStep={onSelectStep}
+          onSaveStep={onSaveStep}
+          onSetPrimaryScreenshot={onSetPrimaryScreenshot}
+          onRemoveScreenshot={onRemoveScreenshot}
+          onRefreshSession={onRefreshSession}
+          onSelectCandidateScreenshot={onSelectCandidateScreenshot}
+        />
+      </Suspense>
     </section>
   );
 }

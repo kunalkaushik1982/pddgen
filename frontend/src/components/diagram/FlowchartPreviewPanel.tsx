@@ -18,10 +18,11 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
+import { AuthenticatedArtifactImage } from "../common/AuthenticatedArtifactImage";
 import { diagramEdgeTypes } from "./EditableEdge";
 import { diagramNodeTypes } from "./DiagramNodes";
 import { buildFlowchartLayout, snapNodePositions, withAutoConnectionHandles, withUpdatedNodeLabel } from "./diagramLayout";
-import { apiClient } from "../../services/apiClient";
+import { diagramService } from "../../services/diagramService";
 import {
   DEFAULT_DIAGRAM_CANVAS_SETTINGS,
   type DiagramCanvasSettings,
@@ -50,7 +51,7 @@ export function FlowchartPreviewPanel({
   session,
   allowEditing = false,
   onSessionRefresh,
-}: FlowchartPreviewPanelProps): JSX.Element | null {
+}: FlowchartPreviewPanelProps): React.JSX.Element | null {
   const [diagram, setDiagram] = useState<DiagramModel | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -184,14 +185,14 @@ export function FlowchartPreviewPanel({
     setIsLoading(true);
     setErrorMessage("");
 
-    void apiClient
+    void diagramService
       .getDiagramModel(session.id, "detailed")
       .then(async (model) => {
         if (!isMounted) {
           return;
         }
         setDiagram(model);
-        const savedLayout = await apiClient.getDiagramLayout(session.id, "detailed");
+        const savedLayout = await diagramService.getDiagramLayout(session.id, "detailed");
         const layout = await buildFlowchartLayout(model, savedLayout.nodes);
         if (!isMounted) {
           return;
@@ -610,8 +611,8 @@ export function FlowchartPreviewPanel({
       if (!currentDiagramModel) {
         throw new Error("Diagram model is not available.");
       }
-      await apiClient.saveDiagramModel(session.id, currentDiagramModel);
-      await apiClient.saveDiagramLayout(
+      await diagramService.saveDiagramModel(session.id, currentDiagramModel);
+      await diagramService.saveDiagramLayout(
         session.id,
         nodes.map((node) => ({
           id: node.id,
@@ -645,7 +646,7 @@ export function FlowchartPreviewPanel({
                 ? "#191427"
                 : "#140d24",
       });
-      await apiClient.saveDiagramArtifact(session.id, imageDataUrl);
+      await diagramService.saveDiagramArtifact(session.id, imageDataUrl);
       await onSessionRefresh?.();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Layout could not be saved.");
@@ -714,9 +715,9 @@ export function FlowchartPreviewPanel({
             <div className="diagram-canvas-stack">
               {!allowEditing && savedDiagramArtifact ? (
                 <div className={`${canvasClassName} diagram-preview-image-shell`}>
-                  <img
+                  <AuthenticatedArtifactImage
+                    artifactId={savedDiagramArtifact.id}
                     className="diagram-preview-image"
-                    src={apiClient.getArtifactContentUrl(savedDiagramArtifact.id)}
                     alt="Saved process diagram preview"
                   />
                 </div>

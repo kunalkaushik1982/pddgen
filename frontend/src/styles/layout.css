@@ -1,0 +1,156 @@
+/**
+ * Purpose: Global layout and navigation styles.
+ * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\styles\layout.css
+ */
+
+.app-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.app-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
+}
+
+.app-user-menu-field {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  margin-bottom: 8px;
+}
+
+.app-user-menu-field span {
+  font-size: 0.78rem;
+  color: var(--app-muted);
+}
+
+.app-user-menu-field select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--app-text);
+}
+
+.app-header-nav {
+  margin-right: 0;
+}
+
+.app-user-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.app-user-menu-trigger {
+  min-width: 112px;
+}
+
+.app-user-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 160px;
+  padding: 8px;
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  background: var(--surface-strong);
+  box-shadow: var(--panel-shadow);
+  z-index: 20;
+}
+
+.app-user-menu-item {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--app-text);
+  background: transparent;
+  text-align: left;
+}
+
+.app-user-menu-item:hover {
+  background: var(--accent-border);
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-panel {
+  width: min(460px, 100%);
+}
+
+.app-title {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.app-subtitle {
+  margin: 6px 0 0;
+  color: var(--app-muted);
+}
+
+.collapsible-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.collapsible-header h2 {
+  margin: 0;
+}
+
+.collapsible-header .muted {
+  margin: 6px 0 0;
+}
+
+.collapsible-toggle {
+  min-width: 104px;
+}
+
+.section-header-inline {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+@media (max-width: 960px) {
+  .section-header-inline,
+  .app-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-user-menu {
+    justify-content: flex-end;
+  }
+}

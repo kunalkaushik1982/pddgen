@@ -5,6 +5,7 @@
 
 import React from "react";
 
+import { formatArtifactKind, formatFileSize, getUploadStatusLabel } from "../selectors/uploadPresentation";
 import type {
   ArtifactUploadProgressItem,
   ArtifactUploadState,
@@ -55,7 +56,7 @@ export function UploadPage({
   onFilesChange,
   onUploadInputs,
   onSubmit,
-}: UploadPageProps): JSX.Element {
+}: UploadPageProps): React.JSX.Element {
   const hasUploadItems = uploadItems.length > 0;
 
   return (
@@ -170,7 +171,7 @@ export function UploadPage({
                     <div className="upload-progress-main">
                       <div className="upload-progress-title-row">
                         <strong>{item.name}</strong>
-                        <span className={`upload-progress-badge upload-progress-${item.status}`}>{getStatusLabel(item.status)}</span>
+                        <span className={`upload-progress-badge upload-progress-${item.status}`}>{getUploadStatusLabel(item.status)}</span>
                       </div>
                       <div className="artifact-meta">
                         {formatArtifactKind(item.artifactKind)} | {formatFileSize(item.size)}
@@ -191,51 +192,4 @@ export function UploadPage({
       </div>
     </section>
   );
-}
-
-function formatArtifactKind(kind: ArtifactUploadProgressItem["artifactKind"]): string {
-  switch (kind) {
-    case "video":
-      return "Video";
-    case "transcript":
-      return "Transcript";
-    case "template":
-      return "Template";
-    case "sop":
-      return "SOP";
-    case "diagram":
-      return "Diagram";
-    case "screenshot":
-      return "Screenshot";
-    default:
-      return kind;
-  }
-}
-
-function getStatusLabel(status: ArtifactUploadProgressItem["status"]): string {
-  switch (status) {
-    case "pending":
-      return "Pending";
-    case "uploading":
-      return "Uploading";
-    case "uploaded":
-      return "Uploaded";
-    case "failed":
-      return "Failed";
-    default:
-      return status;
-  }
-}
-
-function formatFileSize(size: number): string {
-  if (size >= 1024 * 1024 * 1024) {
-    return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  }
-  if (size >= 1024 * 1024) {
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  }
-  if (size >= 1024) {
-    return `${Math.round(size / 1024)} KB`;
-  }
-  return `${size} B`;
 }

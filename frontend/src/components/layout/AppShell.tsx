@@ -28,7 +28,7 @@ export function AppShell({
   activeView = "workspace",
   onSelectView,
   onLogout,
-}: AppShellProps): JSX.Element {
+}: AppShellProps): React.JSX.Element {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => {
     const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);

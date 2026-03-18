@@ -15,7 +15,7 @@ type ExportPageProps = {
   onExport: () => void;
 };
 
-export function ExportPage({ session, exportResult, disabled, showHeader = true, onExport }: ExportPageProps): JSX.Element {
+export function ExportPage({ session, exportResult, disabled, showHeader = true, onExport }: ExportPageProps): React.JSX.Element {
   return (
     <section className="panel stack export-panel">
       {showHeader ? <h2>4. Export PDD</h2> : null}

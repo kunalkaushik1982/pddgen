@@ -15,7 +15,7 @@ type ProcessingPageProps = {
   onRefresh: () => void;
 };
 
-export function ProcessingPage({ session, disabled, showHeader = true, onGenerate, onRefresh }: ProcessingPageProps): JSX.Element {
+export function ProcessingPage({ session, disabled, showHeader = true, onGenerate, onRefresh }: ProcessingPageProps): React.JSX.Element {
   return (
     <section className="panel stack">
       {showHeader ? (

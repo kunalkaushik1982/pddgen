@@ -1,7 +1,8 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["vite/client"]
+    "lib": ["DOM", "DOM.Iterable", "ES2023", "ESNext.Disposable"],
+    "types": ["vite/client", "vitest/globals"]
   },
   "include": ["src"]
 }
