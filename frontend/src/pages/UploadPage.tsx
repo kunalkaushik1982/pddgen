@@ -5,6 +5,7 @@
 
 import React from "react";
 
+import { uiCopy } from "../constants/uiCopy";
 import { formatArtifactKind, formatFileSize, getUploadStatusLabel } from "../selectors/uploadPresentation";
 import type {
   ArtifactUploadProgressItem,
@@ -75,7 +76,7 @@ export function UploadPage({
           <div className={`field-inline ${ownerLocked ? "field-inline-single" : ""}`}>
             <label className="field-group">
               <span>Session title</span>
-              <input value={title} onChange={(event) => onTitleChange(event.target.value)} placeholder="Invoice processing PDD" />
+              <input value={title} onChange={(event) => onTitleChange(event.target.value)} placeholder={uiCopy.draftTitlePlaceholder} />
             </label>
             <label className="field-group">
               <span>Diagram type</span>
@@ -90,7 +91,7 @@ export function UploadPage({
                 <input
                   value={ownerId}
                   onChange={(event) => onOwnerIdChange(event.target.value)}
-                  placeholder="pilot-user"
+                  placeholder={uiCopy.ownerIdPlaceholder}
                 />
               </label>
             ) : null}

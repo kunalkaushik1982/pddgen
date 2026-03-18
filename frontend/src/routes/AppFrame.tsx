@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { AppShell } from "../components/layout/AppShell";
+import { uiCopy } from "../constants/uiCopy";
 import { useAuth } from "../providers/AuthProvider";
 import { useToast } from "../providers/ToastProvider";
 
@@ -13,9 +14,9 @@ export function AppFrame(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <AppShell title="BA Process Copilot" subtitle="Loading session..." activeView="workspace">
+      <AppShell title={uiCopy.appTitle} subtitle={uiCopy.loadingSessionSubtitle} activeView="workspace">
         <section className="panel">
-          <div className="empty-state">Loading application…</div>
+          <div className="empty-state">{uiCopy.loadingApplicationMessage}</div>
         </section>
       </AppShell>
     );
@@ -34,9 +35,15 @@ export function AppFrame(): React.JSX.Element {
 
   return (
     <AppShell
-      title="BA Process Copilot"
-      subtitle="Upload discovery evidence, review AI-drafted AS-IS steps, and export a DOCX PDD."
-      statusLabel={activeView === "history" ? "My Projects" : activeView === "session" ? "Session Detail" : "Workspace"}
+      title={uiCopy.appTitle}
+      subtitle={uiCopy.appSubtitle}
+      statusLabel={
+        activeView === "history"
+          ? uiCopy.projectsLabel
+          : activeView === "session"
+            ? uiCopy.sessionDetailLabel
+            : uiCopy.workspaceLabel
+      }
       userLabel={user.username}
       activeView={activeView}
       onSelectView={(view) => {

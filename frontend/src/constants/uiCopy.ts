@@ -1,0 +1,18 @@
+export const uiCopy = {
+  appTitle: "BA Process Copilot",
+  appSubtitle: "Upload discovery evidence, review AI-drafted AS-IS steps, and export a DOCX PDD.",
+  workspaceLabel: "Workspace",
+  projectsLabel: "My Projects",
+  sessionDetailLabel: "Session Detail",
+  loadingSessionSubtitle: "Loading session...",
+  loadingApplicationMessage: "Loading application...",
+  defaultDraftTitle: "Untitled PDD Session",
+  draftTitlePlaceholder: "Invoice processing PDD",
+  ownerIdPlaceholder: "Owner username",
+  summaryHeadingFallback: "SME Process Walkthrough",
+  summarySubheadingFallback: "Process Overview",
+  uploadCompletedToast: "Inputs uploaded. Click Generate Draft when you are ready to start processing.",
+  generationStartedToast: "PDD generation started. Track progress in My Projects.",
+  resumedDraftToast: "Uploaded draft resumed. You can continue with Generate Draft.",
+  retryStartedToast: "Draft generation retried. Track progress in My Projects.",
+} as const;

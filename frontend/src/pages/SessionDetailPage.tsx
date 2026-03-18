@@ -20,6 +20,7 @@ type SessionDetailPageProps = {
   selectedStepId: string | null;
   initialReviewMode?: ReviewMode;
   disabled?: boolean;
+  exportingFormat?: "docx" | "pdf" | null;
   onBackToWorkspace: () => void;
   onExportDocx: () => void;
   onExportPdf: () => void;
@@ -40,6 +41,7 @@ export function SessionDetailPage({
   selectedStepId,
   initialReviewMode = "view",
   disabled,
+  exportingFormat = null,
   onBackToWorkspace,
   onExportDocx,
   onExportPdf,
@@ -87,13 +89,25 @@ export function SessionDetailPage({
               <button type="button" className="button-secondary" onClick={onBackToWorkspace} disabled={disabled}>
                 Back to Workspace
               </button>
-              <button type="button" className="button-secondary export-button" onClick={onExportDocx} disabled={disabled}>
+              <button
+                type="button"
+                className="button-secondary export-button"
+                onClick={onExportDocx}
+                disabled={disabled || exportingFormat !== null}
+                aria-busy={exportingFormat === "docx"}
+              >
                 <span className="file-badge file-badge-docx" aria-hidden="true">W</span>
-                <span>Word</span>
+                <span>{exportingFormat === "docx" ? "Preparing Word..." : "Word"}</span>
               </button>
-              <button type="button" className="button-secondary export-button" onClick={onExportPdf} disabled={disabled}>
+              <button
+                type="button"
+                className="button-secondary export-button"
+                onClick={onExportPdf}
+                disabled={disabled || exportingFormat !== null}
+                aria-busy={exportingFormat === "pdf"}
+              >
                 <span className="file-badge file-badge-pdf" aria-hidden="true">P</span>
-                <span>PDF</span>
+                <span>{exportingFormat === "pdf" ? "Preparing PDF..." : "PDF"}</span>
               </button>
             </div>
           }

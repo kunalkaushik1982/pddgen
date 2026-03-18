@@ -13,6 +13,7 @@ export function useSessionActions(sessionId: string | null, processSteps: Proces
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [exportingFormat, setExportingFormat] = useState<"docx" | "pdf" | null>(null);
 
   useEffect(() => {
     if (processSteps.length === 0) {
@@ -89,22 +90,28 @@ export function useSessionActions(sessionId: string | null, processSteps: Proces
       }
       await exportService.downloadExportDocx(sessionId);
     },
+    onMutate: (format) => {
+      setExportingFormat(format);
+    },
     onSuccess: async (_data, format) => {
       await refreshSession();
       showToast("info", `${format.toUpperCase()} downloaded.`);
     },
     onError: (error) => showToast("error", getErrorMessage(error)),
+    onSettled: () => {
+      setExportingFormat(null);
+    },
   });
 
   return {
     selectedStepId,
     setSelectedStepId,
+    exportingFormat,
     disabled:
       updateStepMutation.isPending ||
       setPrimaryScreenshotMutation.isPending ||
       removeScreenshotMutation.isPending ||
-      selectCandidateMutation.isPending ||
-      exportMutation.isPending,
+      selectCandidateMutation.isPending,
     backToWorkspace: () => navigate("/workspace"),
     refreshSession,
     exportDocx: () => exportMutation.mutate("docx"),

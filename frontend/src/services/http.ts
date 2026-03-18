@@ -1,12 +1,13 @@
+import { appConfig } from "../config/appConfig";
 import { authStorage } from "./authStorage";
 
-const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? appConfig.apiBaseUrlFallback;
 export const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "");
 
 export function buildApiUrl(path: string): URL {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const origin =
-    typeof window !== "undefined" && window.location?.origin ? window.location.origin : "http://localhost:8000";
+    typeof window !== "undefined" && window.location?.origin ? window.location.origin : appConfig.apiOriginFallback;
 
   return new URL(`${API_BASE_URL}${normalizedPath}`, origin);
 }

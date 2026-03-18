@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 
+import { uiCopy } from "../constants/uiCopy";
 import type { DraftSession } from "../types/session";
 import type {
   ArtifactQueueItem,
@@ -38,8 +39,8 @@ type WorkspaceDraftContextValue = {
 const WorkspaceDraftContext = createContext<WorkspaceDraftContextValue | null>(null);
 
 export function WorkspaceDraftProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const [title, setTitle] = useState("Untitled PDD Session");
-  const [ownerId, setOwnerId] = useState("pilot-user");
+  const [title, setTitle] = useState<string>(uiCopy.defaultDraftTitle);
+  const [ownerId, setOwnerId] = useState("");
   const [diagramType, setDiagramType] = useState<DiagramType>("flowchart");
   const [uploads, setUploads] = useState<ArtifactUploadState>(INITIAL_UPLOAD_STATE);
   const [uploadSessionId, setUploadSessionId] = useState<string | null>(null);
@@ -68,6 +69,7 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
       artifact.kind === "video" || artifact.kind === "transcript" || artifact.kind === "template" || artifact.kind === "sop" || artifact.kind === "diagram",
     );
     setTitle(session.title);
+    setOwnerId(session.ownerId);
     setDiagramType(session.diagramType);
     setUploadSessionId(session.id);
     setUploads(INITIAL_UPLOAD_STATE);
@@ -85,7 +87,8 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
   }
 
   function reset(): void {
-    setTitle("Untitled PDD Session");
+    setTitle(uiCopy.defaultDraftTitle);
+    setOwnerId("");
     setDiagramType("flowchart");
     setUploads(INITIAL_UPLOAD_STATE);
     setUploadSessionId(null);

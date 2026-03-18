@@ -21,6 +21,7 @@ type EvidencePreview =
 
 type SessionChatPanelProps = {
   disabled?: boolean;
+  isAsking?: boolean;
   errorMessage?: string | null;
   entries: SessionChatEntry[];
   selectedEvidence: EvidencePreview | null;
@@ -30,6 +31,7 @@ type SessionChatPanelProps = {
 
 export function SessionChatPanel({
   disabled,
+  isAsking = false,
   errorMessage,
   entries,
   selectedEvidence,
@@ -63,15 +65,22 @@ export function SessionChatPanel({
             value={question}
             placeholder="Example: Which step mentions vendor validation in SAP?"
             onChange={(event) => setQuestion(event.target.value)}
-            disabled={disabled}
+            disabled={disabled || isAsking}
           />
         </label>
         <div className="button-row">
-          <button type="submit" className="button-primary" disabled={disabled || !question.trim()}>
-            Ask this Session
+          <button
+            type="submit"
+            className="button-primary"
+            disabled={disabled || isAsking || !question.trim()}
+            aria-busy={isAsking}
+          >
+            {isAsking ? "Asking..." : "Ask this Session"}
           </button>
         </div>
       </form>
+
+      {isAsking ? <div className="artifact-meta" role="status" aria-live="polite">Searching session evidence...</div> : null}
 
       {errorMessage ? <div className="empty-state">{errorMessage}</div> : null}
 

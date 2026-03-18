@@ -19,6 +19,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 
 import { AuthenticatedArtifactImage } from "../common/AuthenticatedArtifactImage";
+import { appConfig } from "../../config/appConfig";
 import { diagramEdgeTypes } from "./EditableEdge";
 import { diagramNodeTypes } from "./DiagramNodes";
 import { buildFlowchartLayout, snapNodePositions, withAutoConnectionHandles, withUpdatedNodeLabel } from "./diagramLayout";
@@ -238,7 +239,7 @@ export function FlowchartPreviewPanel({
     }
     const timerId = window.setTimeout(() => {
       flowInstance.fitView({ padding: inspectorMode === "pinned" ? 0.24 : 0.2, duration: 250 });
-    }, 80);
+    }, appConfig.diagramFitViewDelayMs);
     return () => window.clearTimeout(timerId);
   }, [flowInstance, inspectorMode, nodes.length]);
 

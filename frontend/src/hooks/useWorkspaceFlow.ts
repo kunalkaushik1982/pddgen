@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
+import { uiCopy } from "../constants/uiCopy";
 import { useDraftSessions } from "./useDraftSessions";
 import { useToast } from "../providers/ToastProvider";
 import {
@@ -125,7 +126,7 @@ export function useWorkspaceFlow() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
-      showToast("info", "Inputs uploaded. Click Generate Draft when you are ready to start processing.");
+      showToast("info", uiCopy.uploadCompletedToast);
     },
     onError: (error) => {
       setUploadSessionId(null);
@@ -144,7 +145,7 @@ export function useWorkspaceFlow() {
       reset();
       queryClient.setQueryData(["draftSession", session.id], session);
       await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
-      showToast("info", "PDD generation started. Track progress in My Projects.");
+      showToast("info", uiCopy.generationStartedToast);
       navigate("/projects");
     },
     onError: (error) => {
@@ -156,7 +157,7 @@ export function useWorkspaceFlow() {
     try {
       const fullSession = await sessionService.getDraftSession(sessionId);
       hydrateFromDraftSession(fullSession);
-      showToast("info", "Uploaded draft resumed. You can continue with Generate Draft.");
+      showToast("info", uiCopy.resumedDraftToast);
     } catch (error) {
       showToast("error", getErrorMessage(error));
     }

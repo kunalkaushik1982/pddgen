@@ -6,6 +6,7 @@
 import React, { Suspense, lazy } from "react";
 
 import { ReviewWorkspaceTabs } from "../components/review/ReviewWorkspaceTabs";
+import { uiCopy } from "../constants/uiCopy";
 import { SessionActionLogPanel } from "../components/review/SessionActionLogPanel";
 import { SessionDiagramSection } from "../components/review/SessionDiagramSection";
 import { SessionProcessSection } from "../components/review/SessionProcessSection";
@@ -94,8 +95,8 @@ export function StepReviewPage({
     (total, step) => total + step.screenshots.filter((screenshot) => screenshot.isPrimary).length,
     0,
   );
-  const summaryHeading = session.processNotes[0]?.text || "SME Process Walkthrough";
-  const summarySubheading = applications.length > 0 ? applications.join(" and ") : "Process Overview";
+  const summaryHeading = session.processNotes[0]?.text || uiCopy.summaryHeadingFallback;
+  const summarySubheading = applications.length > 0 ? applications.join(" and ") : uiCopy.summarySubheadingFallback;
   const summaryBullets = session.processSteps.slice(0, 12).map((step) => step.actionText);
   const actionLogEntries = session.actionLogs;
 
@@ -207,11 +208,12 @@ export function StepReviewPage({
           {workspace.reviewMode === "view" && workspace.activeViewTab === "ask" ? (
             <section role="tabpanel" id="review-view-panel-ask" aria-labelledby="review-view-tab-ask">
               {renderLazyPanel(
-                <SessionChatPanel
-                  disabled={disabled}
-                  errorMessage={askSession.errorMessage}
-                  entries={askSession.entries}
-                  selectedEvidence={askSession.selectedEvidence}
+            <SessionChatPanel
+              disabled={disabled}
+              isAsking={askSession.isAsking}
+              errorMessage={askSession.errorMessage}
+              entries={askSession.entries}
+              selectedEvidence={askSession.selectedEvidence}
                   onSelectCitation={askSession.selectCitation}
                   onAsk={askSession.ask}
                 />,

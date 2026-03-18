@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
+import { appConfig } from "../config/appConfig";
 import type { WorkflowMessage } from "../types/workflow";
 
 type ToastContextValue = {
@@ -18,7 +19,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
       return undefined;
     }
 
-    const timeoutMs = message.tone === "error" ? 6500 : 4200;
+    const timeoutMs = appConfig.toastAutoHideMs[message.tone];
     const timeoutId = window.setTimeout(() => {
       setMessage((current) => (current === message ? null : current));
     }, timeoutMs);

@@ -17,6 +17,8 @@ import type { DraftSessionListItem } from "../types/session";
 type SessionHistoryPageProps = {
   sessions: DraftSessionListItem[];
   disabled?: boolean;
+  exportingSessionId?: string | null;
+  exportingFormat?: "docx" | "pdf" | null;
   onOpenView: (sessionId: string) => void;
   onOpenEdit: (sessionId: string) => void;
   onRetry: (sessionId: string) => void;
@@ -27,6 +29,8 @@ type SessionHistoryPageProps = {
 export function SessionHistoryPage({
   sessions,
   disabled,
+  exportingSessionId = null,
+  exportingFormat = null,
   onOpenView,
   onOpenEdit,
   onRetry,
@@ -48,6 +52,7 @@ export function SessionHistoryPage({
             const progressTone = getProgressTone(session);
             const progressPercent = getSessionProgress(progressTone);
             const progressLabel = getSessionProgressLabel(session, progressTone);
+            const isExportingThisSession = exportingSessionId === session.id;
 
             return (
               <div key={session.id} className="history-card">
@@ -103,20 +108,22 @@ export function SessionHistoryPage({
                   <button
                     type="button"
                     className="button-secondary export-button"
-                    disabled={disabled || !canExportSession(session.status)}
+                    disabled={disabled || !canExportSession(session.status) || isExportingThisSession}
+                    aria-busy={isExportingThisSession && exportingFormat === "docx"}
                     onClick={() => onExportDocx(session.id)}
                   >
                     <span className="file-badge file-badge-docx" aria-hidden="true">W</span>
-                    <span>Word</span>
+                    <span>{isExportingThisSession && exportingFormat === "docx" ? "Preparing Word..." : "Word"}</span>
                   </button>
                   <button
                     type="button"
                     className="button-secondary export-button"
-                    disabled={disabled || !canExportSession(session.status)}
+                    disabled={disabled || !canExportSession(session.status) || isExportingThisSession}
+                    aria-busy={isExportingThisSession && exportingFormat === "pdf"}
                     onClick={() => onExportPdf(session.id)}
                   >
                     <span className="file-badge file-badge-pdf" aria-hidden="true">P</span>
-                    <span>PDF</span>
+                    <span>{isExportingThisSession && exportingFormat === "pdf" ? "Preparing PDF..." : "PDF"}</span>
                   </button>
                 </div>
               </div>

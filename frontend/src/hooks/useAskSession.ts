@@ -19,11 +19,13 @@ export function useAskSession(session: DraftSession | null) {
   const [entries, setEntries] = useState<SessionChatEntry[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedEvidence, setSelectedEvidence] = useState<EvidencePreview | null>(null);
+  const [isAsking, setIsAsking] = useState(false);
 
   useEffect(() => {
     setEntries([]);
     setErrorMessage(null);
     setSelectedEvidence(null);
+    setIsAsking(false);
   }, [session?.id]);
 
   async function ask(question: string): Promise<void> {
@@ -32,6 +34,7 @@ export function useAskSession(session: DraftSession | null) {
     }
 
     setErrorMessage(null);
+    setIsAsking(true);
     try {
       const answer = await sessionService.askSession(session.id, question);
       setEntries((current) => [
@@ -47,6 +50,8 @@ export function useAskSession(session: DraftSession | null) {
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Ask this Session could not answer that question.");
+    } finally {
+      setIsAsking(false);
     }
   }
 
@@ -89,6 +94,7 @@ export function useAskSession(session: DraftSession | null) {
   return {
     entries,
     errorMessage,
+    isAsking,
     selectedEvidence,
     ask,
     selectCitation,

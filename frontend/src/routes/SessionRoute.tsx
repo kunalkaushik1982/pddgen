@@ -18,6 +18,7 @@ export function SessionRoute(): React.JSX.Element {
       selectedStepId={actions.selectedStepId}
       initialReviewMode={initialReviewMode}
       disabled={sessionQuery.isLoading || actions.disabled}
+      exportingFormat={actions.exportingFormat}
       onBackToWorkspace={actions.backToWorkspace}
       onExportDocx={actions.exportDocx}
       onExportPdf={actions.exportPdf}

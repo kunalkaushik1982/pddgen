@@ -2,6 +2,7 @@ import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
+import { uiCopy } from "../constants/uiCopy";
 import { SessionHistoryPage } from "../pages/SessionHistoryPage";
 import { useDraftSessions } from "../hooks/useDraftSessions";
 import { exportService } from "../services/exportService";
@@ -20,12 +21,14 @@ export function ProjectsRoute(): React.JSX.Element {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const draftSessionsQuery = useDraftSessions();
+  const [exportingSessionId, setExportingSessionId] = React.useState<string | null>(null);
+  const [exportingFormat, setExportingFormat] = React.useState<"docx" | "pdf" | null>(null);
 
   const retryMutation = useMutation({
     mutationFn: (sessionId: string) => sessionService.generateDraftSession(sessionId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
-      showToast("info", "Draft generation retried. Track progress in My Projects.");
+      showToast("info", uiCopy.retryStartedToast);
     },
     onError: (error) => showToast("error", getErrorMessage(error)),
   });
@@ -38,10 +41,18 @@ export function ProjectsRoute(): React.JSX.Element {
       }
       await exportService.downloadExportDocx(sessionId);
     },
+    onMutate: ({ sessionId, format }) => {
+      setExportingSessionId(sessionId);
+      setExportingFormat(format);
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
     },
     onError: (error) => showToast("error", getErrorMessage(error)),
+    onSettled: () => {
+      setExportingSessionId(null);
+      setExportingFormat(null);
+    },
   });
 
   const sessions = (draftSessionsQuery.data ?? []).filter((session) => session.status !== "draft");
@@ -49,7 +60,9 @@ export function ProjectsRoute(): React.JSX.Element {
   return (
     <SessionHistoryPage
       sessions={sessions}
-      disabled={retryMutation.isPending || exportMutation.isPending}
+      disabled={retryMutation.isPending}
+      exportingSessionId={exportingSessionId}
+      exportingFormat={exportingFormat}
       onOpenView={(sessionId) => navigate(`/session/${sessionId}?mode=view`)}
       onOpenEdit={(sessionId) => navigate(`/session/${sessionId}?mode=edit`)}
       onRetry={(sessionId) => retryMutation.mutate(sessionId)}
