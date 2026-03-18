@@ -20,6 +20,7 @@ from app.models.artifact import ArtifactModel
 from app.models.diagram_layout import DiagramLayoutModel
 from app.models.draft_session import DraftSessionModel
 from app.services.process_diagram_service import ProcessDiagramService
+from app.storage.storage_service import StorageService
 
 
 class DocumentExportContextBuilder:
@@ -32,20 +33,33 @@ class DocumentExportContextBuilder:
         self.settings = get_settings()
         self.process_diagram_service = process_diagram_service or ProcessDiagramService()
 
-    def build(self, db: Session, draft_session: DraftSessionModel, template_document: DocxTemplate) -> dict[str, Any]:
+    def build(
+        self,
+        db: Session,
+        draft_session: DraftSessionModel,
+        template_document: DocxTemplate,
+        *,
+        asset_root: Path,
+        storage_service: StorageService,
+    ) -> dict[str, Any]:
         screenshot_map = {
             artifact.id: artifact
             for artifact in draft_session.artifacts
             if artifact.kind == "screenshot"
         }
         diagram_source = self.process_diagram_service.build_diagram_source(draft_session)
-        output_dir = self.settings.local_storage_root / draft_session.id / self.settings.docx_output_folder
+        output_dir = asset_root / "generated"
         output_dir.mkdir(parents=True, exist_ok=True)
         detailed_saved_positions = self._load_saved_diagram_positions(db, draft_session.id, "detailed")
 
         detailed_diagram_path = None
         if (draft_session.diagram_type or "flowchart").lower() == "flowchart":
-            stored_diagram_path = self._resolve_saved_diagram_artifact_path(db, draft_session.id)
+            stored_diagram_path = self._resolve_saved_diagram_artifact_path(
+                db,
+                draft_session.id,
+                storage_service=storage_service,
+                asset_root=asset_root,
+            )
             if stored_diagram_path:
                 detailed_diagram_path = stored_diagram_path
             else:
@@ -62,7 +76,13 @@ class DocumentExportContextBuilder:
             )
 
         process_steps = [
-            self._build_step_context(step, screenshot_map, template_document)
+            self._build_step_context(
+                step,
+                screenshot_map,
+                template_document,
+                storage_service=storage_service,
+                asset_root=asset_root,
+            )
             for step in sorted(draft_session.process_steps, key=lambda item: item.step_number)
         ]
         process_notes = [
@@ -208,8 +228,14 @@ class DocumentExportContextBuilder:
             }
         return saved_positions
 
-    @staticmethod
-    def _resolve_saved_diagram_artifact_path(db: Session, session_id: str) -> str:
+    def _resolve_saved_diagram_artifact_path(
+        self,
+        db: Session,
+        session_id: str,
+        *,
+        storage_service: StorageService,
+        asset_root: Path,
+    ) -> str:
         artifact = (
             db.query(ArtifactModel)
             .filter(
@@ -222,19 +248,30 @@ class DocumentExportContextBuilder:
         )
         if artifact is None:
             return ""
-        diagram_path = Path(artifact.storage_path)
-        return str(diagram_path) if diagram_path.exists() else ""
+        diagram_path = storage_service.copy_to_local_path(
+            artifact.storage_path,
+            asset_root / "diagram" / artifact.name,
+        )
+        return str(diagram_path)
 
     def _build_step_context(
         self,
         step: Any,
         screenshot_map: dict[str, ArtifactModel],
         template_document: DocxTemplate,
+        *,
+        storage_service: StorageService,
+        asset_root: Path,
     ) -> dict[str, Any]:
         screenshot_items = []
         primary_screenshot_path = ""
         for step_screenshot in sorted(step.step_screenshots, key=lambda item: item.sequence_number):
-            screenshot_path = self._resolve_screenshot_path(step_screenshot.artifact_id, screenshot_map)
+            screenshot_path = self._resolve_screenshot_path(
+                step_screenshot.artifact_id,
+                screenshot_map,
+                storage_service=storage_service,
+                asset_root=asset_root,
+            )
             if step_screenshot.is_primary and screenshot_path:
                 primary_screenshot_path = screenshot_path
             screenshot_items.append(
@@ -249,7 +286,12 @@ class DocumentExportContextBuilder:
             )
 
         if not primary_screenshot_path:
-            primary_screenshot_path = self._resolve_screenshot_path(step.screenshot_id, screenshot_map)
+            primary_screenshot_path = self._resolve_screenshot_path(
+                step.screenshot_id,
+                screenshot_map,
+                storage_service=storage_service,
+                asset_root=asset_root,
+            )
         primary_screenshot_image = self._build_inline_image(template_document, primary_screenshot_path)
 
         return {
@@ -273,14 +315,23 @@ class DocumentExportContextBuilder:
         }
 
     @staticmethod
-    def _resolve_screenshot_path(screenshot_id: str, screenshot_map: dict[str, ArtifactModel]) -> str:
+    def _resolve_screenshot_path(
+        screenshot_id: str,
+        screenshot_map: dict[str, ArtifactModel],
+        *,
+        storage_service: StorageService,
+        asset_root: Path,
+    ) -> str:
         if not screenshot_id:
             return ""
         artifact = screenshot_map.get(screenshot_id)
         if artifact is None:
             return ""
-        path = Path(artifact.storage_path)
-        return str(path) if path.exists() else ""
+        path = storage_service.copy_to_local_path(
+            artifact.storage_path,
+            asset_root / "screenshots" / artifact.name,
+        )
+        return str(path)
 
     @staticmethod
     def _build_inline_image(template_document: DocxTemplate, screenshot_path: str) -> InlineImage | str:

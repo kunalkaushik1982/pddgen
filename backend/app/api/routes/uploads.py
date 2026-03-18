@@ -4,12 +4,13 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\routes\uploa
 """
 
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_artifact_ingestion_service, get_current_user
+from app.api.dependencies import get_artifact_ingestion_service, get_current_user, get_storage_service
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.common import ArtifactKind
@@ -18,6 +19,7 @@ from app.services.artifact_ingestion import ArtifactIngestionService
 from app.services.action_log_service import ActionLogService
 from app.services.mappers import map_draft_session
 from app.models.artifact import ArtifactModel
+from app.storage.storage_service import StorageService
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 action_log_service = ActionLogService()
@@ -89,9 +91,11 @@ def get_artifact_content(
     artifact_id: str,
     db: Annotated[Session, Depends(get_db_session)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
-) -> FileResponse:
+    storage_service: Annotated[StorageService, Depends(get_storage_service)],
+) -> StreamingResponse:
     """Serve one stored artifact file for frontend preview."""
     artifact = db.get(ArtifactModel, artifact_id)
     if artifact is None or artifact.session.owner_id != current_user.username:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found.")
-    return FileResponse(path=artifact.storage_path, media_type=artifact.content_type, filename=artifact.name)
+    headers = {"Content-Disposition": f'inline; filename="{quote(artifact.name)}"'}
+    return StreamingResponse(iter([storage_service.read_bytes(artifact.storage_path)]), media_type=artifact.content_type, headers=headers)

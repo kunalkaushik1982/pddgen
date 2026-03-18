@@ -4,6 +4,7 @@ version = "1.0.0"
 description = "Celery worker for AI-assisted PDD drafting"
 requires-python = ">=3.11"
 dependencies = [
+  "boto3==1.38.46",
   "celery[redis]==5.5.3",
   "httpx==0.28.1",
   "pydantic-settings==2.10.1",

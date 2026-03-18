@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     ai_timeout_seconds: float = 180.0
     storage_backend: str = "local"
     local_storage_root: Path = Field(default=DEFAULT_STORAGE_ROOT)
+    object_storage_bucket: str = ""
+    object_storage_region: str = ""
+    object_storage_endpoint_url: str = ""
+    object_storage_access_key_id: str = ""
+    object_storage_secret_access_key: str = ""
+    object_storage_prefix: str = "pdd-generator"
+    object_storage_addressing_style: str = "auto"
     max_upload_size_mb: int = 1024
     docx_output_folder: str = "exports"
 

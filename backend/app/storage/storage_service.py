@@ -1,13 +1,17 @@
 r"""
-Purpose: Storage abstraction for pilot local storage and future shared or object storage.
+Purpose: Storage abstraction for local and object-backed artifact persistence.
 Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\storage\storage_service.py
 """
+
+from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Protocol
 from uuid import uuid4
 
+import boto3
+from botocore.client import Config as BotoConfig
 from fastapi import UploadFile
 
 from app.core.config import Settings, get_settings
@@ -17,13 +21,22 @@ class StorageBackend(Protocol):
     """Contract for artifact and export storage implementations."""
 
     def save_upload(self, session_id: str, upload: UploadFile, artifact_kind: str) -> tuple[str, int]:
-        """Save an uploaded file and return its storage path and byte size."""
+        """Save an uploaded file and return its storage locator and byte size."""
 
     def save_bytes(self, session_id: str, folder: str, filename: str, content: bytes) -> str:
-        """Persist generated content and return its storage path."""
+        """Persist generated content and return its storage locator."""
+
+    def save_file(self, session_id: str, folder: str, filename: str, source_path: Path) -> str:
+        """Persist one local file and return its storage locator."""
 
     def read_text(self, storage_path: str) -> str:
         """Read stored text content."""
+
+    def read_bytes(self, storage_path: str) -> bytes:
+        """Read stored binary content."""
+
+    def copy_to_local_path(self, storage_path: str, target_path: Path) -> Path:
+        """Materialize one stored object to a local file path."""
 
     def ensure_paths(self, paths: Iterable[Path]) -> None:
         """Ensure required directories exist."""
@@ -52,19 +65,112 @@ class LocalStorageBackend:
         target_path.write_bytes(content)
         return str(target_path)
 
+    def save_file(self, session_id: str, folder: str, filename: str, source_path: Path) -> str:
+        return self.save_bytes(session_id=session_id, folder=folder, filename=filename, content=source_path.read_bytes())
+
     def read_text(self, storage_path: str) -> str:
         return Path(storage_path).read_text(encoding="utf-8", errors="ignore")
+
+    def read_bytes(self, storage_path: str) -> bytes:
+        return Path(storage_path).read_bytes()
+
+    def copy_to_local_path(self, storage_path: str, target_path: Path) -> Path:
+        source_path = Path(storage_path)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        if source_path.resolve() != target_path.resolve():
+            target_path.write_bytes(source_path.read_bytes())
+        return target_path if target_path.exists() else source_path
 
     def ensure_paths(self, paths: Iterable[Path]) -> None:
         for path in paths:
             path.mkdir(parents=True, exist_ok=True)
 
 
+class S3CompatibleStorageBackend:
+    """S3-compatible object storage backend suitable for S3 or Cloudflare R2."""
+
+    def __init__(self, settings: Settings | None = None) -> None:
+        self.settings = settings or get_settings()
+        if not self.settings.object_storage_bucket:
+            raise RuntimeError("Object storage bucket is required when storage_backend is set to s3 or r2.")
+        self.bucket = self.settings.object_storage_bucket
+        self.prefix = self.settings.object_storage_prefix.strip("/")
+        self.client = boto3.client(
+            "s3",
+            endpoint_url=self.settings.object_storage_endpoint_url or None,
+            region_name=self.settings.object_storage_region or None,
+            aws_access_key_id=self.settings.object_storage_access_key_id or None,
+            aws_secret_access_key=self.settings.object_storage_secret_access_key or None,
+            config=BotoConfig(s3={"addressing_style": self.settings.object_storage_addressing_style}),
+        )
+
+    def save_upload(self, session_id: str, upload: UploadFile, artifact_kind: str) -> tuple[str, int]:
+        content = upload.file.read()
+        target_name = f"{uuid4()}_{upload.filename or 'artifact'}"
+        key = self._build_key(session_id=session_id, folder=artifact_kind, filename=target_name)
+        self.client.put_object(
+            Bucket=self.bucket,
+            Key=key,
+            Body=content,
+            ContentType=upload.content_type or "application/octet-stream",
+        )
+        return self._to_storage_uri(key), len(content)
+
+    def save_bytes(self, session_id: str, folder: str, filename: str, content: bytes) -> str:
+        key = self._build_key(session_id=session_id, folder=folder, filename=filename)
+        self.client.put_object(Bucket=self.bucket, Key=key, Body=content)
+        return self._to_storage_uri(key)
+
+    def save_file(self, session_id: str, folder: str, filename: str, source_path: Path) -> str:
+        key = self._build_key(session_id=session_id, folder=folder, filename=filename)
+        extra_args = {}
+        content_type = _guess_content_type(source_path)
+        if content_type:
+            extra_args["ExtraArgs"] = {"ContentType": content_type}
+        self.client.upload_file(str(source_path), self.bucket, key, **extra_args)
+        return self._to_storage_uri(key)
+
+    def read_text(self, storage_path: str) -> str:
+        return self.read_bytes(storage_path).decode("utf-8", errors="ignore")
+
+    def read_bytes(self, storage_path: str) -> bytes:
+        bucket, key = self._parse_storage_uri(storage_path)
+        response = self.client.get_object(Bucket=bucket, Key=key)
+        return response["Body"].read()
+
+    def copy_to_local_path(self, storage_path: str, target_path: Path) -> Path:
+        bucket, key = self._parse_storage_uri(storage_path)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        self.client.download_file(bucket, key, str(target_path))
+        return target_path
+
+    def ensure_paths(self, paths: Iterable[Path]) -> None:
+        return
+
+    def _build_key(self, *, session_id: str, folder: str, filename: str) -> str:
+        segments = [segment for segment in (self.prefix, session_id, folder, filename) if segment]
+        return "/".join(segments)
+
+    def _to_storage_uri(self, key: str) -> str:
+        return f"s3://{self.bucket}/{key}"
+
+    @staticmethod
+    def _parse_storage_uri(storage_path: str) -> tuple[str, str]:
+        if not storage_path.startswith("s3://"):
+            raise RuntimeError(f"Unsupported object storage locator: {storage_path}")
+        bucket_and_key = storage_path[len("s3://") :]
+        bucket, _, key = bucket_and_key.partition("/")
+        if not bucket or not key:
+            raise RuntimeError(f"Invalid object storage locator: {storage_path}")
+        return bucket, key
+
+
 class StorageService:
     """Facade around the configured storage backend."""
 
     def __init__(self, backend: StorageBackend | None = None) -> None:
-        self.backend = backend or LocalStorageBackend()
+        self.settings = get_settings()
+        self.backend = backend or self._build_backend()
 
     def save_upload(self, session_id: str, upload: UploadFile, artifact_kind: str) -> tuple[str, int]:
         """Save an uploaded artifact."""
@@ -74,6 +180,43 @@ class StorageService:
         """Save generated content."""
         return self.backend.save_bytes(session_id=session_id, folder=folder, filename=filename, content=content)
 
+    def save_file(self, session_id: str, folder: str, filename: str, source_path: Path) -> str:
+        """Save one generated local file."""
+        return self.backend.save_file(session_id=session_id, folder=folder, filename=filename, source_path=source_path)
+
     def read_text(self, storage_path: str) -> str:
         """Read stored text content."""
         return self.backend.read_text(storage_path)
+
+    def read_bytes(self, storage_path: str) -> bytes:
+        """Read stored binary content."""
+        return self.backend.read_bytes(storage_path)
+
+    def copy_to_local_path(self, storage_path: str, target_path: Path) -> Path:
+        """Materialize one stored object to a local file path."""
+        return self.backend.copy_to_local_path(storage_path, target_path)
+
+    def ensure_paths(self, paths: Iterable[Path]) -> None:
+        """Ensure required local directories exist for the active backend."""
+        self.backend.ensure_paths(paths)
+
+    def _build_backend(self) -> StorageBackend:
+        backend_name = self.settings.storage_backend.lower()
+        if backend_name == "local":
+            return LocalStorageBackend(self.settings)
+        if backend_name in {"s3", "r2"}:
+            return S3CompatibleStorageBackend(self.settings)
+        raise RuntimeError(f"Unsupported storage backend: {self.settings.storage_backend}")
+
+
+def _guess_content_type(source_path: Path) -> str | None:
+    suffix = source_path.suffix.lower()
+    if suffix == ".pdf":
+        return "application/pdf"
+    if suffix == ".docx":
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if suffix == ".png":
+        return "image/png"
+    if suffix == ".txt":
+        return "text/plain"
+    return None

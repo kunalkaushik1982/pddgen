@@ -23,7 +23,8 @@ logger = get_logger(__name__)
 async def lifespan(_app: FastAPI):
     """Initialize application resources on startup."""
     settings = get_settings()
-    settings.local_storage_root.mkdir(parents=True, exist_ok=True)
+    if settings.storage_backend.lower() == "local":
+        settings.local_storage_root.mkdir(parents=True, exist_ok=True)
     validate_database_schema()
     logger.info("Backend startup validation complete", extra={"event": "app.startup"})
     yield

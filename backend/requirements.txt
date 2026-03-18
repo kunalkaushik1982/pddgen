@@ -1,3 +1,4 @@
+boto3==1.38.46
 # FastAPI backend runtime dependencies. Keep pinned for reproducible container builds.
 alembic==1.16.1
 celery[redis]==5.5.3

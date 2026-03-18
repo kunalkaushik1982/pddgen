@@ -31,29 +31,44 @@ class DocumentRendererService:
         self.pdf_converter = pdf_converter or DocumentPdfConverter()
 
     def render_docx(self, db: Session, draft_session: DraftSessionModel) -> OutputDocumentModel:
-        output_path = self.template_renderer.build_output_path(draft_session, "docx")
-        self.template_renderer.render_docx_file(db, draft_session, output_path)
-        return self._persist_output_document(db, draft_session, kind="docx", output_path=output_path)
+        output_name = f"{draft_session.id}_draft.docx"
+        with TemporaryDirectory(prefix=f"pdd_export_{draft_session.id}_") as temp_dir:
+            output_path = Path(temp_dir) / output_name
+            self.template_renderer.render_docx_file(db, draft_session, output_path, storage_service=self.storage_service)
+            storage_path = self.storage_service.save_file(
+                session_id=draft_session.id,
+                folder="exports",
+                filename=output_name,
+                source_path=output_path,
+            )
+        return self._persist_output_document(db, draft_session, kind="docx", storage_path=storage_path)
 
     def render_pdf(self, db: Session, draft_session: DraftSessionModel) -> OutputDocumentModel:
-        output_path = self.template_renderer.build_output_path(draft_session, "pdf")
+        output_name = f"{draft_session.id}_draft.pdf"
         with TemporaryDirectory(prefix=f"pdd_{draft_session.id}_") as temp_dir:
+            output_path = Path(temp_dir) / output_name
             temp_docx_path = Path(temp_dir) / f"{draft_session.id}_draft.docx"
-            self.template_renderer.render_docx_file(db, draft_session, temp_docx_path)
+            self.template_renderer.render_docx_file(db, draft_session, temp_docx_path, storage_service=self.storage_service)
             self.pdf_converter.convert(temp_docx_path, output_path)
-        return self._persist_output_document(db, draft_session, kind="pdf", output_path=output_path)
+            storage_path = self.storage_service.save_file(
+                session_id=draft_session.id,
+                folder="exports",
+                filename=output_name,
+                source_path=output_path,
+            )
+        return self._persist_output_document(db, draft_session, kind="pdf", storage_path=storage_path)
 
     @staticmethod
     def _persist_output_document(
         db: Session,
         draft_session: DraftSessionModel,
         kind: str,
-        output_path: Path,
+        storage_path: str,
     ) -> OutputDocumentModel:
         output_document = OutputDocumentModel(
             session_id=draft_session.id,
             kind=kind,
-            storage_path=str(output_path),
+            storage_path=storage_path,
         )
         db.add(output_document)
         draft_session.status = "exported"
