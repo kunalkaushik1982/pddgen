@@ -29,6 +29,8 @@ export function AppFrame(): React.JSX.Element {
   const activeView =
     location.pathname.startsWith("/projects")
       ? "history"
+      : location.pathname.startsWith("/about")
+        ? "about"
       : location.pathname.startsWith("/session")
         ? "session"
         : "workspace";
@@ -55,8 +57,13 @@ export function AppFrame(): React.JSX.Element {
           navigate("/session");
           return;
         }
+        if (view === "about") {
+          navigate("/about");
+          return;
+        }
         navigate("/workspace");
       }}
+      onOpenAbout={() => navigate("/about")}
       onLogout={() => void logout()}
     >
       {message ? (

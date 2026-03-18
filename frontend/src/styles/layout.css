@@ -143,6 +143,30 @@
   align-items: flex-start;
 }
 
+.about-metadata {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.about-metadata div {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--accent-border);
+}
+
+.about-metadata dt {
+  color: var(--app-muted);
+  font-size: 0.8rem;
+}
+
+.about-metadata dd {
+  margin: 0;
+  color: var(--app-text);
+  font-weight: 600;
+}
+
 @media (max-width: 960px) {
   .section-header-inline,
   .app-header-actions {

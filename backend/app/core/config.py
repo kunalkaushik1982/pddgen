@@ -9,6 +9,8 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.release import get_release_info
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -18,7 +20,7 @@ DEFAULT_STORAGE_ROOT = PROJECT_ROOT / "storage" / "local"
 class Settings(BaseSettings):
     """Environment-backed configuration for the backend service."""
 
-    app_name: str = "PDD Generator API"
+    app_name: str = "BA Process Copilot API"
     app_env: str = "development"
     app_debug: bool = False
     api_prefix: str = "/api"
@@ -57,4 +59,7 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Return a cached settings instance."""
-    return Settings()
+    settings = Settings()
+    settings_release = get_release_info()
+    settings.app_name = f"{settings.app_name} v{settings_release['backend']}"
+    return settings

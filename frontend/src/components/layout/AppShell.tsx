@@ -14,8 +14,9 @@ type AppShellProps = PropsWithChildren<{
   subtitle: string;
   statusLabel?: string;
   userLabel?: string;
-  activeView?: "workspace" | "history" | "session";
-  onSelectView?: (view: "workspace" | "history" | "session") => void;
+  activeView?: "workspace" | "history" | "session" | "about";
+  onSelectView?: (view: "workspace" | "history" | "session" | "about") => void;
+  onOpenAbout?: () => void;
   onLogout?: () => void;
 }>;
 
@@ -27,6 +28,7 @@ export function AppShell({
   userLabel,
   activeView = "workspace",
   onSelectView,
+  onOpenAbout,
   onLogout,
 }: AppShellProps): React.JSX.Element {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -111,6 +113,18 @@ export function AppShell({
                       <option value="parchment">Parchment</option>
                     </select>
                   </label>
+                  {onOpenAbout ? (
+                    <button
+                      type="button"
+                      className="app-user-menu-item"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onOpenAbout();
+                      }}
+                    >
+                      About
+                    </button>
+                  ) : null}
                   {onLogout ? (
                     <button
                       type="button"
