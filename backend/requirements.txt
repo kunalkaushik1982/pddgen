@@ -1,4 +1,5 @@
 # FastAPI backend runtime dependencies. Keep pinned for reproducible container builds.
+alembic==1.16.1
 celery[redis]==5.5.3
 docx2pdf==0.1.8
 docxtpl==0.20.1
