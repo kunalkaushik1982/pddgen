@@ -30,3 +30,7 @@ input/
 tmp/
 temp/
 test-assets/*.pdf
+
+# Local ad hoc attachments (do not commit)
+attachments/
+attachments.zip
