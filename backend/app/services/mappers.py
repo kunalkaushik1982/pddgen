@@ -4,6 +4,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\mappers
 """
 
 import json
+from datetime import datetime
 
 from app.models.draft_session import DraftSessionModel
 from app.models.process_group import ProcessGroupModel
@@ -17,6 +18,7 @@ from app.schemas.draft_session import (
     CandidateScreenshotResponse,
     DraftSessionListItemResponse,
     DraftSessionResponse,
+    PendingEvidenceBundleResponse,
     ProcessNoteResponse,
     ProcessGroupResponse,
     ProcessStepResponse,
@@ -50,6 +52,35 @@ def _latest_action_log_by_type(session: DraftSessionModel, event_type: str):
         ),
         None,
     )
+
+
+def _latest_successful_draft_at(session: DraftSessionModel) -> datetime | None:
+    draft_generated_log = _latest_action_log_by_type(session, "draft_generated")
+    if draft_generated_log is not None:
+        return draft_generated_log.created_at
+    if session.status in {"review", "exported"} and session.process_steps:
+        return session.updated_at
+    return None
+
+
+def _is_effectively_pending_bundle(session: DraftSessionModel, bundle) -> bool:
+    if bundle.status != "pending" or bundle.meeting is None:
+        return False
+    processed_meeting_ids = {step.meeting_id for step in session.process_steps if step.meeting_id}
+    processed_meeting_ids.update(note.meeting_id for note in session.process_notes if note.meeting_id)
+    if bundle.meeting_id in processed_meeting_ids:
+        return False
+
+    processed_transcript_ids = {
+        step.source_transcript_artifact_id for step in session.process_steps if step.source_transcript_artifact_id
+    }
+    if bundle.transcript_artifact_id and bundle.transcript_artifact_id in processed_transcript_ids:
+        return False
+
+    latest_successful_draft_at = _latest_successful_draft_at(session)
+    if latest_successful_draft_at is None:
+        return True
+    return bundle.created_at > latest_successful_draft_at
 
 
 def _latest_stage_info(session: DraftSessionModel) -> tuple[str, str]:
@@ -182,6 +213,26 @@ def map_process_group(process_group: ProcessGroupModel) -> ProcessGroupResponse:
 
 def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
     """Convert a full persisted draft session into an API response."""
+    artifacts_by_id = {artifact.id: artifact for artifact in session.artifacts}
+    pending_bundles: list[PendingEvidenceBundleResponse] = []
+    for bundle in session.meeting_evidence_bundles:
+        if not _is_effectively_pending_bundle(session, bundle):
+            continue
+        transcript_artifact = artifacts_by_id.get(bundle.transcript_artifact_id or "")
+        video_artifact = artifacts_by_id.get(bundle.video_artifact_id or "")
+        pending_bundles.append(
+            PendingEvidenceBundleResponse(
+                id=bundle.id,
+                meeting_id=bundle.meeting.id,
+                meeting_title=bundle.meeting.title,
+                uploaded_at=bundle.created_at,
+                pair_index=bundle.pair_index,
+                transcript_artifact_id=bundle.transcript_artifact_id,
+                transcript_name=transcript_artifact.name if transcript_artifact is not None else None,
+                video_artifact_id=bundle.video_artifact_id,
+                video_name=video_artifact.name if video_artifact is not None else None,
+            )
+        )
     return DraftSessionResponse(
         id=session.id,
         title=session.title,
@@ -190,6 +241,8 @@ def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
         diagram_type=session.diagram_type,
         created_at=session.created_at,
         updated_at=session.updated_at,
+        has_unprocessed_evidence=bool(pending_bundles),
+        pending_evidence_bundles=sorted(pending_bundles, key=lambda item: item.uploaded_at, reverse=True),
         process_groups=[map_process_group(group) for group in sorted(session.process_groups, key=lambda item: item.display_order)],
         artifacts=session.artifacts,
         process_steps=[map_process_step(step) for step in sorted(session.process_steps, key=lambda item: item.step_number)],

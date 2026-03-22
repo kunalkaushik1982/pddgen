@@ -31,14 +31,21 @@ export function MeetingsPanel({
   const [transcriptFiles, setTranscriptFiles] = React.useState<File[]>([]);
   const [videoFiles, setVideoFiles] = React.useState<File[]>([]);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
-  const [hasPendingEvidenceUpdate, setHasPendingEvidenceUpdate] = React.useState(false);
+  const videoInputRef = React.useRef<HTMLInputElement | null>(null);
+  const transcriptInputRef = React.useRef<HTMLInputElement | null>(null);
+  const pendingEvidenceBundles = session?.pendingEvidenceBundles ?? [];
+  const hasPendingEvidenceUpdate = Boolean(session?.hasUnprocessedEvidence && pendingEvidenceBundles.length > 0);
 
-  React.useEffect(() => {
-    const latestTitle = session?.actionLogs?.[0]?.title?.trim().toLowerCase() ?? "";
-    if (latestTitle === "ready for review" || latestTitle === "screenshots ready") {
-      setHasPendingEvidenceUpdate(false);
+  function resetSelectedFiles(): void {
+    setVideoFiles([]);
+    setTranscriptFiles([]);
+    if (videoInputRef.current) {
+      videoInputRef.current.value = "";
     }
-  }, [session?.actionLogs]);
+    if (transcriptInputRef.current) {
+      transcriptInputRef.current.value = "";
+    }
+  }
 
   const uploadMutation = useMutation({
     mutationFn: async ({
@@ -56,9 +63,25 @@ export function MeetingsPanel({
     }) => uploadService.uploadArtifact(sessionId, kind, file, meetingId, uploadBatchId, uploadPairIndex),
     onSuccess: async () => {
       setUploadError(null);
-      setHasPendingEvidenceUpdate(true);
       await queryClient.invalidateQueries({ queryKey: ["draftSession", sessionId] });
       await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
+    },
+    onError: (error) => {
+      const message = getErrorMessage(error);
+      setUploadError(message);
+      showToast("error", message);
+    },
+  });
+
+  const discardMutation = useMutation({
+    mutationFn: async (bundleId: string) => meetingService.discardEvidenceBundle(sessionId, bundleId),
+    onSuccess: async () => {
+      setUploadError(null);
+      resetSelectedFiles();
+      await queryClient.invalidateQueries({ queryKey: ["draftSession", sessionId] });
+      await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
+      await queryClient.invalidateQueries({ queryKey: ["meetings", sessionId] });
+      showToast("info", "Uploaded evidence discarded.");
     },
     onError: (error) => {
       const message = getErrorMessage(error);
@@ -73,7 +96,7 @@ export function MeetingsPanel({
     }
   }
 
-  const isBusy = disabled || uploadMutation.isPending;
+  const isBusy = disabled || uploadMutation.isPending || discardMutation.isPending;
   const totalTranscripts = (session?.inputArtifacts ?? []).filter((artifact) => artifact.kind === "transcript").length;
   const totalVideos = (session?.inputArtifacts ?? []).filter((artifact) => artifact.kind === "video").length;
 
@@ -91,6 +114,7 @@ export function MeetingsPanel({
           <label className="app-user-menu-field meetings-field meetings-file-field">
             <span>Video</span>
             <input
+              ref={videoInputRef}
               type="file"
               multiple
               disabled={isBusy}
@@ -101,6 +125,7 @@ export function MeetingsPanel({
           <label className="app-user-menu-field meetings-field meetings-file-field">
             <span>Transcript</span>
             <input
+              ref={transcriptInputRef}
               type="file"
               multiple
               disabled={isBusy}
@@ -123,14 +148,13 @@ export function MeetingsPanel({
                 if (videoFiles.length > 0) {
                   await uploadFiles("video", videoFiles, uploadBatchId, newMeeting.id);
                   uploadedCount += videoFiles.length;
-                  setVideoFiles([]);
                 }
                 if (transcriptFiles.length > 0) {
                   await uploadFiles("transcript", transcriptFiles, uploadBatchId, newMeeting.id);
                   uploadedCount += transcriptFiles.length;
-                  setTranscriptFiles([]);
                 }
                 if (uploadedCount > 0) {
+                  resetSelectedFiles();
                   await queryClient.invalidateQueries({ queryKey: ["meetings", sessionId] });
                   showToast("info", `${uploadedCount} file${uploadedCount === 1 ? "" : "s"} uploaded to ${newMeeting.title}.`);
                 }
@@ -141,31 +165,50 @@ export function MeetingsPanel({
           >
             Add Evidence
           </button>
+          <button
+            type="button"
+            className="button-primary meetings-upload-button"
+            disabled={disabled || updatingDraft || !onUpdateDraft || !hasPendingEvidenceUpdate}
+            aria-busy={updatingDraft}
+            onClick={onUpdateDraft}
+          >
+            {updatingDraft ? "Updating..." : "Update Draft"}
+          </button>
         </div>
 
         <div className="meetings-selection-summary">
           <span>{videoFiles.length} video file(s) selected</span>
           <span>{transcriptFiles.length} transcript file(s) selected</span>
+          <span>
+            {hasPendingEvidenceUpdate
+              ? `Draft update ready for ${pendingEvidenceBundles.length} pending evidence item(s)`
+              : "Upload evidence to enable draft update"}
+          </span>
         </div>
-      </div>
-
-      {hasPendingEvidenceUpdate ? (
-        <div className="upload-ready-banner">
-          <strong>New evidence uploaded</strong>
-          <div className="artifact-meta">Update the draft now to incorporate the newly added recording. Generate screenshots after the draft finishes.</div>
-          <div>
-            <button
-              type="button"
-              className="button-primary"
-              disabled={disabled || updatingDraft || !onUpdateDraft}
-              aria-busy={updatingDraft}
-              onClick={onUpdateDraft}
-            >
-              {updatingDraft ? "Updating Draft..." : "Update Draft from New Evidence"}
-            </button>
+        {pendingEvidenceBundles.length > 0 ? (
+          <div className="meetings-pending-list">
+            {pendingEvidenceBundles.map((bundle) => (
+              <div key={bundle.id} className="meetings-pending-item">
+                <div className="meetings-pending-copy">
+                  <strong>{bundle.meetingTitle}</strong>
+                  <span>
+                    {bundle.videoName ?? "No video"} / {bundle.transcriptName ?? "No transcript"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="button-icon"
+                  aria-label={`Discard ${bundle.videoName ?? bundle.transcriptName ?? bundle.meetingTitle}`}
+                  disabled={isBusy}
+                  onClick={() => discardMutation.mutate(bundle.id)}
+                >
+                  🗑
+                </button>
+              </div>
+            ))}
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {uploadError ? <div className="empty-state">{uploadError}</div> : null}
     </section>

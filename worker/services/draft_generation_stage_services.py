@@ -12,6 +12,7 @@ from sqlalchemy import delete, select
 
 from app.models.action_log import ActionLogModel
 from app.models.artifact import ArtifactModel
+from app.models.meeting_evidence_bundle import MeetingEvidenceBundleModel
 from app.models.process_note import ProcessNoteModel
 from app.models.process_group import ProcessGroupModel
 from app.models.process_step import ProcessStepModel
@@ -908,6 +909,18 @@ class PersistenceStage:
             db.flush()
             self._persist_step_screenshots(db, step_models, context.all_steps)
             db.add_all(ProcessNoteModel(session_id=context.session_id, **self._to_note_record(note)) for note in context.all_notes)
+            pending_bundles = (
+                db.execute(
+                    select(MeetingEvidenceBundleModel).where(
+                        MeetingEvidenceBundleModel.session_id == context.session_id,
+                        MeetingEvidenceBundleModel.status == "pending",
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for bundle in pending_bundles:
+                bundle.status = "processed"
             context.session.status = "review"
             db.add(
                 ActionLogModel(

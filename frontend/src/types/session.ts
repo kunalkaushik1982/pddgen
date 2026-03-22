@@ -41,12 +41,26 @@ export type ActionLogEntry = {
   createdAt: string;
 };
 
+export type PendingEvidenceBundle = {
+  id: string;
+  meetingId: string;
+  meetingTitle: string;
+  uploadedAt: string;
+  pairIndex: number;
+  transcriptArtifactId?: string | null;
+  transcriptName?: string | null;
+  videoArtifactId?: string | null;
+  videoName?: string | null;
+};
+
 export type DraftSession = {
   id: string;
   title: string;
   status: "draft" | "processing" | "review" | "exported" | "failed";
   ownerId: string;
   diagramType: "flowchart" | "sequence";
+  hasUnprocessedEvidence: boolean;
+  pendingEvidenceBundles: PendingEvidenceBundle[];
   processGroups: ProcessGroup[];
   inputArtifacts: InputArtifact[];
   processSteps: ProcessStep[];

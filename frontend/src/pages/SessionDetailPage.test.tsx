@@ -32,6 +32,8 @@ function createSession(): DraftSession {
     status: "review",
     ownerId: "kunal",
     diagramType: "flowchart",
+    hasUnprocessedEvidence: false,
+    pendingEvidenceBundles: [],
     processGroups: [],
     inputArtifacts: [],
     processSteps: [
@@ -61,13 +63,10 @@ function createSession(): DraftSession {
 
 describe("SessionDetailPage", () => {
   it("renders an empty state when no session is loaded", () => {
-    const onBackToWorkspace = vi.fn();
-
     render(
       <SessionDetailPage
         session={null}
         selectedStepId={null}
-        onBackToWorkspace={onBackToWorkspace}
         onExportDocx={vi.fn()}
         onExportPdf={vi.fn()}
         onSelectStep={vi.fn()}
@@ -78,14 +77,10 @@ describe("SessionDetailPage", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Back to Workspace" }));
-
     expect(screen.getByText("No session is loaded.")).toBeInTheDocument();
-    expect(onBackToWorkspace).toHaveBeenCalledTimes(1);
   });
 
   it("renders the session review surface and wires header actions", async () => {
-    const onBackToWorkspace = vi.fn();
     const onExportDocx = vi.fn();
     const onExportPdf = vi.fn();
 
@@ -94,7 +89,6 @@ describe("SessionDetailPage", () => {
         session={createSession()}
         selectedStepId="step-1"
         initialReviewMode="edit"
-        onBackToWorkspace={onBackToWorkspace}
         onExportDocx={onExportDocx}
         onExportPdf={onExportPdf}
         onSelectStep={vi.fn()}
@@ -108,11 +102,9 @@ describe("SessionDetailPage", () => {
 
     expect(await screen.findByTestId("step-review-page")).toHaveTextContent("Invoice Session::step-1::edit");
 
-    fireEvent.click(screen.getByRole("button", { name: "Back to Workspace" }));
     fireEvent.click(screen.getByRole("button", { name: "Word" }));
     fireEvent.click(screen.getByRole("button", { name: "PDF" }));
 
-    expect(onBackToWorkspace).toHaveBeenCalledTimes(1);
     expect(onExportDocx).toHaveBeenCalledTimes(1);
     expect(onExportPdf).toHaveBeenCalledTimes(1);
   });

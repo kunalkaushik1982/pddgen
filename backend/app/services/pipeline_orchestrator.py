@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
+from app.models.meeting_evidence_bundle import MeetingEvidenceBundleModel
 from app.models.process_group import ProcessGroupModel
 from app.models.process_note import ProcessNoteModel
 from app.models.process_step import ProcessStepModel
@@ -46,6 +47,8 @@ class PipelineOrchestratorService:
                 selectinload(DraftSessionModel.artifacts),
                 selectinload(DraftSessionModel.action_logs),
                 selectinload(DraftSessionModel.diagram_layouts),
+                selectinload(DraftSessionModel.meetings),
+                selectinload(DraftSessionModel.meeting_evidence_bundles).selectinload(MeetingEvidenceBundleModel.meeting),
                 selectinload(DraftSessionModel.process_groups),
                 selectinload(DraftSessionModel.process_steps).selectinload(ProcessStepModel.step_screenshots).selectinload(ProcessStepScreenshotModel.artifact),
                 selectinload(DraftSessionModel.process_steps).selectinload(ProcessStepModel.step_screenshot_candidates).selectinload(ProcessStepScreenshotCandidateModel.artifact),

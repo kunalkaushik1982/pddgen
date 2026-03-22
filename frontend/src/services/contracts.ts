@@ -105,12 +105,26 @@ export type BackendActionLog = {
   created_at: string;
 };
 
+export type BackendPendingEvidenceBundle = {
+  id: string;
+  meeting_id: string;
+  meeting_title: string;
+  uploaded_at: string;
+  pair_index: number;
+  transcript_artifact_id?: string | null;
+  transcript_name?: string | null;
+  video_artifact_id?: string | null;
+  video_name?: string | null;
+};
+
 export type BackendDraftSession = {
   id: string;
   title: string;
   status: DraftSession["status"];
   owner_id: string;
   diagram_type: DraftSession["diagramType"];
+  has_unprocessed_evidence: boolean;
+  pending_evidence_bundles: BackendPendingEvidenceBundle[];
   process_groups: BackendProcessGroup[];
   artifacts: BackendArtifact[];
   process_steps: BackendProcessStep[];

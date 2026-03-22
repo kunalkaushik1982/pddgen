@@ -27,6 +27,7 @@ class MeetingEvidenceBundleModel(Base):
     meeting_id: Mapped[str] = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"), index=True)
     upload_batch_id: Mapped[str] = mapped_column(String(36), index=True)
     pair_index: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     transcript_artifact_id: Mapped[str | None] = mapped_column(
         ForeignKey("artifacts.id", ondelete="SET NULL"),
         nullable=True,

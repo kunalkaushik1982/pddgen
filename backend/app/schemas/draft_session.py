@@ -129,6 +129,20 @@ class ProcessGroupResponse(BaseModel):
     detailed_diagram_json: str
 
 
+class PendingEvidenceBundleResponse(BaseModel):
+    """Pending uploaded transcript/video pair awaiting draft regeneration."""
+
+    id: str
+    meeting_id: str
+    meeting_title: str
+    uploaded_at: datetime
+    pair_index: int
+    transcript_artifact_id: str | None = None
+    transcript_name: str | None = None
+    video_artifact_id: str | None = None
+    video_name: str | None = None
+
+
 class ActionLogResponse(BaseModel):
     """Meaningful activity event for one draft session."""
 
@@ -154,6 +168,8 @@ class DraftSessionResponse(BaseModel):
     diagram_type: str
     created_at: datetime
     updated_at: datetime
+    has_unprocessed_evidence: bool = False
+    pending_evidence_bundles: list[PendingEvidenceBundleResponse] = Field(default_factory=list)
     process_groups: list[ProcessGroupResponse]
     artifacts: list[ArtifactResponse]
     process_steps: list[ProcessStepResponse]

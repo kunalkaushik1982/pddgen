@@ -41,6 +41,9 @@ class StorageBackend(Protocol):
     def ensure_paths(self, paths: Iterable[Path]) -> None:
         """Ensure required directories exist."""
 
+    def delete(self, storage_path: str) -> None:
+        """Delete one stored object if it exists."""
+
 
 class LocalStorageBackend:
     """Local filesystem implementation for pilot deployments."""
@@ -84,6 +87,11 @@ class LocalStorageBackend:
     def ensure_paths(self, paths: Iterable[Path]) -> None:
         for path in paths:
             path.mkdir(parents=True, exist_ok=True)
+
+    def delete(self, storage_path: str) -> None:
+        target_path = Path(storage_path)
+        if target_path.exists():
+            target_path.unlink()
 
 
 class S3CompatibleStorageBackend:
@@ -147,6 +155,10 @@ class S3CompatibleStorageBackend:
     def ensure_paths(self, paths: Iterable[Path]) -> None:
         return
 
+    def delete(self, storage_path: str) -> None:
+        bucket, key = self._parse_storage_uri(storage_path)
+        self.client.delete_object(Bucket=bucket, Key=key)
+
     def _build_key(self, *, session_id: str, folder: str, filename: str) -> str:
         segments = [segment for segment in (self.prefix, session_id, folder, filename) if segment]
         return "/".join(segments)
@@ -199,6 +211,10 @@ class StorageService:
     def ensure_paths(self, paths: Iterable[Path]) -> None:
         """Ensure required local directories exist for the active backend."""
         self.backend.ensure_paths(paths)
+
+    def delete(self, storage_path: str) -> None:
+        """Delete one stored object if it exists."""
+        self.backend.delete(storage_path)
 
     def _build_backend(self) -> StorageBackend:
         backend_name = self.settings.storage_backend.lower()

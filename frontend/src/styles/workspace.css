@@ -99,6 +99,58 @@
   font-size: 0.92rem;
 }
 
+.meetings-pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.meetings-pending-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.meetings-pending-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.meetings-pending-copy span {
+  color: var(--app-muted);
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+
+.button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  color: var(--button-text);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.button-icon:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .meetings-toolbar {
   display: grid;
   grid-template-columns: minmax(180px, 220px) minmax(220px, 1fr) auto;
@@ -108,7 +160,7 @@
 
 .meetings-evidence-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: end;
 }

@@ -1,6 +1,6 @@
 import type { Meeting } from "../types/meeting";
 import type { BackendMeeting } from "./contracts";
-import { fetchJson } from "./http";
+import { API_BASE_URL, buildAuthHeaders, buildSecurityHeaders, fetchJson } from "./http";
 import { mapMeeting } from "./mappers";
 
 export const meetingService = {
@@ -35,6 +35,23 @@ export const meetingService = {
       }),
     });
     return mapMeeting(meeting);
+  },
+
+  async discardEvidenceBundle(sessionId: string, bundleId: string): Promise<void> {
+    const headers = buildSecurityHeaders("DELETE", buildAuthHeaders());
+    const response = await fetch(`${API_BASE_URL}/draft-sessions/${sessionId}/meetings/evidence-bundles/${bundleId}`, {
+      method: "DELETE",
+      headers,
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const payload = (await response.json()) as { detail?: string };
+        throw new Error(payload.detail || `Request failed with status ${response.status}`);
+      }
+      throw new Error((await response.text()) || `Request failed with status ${response.status}`);
+    }
   },
 
   async reorderMeetings(sessionId: string, meetingIds: string[]): Promise<Meeting[]> {

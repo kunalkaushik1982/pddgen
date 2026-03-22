@@ -5,7 +5,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\routes\meeti
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_meeting_service
@@ -87,3 +87,19 @@ def update_meeting(
     )
     return MeetingResponse.model_validate(meeting)
 
+
+@router.delete("/evidence-bundles/{bundle_id}", status_code=status.HTTP_204_NO_CONTENT)
+def discard_pending_bundle(
+    session_id: str,
+    bundle_id: str,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[MeetingService, Depends(get_meeting_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+) -> Response:
+    service.discard_pending_bundle(
+        db,
+        session_id=session_id,
+        bundle_id=bundle_id,
+        owner_id=current_user.username,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

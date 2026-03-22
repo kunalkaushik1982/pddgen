@@ -38,12 +38,8 @@ export function SessionRoute(): React.JSX.Element {
       selectedStepId={actions.selectedStepId}
       initialReviewMode={initialReviewMode}
       disabled={sessionQuery.isLoading || actions.disabled}
-      generatingDraft={actions.generatingDraft}
       generatingScreenshots={actions.generatingScreenshots}
-      draftActionLabel={actions.draftActionLabel}
       exportingFormat={actions.exportingFormat}
-      onBackToWorkspace={actions.backToWorkspace}
-      onGenerateDraft={actions.generateDraft}
       onGenerateScreenshots={actions.generateScreenshots}
       onExportDocx={actions.exportDocx}
       onExportPdf={actions.exportPdf}

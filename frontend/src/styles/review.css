@@ -9,6 +9,20 @@
   gap: 12px;
 }
 
+.review-header-action-slot {
+  display: flex;
+  align-items: center;
+}
+
+.review-header-action-slot-view .session-draft-action {
+  display: none;
+}
+
+.review-header-action-slot-edit-steps .session-draft-action,
+.review-header-action-slot-edit-diagram .session-draft-action {
+  display: none;
+}
+
 .review-mode-switch {
   display: inline-flex;
   align-items: center;

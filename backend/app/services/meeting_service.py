@@ -8,12 +8,15 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.meeting import MeetingModel
+from app.models.meeting_evidence_bundle import MeetingEvidenceBundleModel
+from app.storage.storage_service import StorageService
 
 
 class MeetingService:
@@ -21,6 +24,7 @@ class MeetingService:
 
     def __init__(self) -> None:
         self.settings = get_settings()
+        self.storage_service = StorageService()
 
     def list_meetings(self, db: Session, *, session_id: str, owner_id: str) -> list[MeetingModel]:
         """Return meetings sorted by explicit order or timestamp fallback."""
@@ -106,6 +110,77 @@ class MeetingService:
             meetings_by_id[meeting_id].order_index = index
         db.commit()
         return self.list_meetings(db, session_id=session.id, owner_id=owner_id)
+
+    def discard_pending_bundle(
+        self,
+        db: Session,
+        *,
+        session_id: str,
+        bundle_id: str,
+        owner_id: str,
+    ) -> None:
+        """Discard one uploaded-but-unprocessed evidence bundle and its artifacts."""
+        session = self._get_session(db, session_id=session_id, owner_id=owner_id)
+        bundle = db.get(MeetingEvidenceBundleModel, bundle_id)
+        if bundle is None or bundle.session_id != session.id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pending evidence bundle not found.",
+            )
+        if bundle.status != "pending":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only pending uploaded evidence can be discarded.",
+            )
+        if bundle.meeting_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This uploaded evidence is not linked to a discardable meeting.",
+            )
+
+        processed_meeting_ids = {step.meeting_id for step in session.process_steps if step.meeting_id}
+        processed_meeting_ids.update(note.meeting_id for note in session.process_notes if note.meeting_id)
+        if bundle.meeting_id in processed_meeting_ids:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This meeting has already been incorporated into the draft and cannot be discarded.",
+            )
+
+        processed_transcript_ids = {
+            step.source_transcript_artifact_id for step in session.process_steps if step.source_transcript_artifact_id
+        }
+        if bundle.transcript_artifact_id is not None and bundle.transcript_artifact_id in processed_transcript_ids:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This uploaded evidence has already been incorporated into the draft and cannot be discarded.",
+            )
+
+        artifact_ids = [
+            artifact_id
+            for artifact_id in [bundle.transcript_artifact_id, bundle.video_artifact_id]
+            if artifact_id is not None
+        ]
+        artifacts = db.execute(select(ArtifactModel).where(ArtifactModel.id.in_(artifact_ids))).scalars().all() if artifact_ids else []
+        for artifact in artifacts:
+            try:
+                self.storage_service.delete(artifact.storage_path)
+            except Exception:
+                pass
+
+        if artifact_ids:
+            db.execute(delete(ArtifactModel).where(ArtifactModel.id.in_(artifact_ids)))
+        db.delete(bundle)
+
+        remaining_artifact_count = (
+            db.execute(select(ArtifactModel).where(ArtifactModel.meeting_id == bundle.meeting_id))
+            .scalars()
+            .first()
+        )
+        if remaining_artifact_count is None:
+            meeting = db.get(MeetingModel, bundle.meeting_id)
+            if meeting is not None:
+                db.delete(meeting)
+        db.commit()
 
     def get_meeting_or_default(
         self,

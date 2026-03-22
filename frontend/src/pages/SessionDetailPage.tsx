@@ -21,12 +21,8 @@ type SessionDetailPageProps = {
   selectedStepId: string | null;
   initialReviewMode?: ReviewMode;
   disabled?: boolean;
-  generatingDraft?: boolean;
   generatingScreenshots?: boolean;
-  draftActionLabel?: string;
   exportingFormat?: "docx" | "pdf" | null;
-  onBackToWorkspace: () => void;
-  onGenerateDraft?: () => void;
   onGenerateScreenshots?: () => void;
   onExportDocx: () => void;
   onExportPdf: () => void;
@@ -48,12 +44,8 @@ export function SessionDetailPage({
   selectedStepId,
   initialReviewMode = "view",
   disabled,
-  generatingDraft = false,
   generatingScreenshots = false,
-  draftActionLabel = "Generate Draft",
   exportingFormat = null,
-  onBackToWorkspace,
-  onGenerateDraft,
   onGenerateScreenshots,
   onExportDocx,
   onExportPdf,
@@ -72,9 +64,6 @@ export function SessionDetailPage({
             <h2>Session Detail</h2>
             <p className="muted">Open a session from My Projects or create a new one from Workspace.</p>
           </div>
-          <button type="button" className="button-secondary" onClick={onBackToWorkspace}>
-            Back to Workspace
-          </button>
         </div>
         <div className="empty-state">No session is loaded.</div>
       </section>
@@ -98,22 +87,10 @@ export function SessionDetailPage({
           disabled={disabled}
           showHeader={false}
           headerActions={
-            <div className="button-row">
-              <button type="button" className="button-secondary" onClick={onBackToWorkspace} disabled={disabled}>
-                Back to Workspace
-              </button>
+            <div className="button-row review-header-action-slot">
               <button
                 type="button"
-                className="button-primary"
-                onClick={onGenerateDraft}
-                disabled={disabled || !onGenerateDraft}
-                aria-busy={generatingDraft}
-              >
-                {generatingDraft ? "Generating..." : draftActionLabel}
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
+                className="button-secondary session-screenshot-action"
                 onClick={onGenerateScreenshots}
                 disabled={disabled || !onGenerateScreenshots}
                 aria-busy={generatingScreenshots}

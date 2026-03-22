@@ -8,7 +8,7 @@ import type {
   DiagramModel,
 } from "../types/diagram";
 import type { CandidateScreenshot, ProcessNote, ProcessStep, StepScreenshot } from "../types/process";
-import type { ActionLogEntry, DraftSession, DraftSessionListItem, InputArtifact, OutputDocument, ProcessGroup, SessionAnswer } from "../types/session";
+import type { ActionLogEntry, DraftSession, DraftSessionListItem, InputArtifact, OutputDocument, PendingEvidenceBundle, ProcessGroup, SessionAnswer } from "../types/session";
 import type {
   BackendActionLog,
   BackendAdminUserSummary,
@@ -20,6 +20,7 @@ import type {
   BackendDraftSessionListItem,
   BackendMeeting,
   BackendOutputDocument,
+  BackendPendingEvidenceBundle,
   BackendProcessGroup,
   BackendProcessNote,
   BackendProcessStep,
@@ -145,6 +146,20 @@ export function mapActionLog(actionLog: BackendActionLog): ActionLogEntry {
   };
 }
 
+export function mapPendingEvidenceBundle(bundle: BackendPendingEvidenceBundle): PendingEvidenceBundle {
+  return {
+    id: bundle.id,
+    meetingId: bundle.meeting_id,
+    meetingTitle: bundle.meeting_title,
+    uploadedAt: bundle.uploaded_at,
+    pairIndex: bundle.pair_index,
+    transcriptArtifactId: bundle.transcript_artifact_id ?? null,
+    transcriptName: bundle.transcript_name ?? null,
+    videoArtifactId: bundle.video_artifact_id ?? null,
+    videoName: bundle.video_name ?? null,
+  };
+}
+
 export function mapProcessGroup(processGroup: BackendProcessGroup): ProcessGroup {
   return {
     id: processGroup.id,
@@ -166,6 +181,8 @@ export function mapDraftSession(session: BackendDraftSession): DraftSession {
     status: session.status,
     ownerId: session.owner_id,
     diagramType: session.diagram_type,
+    hasUnprocessedEvidence: session.has_unprocessed_evidence,
+    pendingEvidenceBundles: session.pending_evidence_bundles.map(mapPendingEvidenceBundle),
     processGroups: session.process_groups.map(mapProcessGroup),
     inputArtifacts: session.artifacts.map(mapArtifact),
     processSteps: session.process_steps.map(mapProcessStep),

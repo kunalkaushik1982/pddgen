@@ -174,8 +174,12 @@ export function StepReviewPage({
             {filteredSteps.length} step(s) | status {session.status}
           </div>
         </div>
-        <div className="review-header-actions">
-          {headerActions}
+          <div className="review-header-actions">
+          <div
+            className={`review-header-action-slot review-header-action-slot-${workspace.reviewMode} review-header-action-slot-edit-${workspace.activeEditTab}`}
+          >
+            {headerActions}
+          </div>
           <div className="review-mode-switch" role="tablist" aria-label="Review mode">
             <button
               type="button"

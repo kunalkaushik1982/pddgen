@@ -109,8 +109,11 @@ class ArtifactIngestionService:
                 meeting_id=meeting_id,
                 upload_batch_id=upload_batch_id,
                 pair_index=upload_pair_index,
+                status="pending",
             )
             db.add(bundle)
+        else:
+            bundle.status = "pending"
 
         if artifact.kind == "transcript":
             bundle.transcript_artifact_id = artifact.id
