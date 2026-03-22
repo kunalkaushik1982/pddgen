@@ -25,6 +25,8 @@ class ArtifactResponse(BaseModel):
 
     id: str
     meeting_id: str | None = None
+    upload_batch_id: str | None = None
+    upload_pair_index: int | None = None
     name: str
     kind: ArtifactKind
     storage_path: str

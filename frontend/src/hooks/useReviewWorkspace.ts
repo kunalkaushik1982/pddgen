@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type ReviewMode = "view" | "edit";
+export type ReviewMode = "view" | "edit" | "artifacts";
 export type ViewWorkspaceTab = "summary" | "steps" | "diagram" | "ask" | "log";
 export type EditWorkspaceTab = "steps" | "diagram";
 
@@ -9,7 +9,16 @@ type UseReviewWorkspaceOptions = {
   sessionId: string | null;
 };
 
-export function useReviewWorkspace({ initialReviewMode, sessionId }: UseReviewWorkspaceOptions) {
+type ReviewWorkspaceState = {
+  reviewMode: ReviewMode;
+  activeViewTab: ViewWorkspaceTab;
+  activeEditTab: EditWorkspaceTab;
+  setActiveViewTab: (tab: ViewWorkspaceTab) => void;
+  setActiveEditTab: (tab: EditWorkspaceTab) => void;
+  switchMode: (nextMode: ReviewMode) => void;
+};
+
+export function useReviewWorkspace({ initialReviewMode, sessionId }: UseReviewWorkspaceOptions): ReviewWorkspaceState {
   const [reviewMode, setReviewMode] = useState<ReviewMode>(initialReviewMode);
   const [activeViewTab, setActiveViewTab] = useState<ViewWorkspaceTab>("summary");
   const [activeEditTab, setActiveEditTab] = useState<EditWorkspaceTab>("steps");
@@ -28,6 +37,10 @@ export function useReviewWorkspace({ initialReviewMode, sessionId }: UseReviewWo
         return;
       }
       setActiveEditTab("steps");
+      return;
+    }
+
+    if (nextMode === "artifacts") {
       return;
     }
 

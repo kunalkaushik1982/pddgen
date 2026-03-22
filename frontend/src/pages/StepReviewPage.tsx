@@ -8,6 +8,7 @@ import React, { Suspense, lazy } from "react";
 import { ReviewWorkspaceTabs } from "../components/review/ReviewWorkspaceTabs";
 import { uiCopy } from "../constants/uiCopy";
 import { SessionActionLogPanel } from "../components/review/SessionActionLogPanel";
+import { SessionArtifactsPanel } from "../components/review/SessionArtifactsPanel";
 import { SessionDiagramSection } from "../components/review/SessionDiagramSection";
 import { SessionProcessSection } from "../components/review/SessionProcessSection";
 import { SessionSummaryPanel } from "../components/review/SessionSummaryPanel";
@@ -197,6 +198,15 @@ export function StepReviewPage({
             >
               Edit
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspace.reviewMode === "artifacts"}
+              className={`review-mode-tab ${workspace.reviewMode === "artifacts" ? "review-mode-tab-active" : ""}`}
+              onClick={() => workspace.switchMode("artifacts")}
+            >
+              Artifacts
+            </button>
           </div>
           {onCloseSession ? (
             <button type="button" className="button-secondary" onClick={onCloseSession} disabled={disabled}>
@@ -206,9 +216,13 @@ export function StepReviewPage({
         </div>
       </div>
 
-      {session.processSteps.length === 0 ? (
+      {workspace.reviewMode === "artifacts" && session.inputArtifacts.length > 0 ? (
+        <SessionArtifactsPanel artifacts={session.inputArtifacts} />
+      ) : null}
+
+      {workspace.reviewMode !== "artifacts" && session.processSteps.length === 0 ? (
         <div className="empty-state">No steps have been generated yet.</div>
-      ) : (
+      ) : workspace.reviewMode !== "artifacts" ? (
         <div className="review-subsection-stack">
           {availableProcessGroups.length > 1 ? (
             <div className="process-group-switcher panel">
@@ -381,7 +395,7 @@ export function StepReviewPage({
             </section>
           ) : null}
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

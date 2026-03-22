@@ -31,7 +31,6 @@ export function useSessionActions(
     normalizedLatestActionTitle,
   );
   const draftActionLabel = processSteps.length > 0 ? "Regenerate Draft" : "Generate Draft";
-  const hasExistingScreenshots = processSteps.some((step) => step.screenshots.length > 0);
 
   useEffect(() => {
     if (processSteps.length === 0) {
@@ -239,15 +238,7 @@ export function useSessionActions(
     backToWorkspace: () => navigate("/workspace"),
     refreshSession,
     generateDraft: () => generateMutation.mutate(),
-    generateScreenshots: () => {
-      if (hasExistingScreenshots) {
-        const confirmed = window.confirm("Screenshots already exist for this session. Regenerate screenshots and replace the current set?");
-        if (!confirmed) {
-          return;
-        }
-      }
-      screenshotMutation.mutate();
-    },
+    generateScreenshots: () => screenshotMutation.mutate(),
     exportDocx: () => exportMutation.mutate("docx"),
     exportPdf: () => exportMutation.mutate("pdf"),
     saveStep: async (stepId: string, payload: Partial<ProcessStep>) => {

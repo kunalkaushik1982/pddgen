@@ -192,6 +192,58 @@
   color: var(--app-text);
 }
 
+.artifacts-document-card {
+  gap: 20px;
+}
+
+.artifacts-section {
+  display: grid;
+  gap: 14px;
+}
+
+.artifacts-pair-list,
+.artifacts-template-list {
+  display: grid;
+  gap: 12px;
+}
+
+.artifacts-pair-card,
+.artifacts-template-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--accent-border);
+  background: var(--surface-soft);
+}
+
+.artifacts-pair-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.artifacts-pair-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.artifacts-pair-label {
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.artifacts-pair-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--app-text);
+}
+
 .action-log-document-card {
   gap: 16px;
 }

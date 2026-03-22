@@ -901,6 +901,7 @@ class PersistenceStage:
 
     def run(self, db, context: DraftGenerationContext) -> dict[str, int | str]:  # type: ignore[no-untyped-def]
         with bind_log_context(stage="persistence"):
+            selected_screenshot_count = sum(len(step.get("_derived_screenshots", [])) for step in context.all_steps)
             context.session.overview_diagram_json = context.overview_diagram_json
             context.session.detailed_diagram_json = context.detailed_diagram_json
 
@@ -930,7 +931,7 @@ class PersistenceStage:
                     detail=(
                         f"{len(context.all_steps)} steps, "
                         f"{len(context.all_notes)} notes, "
-                        f"{len(context.screenshot_artifacts)} screenshots."
+                        f"{selected_screenshot_count} screenshots."
                     ),
                     actor="system",
                 )
@@ -940,7 +941,7 @@ class PersistenceStage:
                 "session_id": context.session_id,
                 "steps_created": len(context.all_steps),
                 "notes_created": len(context.all_notes),
-                "screenshots_created": len(context.screenshot_artifacts),
+                "screenshots_created": selected_screenshot_count,
             }
             logger.info("Persistence stage completed", extra={"event": "draft_generation.stage_completed", **result})
             return result

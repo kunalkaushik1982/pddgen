@@ -20,9 +20,14 @@ export type ProcessGroup = {
 export type InputArtifact = {
   id: string;
   meetingId?: string | null;
+  uploadBatchId?: string | null;
+  uploadPairIndex?: number | null;
   name: string;
   kind: "video" | "transcript" | "template" | "sop" | "diagram" | "screenshot";
   storagePath: string;
+  contentType?: string | null;
+  sizeBytes?: number;
+  createdAt?: string | null;
 };
 
 export type OutputDocument = {

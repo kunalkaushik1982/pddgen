@@ -33,9 +33,14 @@ export function mapArtifact(artifact: BackendArtifact): InputArtifact {
   return {
     id: artifact.id,
     meetingId: artifact.meeting_id ?? null,
+    uploadBatchId: artifact.upload_batch_id ?? null,
+    uploadPairIndex: artifact.upload_pair_index ?? null,
     name: artifact.name,
     kind: artifact.kind,
     storagePath: artifact.storage_path,
+    contentType: artifact.content_type ?? null,
+    sizeBytes: artifact.size_bytes ?? 0,
+    createdAt: artifact.created_at ?? null,
   };
 }
 

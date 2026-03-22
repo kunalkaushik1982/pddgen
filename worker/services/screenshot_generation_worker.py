@@ -47,19 +47,20 @@ class ScreenshotGenerationWorker:
                 context = self._prepare_context(db, session)
                 self.screenshot_stage.run(db, context)
                 self.persistence_stage._persist_step_screenshots(db, context.persisted_step_models, context.all_steps)
+                selected_screenshot_count = sum(len(step.get("_derived_screenshots", [])) for step in context.all_steps)
                 db.add(
                     ActionLogModel(
                         session_id=session_id,
                         event_type="screenshots_generated",
                         title="Screenshots ready",
-                        detail=f"{len(context.screenshot_artifacts)} screenshots generated for canonical steps.",
+                        detail=f"{selected_screenshot_count} screenshots generated for canonical steps.",
                         actor="system",
                     )
                 )
                 db.commit()
                 result = {
                     "session_id": session_id,
-                    "screenshots_created": len(context.screenshot_artifacts),
+                    "screenshots_created": selected_screenshot_count,
                     "steps_updated": len(context.persisted_step_models),
                 }
                 logger.info(

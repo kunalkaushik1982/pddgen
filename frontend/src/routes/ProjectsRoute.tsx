@@ -2,6 +2,7 @@ import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { MeetingsPanel } from "../components/session/MeetingsPanel";
 import { uiCopy } from "../constants/uiCopy";
 import { useDraftSession, useDraftSessions } from "../hooks/useDraftSessions";
@@ -27,6 +28,7 @@ export function ProjectsRoute(): React.JSX.Element {
   const [exportingSessionId, setExportingSessionId] = React.useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = React.useState<"docx" | "pdf" | null>(null);
   const [generatingScreenshotsSessionId, setGeneratingScreenshotsSessionId] = React.useState<string | null>(null);
+  const [confirmScreenshotSessionId, setConfirmScreenshotSessionId] = React.useState<string | null>(null);
 
   const retryMutation = useMutation({
     mutationFn: (sessionId: string) => sessionService.generateDraftSession(sessionId),
@@ -73,17 +75,7 @@ export function ProjectsRoute(): React.JSX.Element {
   });
 
   const screenshotMutation = useMutation({
-    mutationFn: async (sessionId: string) => {
-      const session = await sessionService.getDraftSession(sessionId);
-      const hasExistingScreenshots = session.processSteps.some((step) => step.screenshots.length > 0);
-      if (hasExistingScreenshots) {
-        const confirmed = window.confirm("Screenshots already exist for this session. Regenerate screenshots and replace the current set?");
-        if (!confirmed) {
-          throw new Error("__screenshots_cancelled__");
-        }
-      }
-      return sessionService.generateSessionScreenshots(sessionId);
-    },
+    mutationFn: async (sessionId: string) => sessionService.generateSessionScreenshots(sessionId),
     onMutate: (sessionId) => {
       setGeneratingScreenshotsSessionId(sessionId);
     },
@@ -92,9 +84,6 @@ export function ProjectsRoute(): React.JSX.Element {
       showToast("info", "Screenshot generation started for this session.");
     },
     onError: (error) => {
-      if (error instanceof Error && error.message === "__screenshots_cancelled__") {
-        return;
-      }
       showToast("error", getErrorMessage(error));
     },
     onSettled: () => {
@@ -106,6 +95,22 @@ export function ProjectsRoute(): React.JSX.Element {
 
   return (
     <>
+      {confirmScreenshotSessionId ? (
+        <ConfirmDialog
+          title="Regenerate Screenshots?"
+          description="Screenshots already exist for this session. Regenerating will replace the current screenshot set."
+          confirmLabel="Generate Screenshots"
+          tone="danger"
+          busy={generatingScreenshotsSessionId === confirmScreenshotSessionId}
+          onCancel={() => setConfirmScreenshotSessionId(null)}
+          onConfirm={() => {
+            const sessionId = confirmScreenshotSessionId;
+            setConfirmScreenshotSessionId(null);
+            screenshotMutation.mutate(sessionId);
+          }}
+        />
+      ) : null}
+
       {extendingSessionId && extendSessionQuery.data ? (
         <div className="editor-overlay" role="dialog" aria-modal="true" aria-labelledby="projects-extend-session-title">
           <div className="editor-workspace extend-workspace">
@@ -140,7 +145,15 @@ export function ProjectsRoute(): React.JSX.Element {
         onOpenView={(sessionId) => navigate(`/session/${sessionId}?mode=view`)}
         onOpenEdit={(sessionId) => navigate(`/session/${sessionId}?mode=edit`)}
         onOpenExtend={(sessionId) => setExtendingSessionId(sessionId)}
-        onGenerateScreenshots={(sessionId) => screenshotMutation.mutate(sessionId)}
+        onGenerateScreenshots={async (sessionId) => {
+          const session = await sessionService.getDraftSession(sessionId);
+          const hasExistingScreenshots = session.processSteps.some((step) => step.screenshots.length > 0);
+          if (hasExistingScreenshots) {
+            setConfirmScreenshotSessionId(sessionId);
+            return;
+          }
+          screenshotMutation.mutate(sessionId);
+        }}
         onRetry={(sessionId) => retryMutation.mutate(sessionId)}
         onExportDocx={(sessionId) => exportMutation.mutate({ sessionId, format: "docx" })}
         onExportPdf={(sessionId) => exportMutation.mutate({ sessionId, format: "pdf" })}

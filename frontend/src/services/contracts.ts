@@ -12,9 +12,14 @@ import type { Meeting } from "../types/meeting";
 export type BackendArtifact = {
   id: string;
   meeting_id?: string | null;
+  upload_batch_id?: string | null;
+  upload_pair_index?: number | null;
   name: string;
   kind: InputArtifact["kind"];
   storage_path: string;
+  content_type?: string | null;
+  size_bytes?: number;
+  created_at?: string;
 };
 
 export type BackendEvidenceReference = {
