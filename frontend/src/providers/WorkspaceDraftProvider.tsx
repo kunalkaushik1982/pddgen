@@ -30,6 +30,7 @@ type WorkspaceDraftContextValue = {
   setOwnerId: (value: string) => void;
   setDiagramType: (value: DiagramType) => void;
   updateFiles: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", files: FileList | null) => void;
+  removeSelectedFile: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", index: number) => void;
   setUploadSessionId: (value: string | null) => void;
   setUploadItems: React.Dispatch<React.SetStateAction<ArtifactUploadProgressItem[]>>;
   hydrateFromDraftSession: (session: DraftSession) => void;
@@ -64,6 +65,39 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
     setUploadItems((current) => (current.length > 0 ? [] : current));
   }
 
+  function removeSelectedFile(field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", index: number): void {
+    setUploads((current) => {
+      if (field === "videoFiles" || field === "transcriptFiles") {
+        return {
+          ...current,
+          [field]: current[field].filter((_, fileIndex) => fileIndex !== index),
+        };
+      }
+      if (field === "templateFile") {
+        return {
+          ...current,
+          templateFile: index === 0 ? null : current.templateFile,
+        };
+      }
+      if (field === "sopFiles") {
+        return {
+          ...current,
+          optionalArtifacts: {
+            ...current.optionalArtifacts,
+            sopFiles: current.optionalArtifacts.sopFiles.filter((_, fileIndex) => fileIndex !== index),
+          },
+        };
+      }
+      return {
+        ...current,
+        optionalArtifacts: {
+          ...current.optionalArtifacts,
+          diagramFiles: current.optionalArtifacts.diagramFiles.filter((_, fileIndex) => fileIndex !== index),
+        },
+      };
+    });
+  }
+
   function hydrateFromDraftSession(session: DraftSession): void {
     const uploadArtifacts = session.inputArtifacts.filter((artifact) =>
       artifact.kind === "video" || artifact.kind === "transcript" || artifact.kind === "template" || artifact.kind === "sop" || artifact.kind === "diagram",
@@ -76,6 +110,7 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
     setUploadItems(
       uploadArtifacts.map((artifact, index) => ({
         key: `${artifact.kind}:${artifact.id}:${index}`,
+        artifactId: artifact.id,
         artifactKind: artifact.kind,
         name: artifact.name,
         size: 0,
@@ -107,6 +142,7 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
       setOwnerId,
       setDiagramType,
       updateFiles,
+      removeSelectedFile,
       setUploadSessionId,
       setUploadItems,
       hydrateFromDraftSession,
@@ -149,6 +185,7 @@ export function createArtifactQueue(uploads: ArtifactUploadState): ArtifactQueue
 export function createInitialUploadItems(uploads: ArtifactUploadState): ArtifactUploadProgressItem[] {
   return createArtifactQueue(uploads).map((item) => ({
     key: item.key,
+    artifactId: null,
     artifactKind: item.artifactKind,
     name: item.file.name,
     size: item.file.size,

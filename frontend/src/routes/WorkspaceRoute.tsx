@@ -1,5 +1,6 @@
 import React from "react";
 
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { useWorkspaceFlow } from "../hooks/useWorkspaceFlow";
 import { UploadPage } from "../pages/UploadPage";
 import { useAuth } from "../providers/AuthProvider";
@@ -7,6 +8,8 @@ import { useAuth } from "../providers/AuthProvider";
 export function WorkspaceRoute(): React.JSX.Element {
   const { user } = useAuth();
   const flow = useWorkspaceFlow();
+  const showResumableDrafts = !(flow.uploadSessionId && flow.canGenerateDraft) && flow.resumableDraftSessions.length > 0;
+  const [deleteDraftTarget, setDeleteDraftTarget] = React.useState<{ id: string; title: string } | null>(null);
 
   React.useEffect(() => {
     if (user?.username && flow.ownerId !== user.username) {
@@ -16,6 +19,20 @@ export function WorkspaceRoute(): React.JSX.Element {
 
   return (
     <>
+      {deleteDraftTarget ? (
+        <ConfirmDialog
+          title="Delete Draft?"
+          description={`This will remove ${deleteDraftTarget.title} from Workspace and delete its uploaded files.`}
+          confirmLabel="Delete Draft"
+          tone="danger"
+          busy={flow.deleteDraftPending}
+          onCancel={() => setDeleteDraftTarget(null)}
+          onConfirm={() => {
+            void flow.deleteDraft(deleteDraftTarget.id).finally(() => setDeleteDraftTarget(null));
+          }}
+        />
+      ) : null}
+
       <div className="session-controls-section">
         <section className="collapsible-section">
           <div className="collapsible-header">
@@ -61,12 +78,18 @@ export function WorkspaceRoute(): React.JSX.Element {
             onOwnerIdChange={flow.setOwnerId}
             onDiagramTypeChange={flow.setDiagramType}
             onFilesChange={flow.updateFiles}
+            onRemoveSelectedFile={(field, index) => {
+              if (field === "optionalArtifacts") {
+                return;
+              }
+              void flow.removeSelectedFile(field, index);
+            }}
             onSubmit={flow.generateDraft}
           />
         </section>
       </div>
 
-      {flow.resumableDraftSessions.length > 0 ? (
+      {showResumableDrafts ? (
         <section className="panel stack">
           <div className="section-header-inline">
             <div>
@@ -87,8 +110,16 @@ export function WorkspaceRoute(): React.JSX.Element {
                 <div className="button-row">
                   <button
                     type="button"
+                    className="button-secondary"
+                    disabled={flow.generatePending || flow.deleteDraftPending}
+                    onClick={() => setDeleteDraftTarget({ id: session.id, title: session.title })}
+                  >
+                    Delete Draft
+                  </button>
+                  <button
+                    type="button"
                     className="button-primary"
-                    disabled={flow.generatePending}
+                    disabled={flow.generatePending || flow.deleteDraftPending}
                     onClick={() => void flow.resumeDraft(session.id)}
                   >
                     Continue Draft

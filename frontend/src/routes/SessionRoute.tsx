@@ -2,7 +2,6 @@ import React from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import { useSessionActions } from "../hooks/useSessionActions";
-import { MeetingsPanel } from "../components/session/MeetingsPanel";
 import { SessionDetailPage } from "../pages/SessionDetailPage";
 import { useDraftSession } from "../hooks/useDraftSessions";
 
@@ -24,17 +23,6 @@ export function SessionRoute(): React.JSX.Element {
   return (
     <SessionDetailPage
       session={sessionQuery.data ?? null}
-      meetingSection={
-        sessionId ? (
-          <MeetingsPanel
-            sessionId={sessionId}
-            session={sessionQuery.data ?? null}
-            disabled={sessionQuery.isLoading || actions.disabled}
-            onUpdateDraft={actions.generateDraft}
-            updatingDraft={actions.generatingDraft}
-          />
-        ) : null
-      }
       selectedStepId={actions.selectedStepId}
       initialReviewMode={initialReviewMode}
       disabled={sessionQuery.isLoading || actions.disabled}

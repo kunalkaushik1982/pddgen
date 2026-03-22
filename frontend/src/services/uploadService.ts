@@ -89,4 +89,20 @@ export const uploadService = {
       request.send(formData);
     });
   },
+
+  async deleteUploadedArtifact(sessionId: string, artifactId: string): Promise<void> {
+    const csrfToken = getCookieValue("pdd_generator_csrf");
+    const headers = buildAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/uploads/sessions/${sessionId}/artifacts/${artifactId}`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: {
+        ...headers,
+        ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+      },
+    });
+    if (!response.ok) {
+      throw new Error((await response.text()) || `Request failed with status ${response.status}`);
+    }
+  },
 };

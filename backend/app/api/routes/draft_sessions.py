@@ -165,6 +165,18 @@ def get_draft_session(
     return map_draft_session(session)
 
 
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_draft_session(
+    session_id: str,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+) -> Response:
+    """Delete one draft-only session from Workspace."""
+    service.delete_draft_session(db, session_id, owner_id=current_user.username)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/{session_id}/ask", response_model=SessionAnswerResponse)
 def ask_session(
     session_id: str,

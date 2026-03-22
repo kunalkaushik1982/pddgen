@@ -18,6 +18,22 @@ export function canExportSession(status: DraftSessionListItem["status"]): boolea
   return status === "review" || status === "exported";
 }
 
+export function isSessionActivelyProgressing(session: DraftSessionListItem): boolean {
+  if (session.status === "processing") {
+    return true;
+  }
+
+  const normalizedTitle = session.latestStageTitle.trim().toLowerCase();
+  return [
+    "draft generation queued",
+    "generation queued",
+    "interpreting transcript",
+    "extracting screenshots",
+    "building diagram",
+    "screenshot generation queued",
+  ].includes(normalizedTitle);
+}
+
 export function getProgressTone(session: DraftSessionListItem): SessionProgressTone {
   if (session.status === "failed") {
     return "failed";

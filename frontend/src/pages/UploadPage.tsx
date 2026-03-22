@@ -6,7 +6,7 @@
 import React from "react";
 
 import { uiCopy } from "../constants/uiCopy";
-import { formatArtifactKind, formatFileSize, getUploadStatusLabel } from "../selectors/uploadPresentation";
+import { formatFileSize, getUploadStatusLabel } from "../selectors/uploadPresentation";
 import type {
   ArtifactUploadProgressItem,
   ArtifactUploadState,
@@ -32,6 +32,7 @@ type UploadPageProps = {
   onOwnerIdChange: (value: string) => void;
   onDiagramTypeChange: (value: DiagramType) => void;
   onFilesChange: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", files: FileList | null) => void;
+  onRemoveSelectedFile?: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", index: number) => void;
   onUploadInputs?: () => void;
   onSubmit: () => void;
 };
@@ -55,10 +56,99 @@ export function UploadPage({
   onOwnerIdChange,
   onDiagramTypeChange,
   onFilesChange,
+  onRemoveSelectedFile,
   onUploadInputs,
   onSubmit,
 }: UploadPageProps): React.JSX.Element {
-  const hasUploadItems = uploadItems.length > 0;
+  const videoInputRef = React.useRef<HTMLInputElement | null>(null);
+  const transcriptInputRef = React.useRef<HTMLInputElement | null>(null);
+  const templateInputRef = React.useRef<HTMLInputElement | null>(null);
+  const localVideoFiles = uploads.videoFiles;
+  const localTranscriptFiles = uploads.transcriptFiles;
+  const localTemplateFile = uploads.templateFile;
+  const displayVideoFiles =
+    localVideoFiles.length > 0
+      ? localVideoFiles.map((file) => ({ name: file.name, size: file.size }))
+      : uploadItems
+          .filter((item) => item.artifactKind === "video")
+          .map((item) => ({ name: item.name, size: item.size }));
+  const displayTranscriptFiles =
+    localTranscriptFiles.length > 0
+      ? localTranscriptFiles.map((file) => ({ name: file.name, size: file.size }))
+      : uploadItems
+          .filter((item) => item.artifactKind === "transcript")
+          .map((item) => ({ name: item.name, size: item.size }));
+  const displayTemplateFile =
+    localTemplateFile
+      ? { name: localTemplateFile.name, size: localTemplateFile.size }
+      : (() => {
+          const uploadedTemplate = uploadItems.find((item) => item.artifactKind === "template");
+          return uploadedTemplate ? { name: uploadedTemplate.name, size: uploadedTemplate.size } : null;
+        })();
+
+  function handleRemoveSelectedFile(field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", index: number): void {
+    onRemoveSelectedFile?.(field, index);
+    if (field === "videoFiles" && videoInputRef.current) {
+      videoInputRef.current.value = "";
+    }
+    if (field === "transcriptFiles" && transcriptInputRef.current) {
+      transcriptInputRef.current.value = "";
+    }
+    if (field === "templateFile" && templateInputRef.current) {
+      templateInputRef.current.value = "";
+    }
+  }
+
+  function handleRemoveSelectedEvidencePair(index: number): void {
+    if (displayVideoFiles[index]) {
+      handleRemoveSelectedFile("videoFiles", index);
+    }
+    if (displayTranscriptFiles[index]) {
+      handleRemoveSelectedFile("transcriptFiles", index);
+    }
+  }
+
+  const selectedEvidencePairs = Array.from({
+    length: Math.max(displayVideoFiles.length, displayTranscriptFiles.length),
+  }).map((_, index) => ({
+    index,
+    videoFile: displayVideoFiles[index] ?? null,
+    transcriptFile: displayTranscriptFiles[index] ?? null,
+  }));
+  const videoUploadItems = uploadItems.filter((item) => item.artifactKind === "video");
+  const transcriptUploadItems = uploadItems.filter((item) => item.artifactKind === "transcript");
+  const templateUploadItem = uploadItems.find((item) => item.artifactKind === "template") ?? null;
+
+  function buildCombinedUploadState(items: ArtifactUploadProgressItem[]): {
+    tone: ArtifactUploadProgressItem["status"];
+    progress: number;
+    label: string;
+  } {
+    if (items.length === 0) {
+      return { tone: "pending", progress: 0, label: "Pending" };
+    }
+    if (items.some((item) => item.status === "failed")) {
+      const failedItem = items.find((item) => item.status === "failed");
+      return {
+        tone: "failed",
+        progress: Math.max(...items.map((item) => item.progress)),
+        label: failedItem?.error || "Failed",
+      };
+    }
+    if (items.some((item) => item.status === "uploading")) {
+      const progress = Math.round(items.reduce((sum, item) => sum + item.progress, 0) / items.length);
+      return {
+        tone: "uploading",
+        progress,
+        label: `Uploading ${progress}%`,
+      };
+    }
+    if (items.every((item) => item.status === "uploaded")) {
+      return { tone: "uploaded", progress: 100, label: "Uploaded" };
+    }
+    const progress = Math.round(items.reduce((sum, item) => sum + item.progress, 0) / items.length);
+    return { tone: "pending", progress, label: getUploadStatusLabel(items[0].status) };
+  }
 
   return (
     <section className="panel stack">
@@ -71,7 +161,7 @@ export function UploadPage({
         </div>
       ) : null}
 
-      <div className={`upload-workspace ${hasUploadItems ? "upload-workspace-with-sidebar" : ""}`}>
+      <div className="upload-workspace">
         <div className="upload-main-column">
           <div className={`field-inline ${ownerLocked ? "field-inline-single" : ""}`}>
             <label className="field-group">
@@ -100,12 +190,19 @@ export function UploadPage({
           <div className="upload-grid">
             <label className="field-group upload-field-card">
               <span>Process videos</span>
-              <input type="file" accept="video/*" multiple onChange={(event) => onFilesChange("videoFiles", event.target.files)} />
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/*"
+                multiple
+                onChange={(event) => onFilesChange("videoFiles", event.target.files)}
+              />
             </label>
 
             <label className="field-group upload-field-card">
               <span>Transcripts (.txt, .vtt, .docx)</span>
               <input
+                ref={transcriptInputRef}
                 type="file"
                 accept=".txt,.vtt,.docx,text/plain,text/vtt,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 multiple
@@ -116,6 +213,7 @@ export function UploadPage({
             <label className="field-group upload-field-card">
               <span>PDD template (.docx)</span>
               <input
+                ref={templateInputRef}
                 type="file"
                 accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 onChange={(event) => onFilesChange("templateFile", event.target.files)}
@@ -124,11 +222,115 @@ export function UploadPage({
           </div>
 
           <div className="artifact-meta">
-            Selected: {uploads.videoFiles.length} video(s), {uploads.transcriptFiles.length} transcript(s),{" "}
-            {uploads.templateFile ? "1 template" : "0 templates"}
+            Selected: {displayVideoFiles.length} video(s), {displayTranscriptFiles.length} transcript(s),{" "}
+            {displayTemplateFile ? "1 template" : "0 templates"}
           </div>
 
-          {uploads.videoFiles.length > 1 || uploads.transcriptFiles.length > 1 ? (
+          {selectedEvidencePairs.length > 0 && onRemoveSelectedFile ? (
+            <div className="selected-evidence-list">
+              {selectedEvidencePairs.map((pair) => (
+                <div key={`pair:${pair.index}`} className="selected-evidence-item selected-evidence-item-with-progress">
+                  <div className="selected-evidence-copy">
+                    <span className="selected-evidence-label">
+                      {pair.videoFile ? (
+                        <>
+                          <span className="selected-evidence-kind">Video:</span>
+                          <span className="selected-evidence-name" title={pair.videoFile.name}>
+                            {pair.videoFile.name}
+                          </span>
+                          <span className="selected-evidence-size">({formatFileSize(pair.videoFile.size)})</span>
+                        </>
+                      ) : (
+                        <span className="selected-evidence-missing">No video selected</span>
+                      )}
+                      <span className="selected-evidence-divider">|</span>
+                      {pair.transcriptFile ? (
+                        <>
+                          <span className="selected-evidence-kind">Transcript:</span>
+                          <span className="selected-evidence-name" title={pair.transcriptFile.name}>
+                            {pair.transcriptFile.name}
+                          </span>
+                          <span className="selected-evidence-size">({formatFileSize(pair.transcriptFile.size)})</span>
+                        </>
+                      ) : (
+                        <span className="selected-evidence-missing">No transcript selected</span>
+                      )}
+                    </span>
+                    {(() => {
+                      const uploadState = buildCombinedUploadState(
+                        [videoUploadItems[pair.index], transcriptUploadItems[pair.index]].filter(Boolean) as ArtifactUploadProgressItem[],
+                      );
+                      return (
+                        <div className="selected-evidence-progress-block">
+                          <div className="selected-evidence-progress-track" aria-hidden="true">
+                            <div
+                              className={`selected-evidence-progress-fill selected-evidence-progress-${uploadState.tone}`}
+                              style={{ width: `${uploadState.progress}%` }}
+                            />
+                          </div>
+                          <div className={`selected-evidence-progress-label selected-evidence-progress-label-${uploadState.tone}`}>
+                            {uploadState.label}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="selected-evidence-actions">
+                    <button
+                      type="button"
+                      className="button-icon"
+                      aria-label={`Remove selected evidence pair ${pair.index + 1}`}
+                      onClick={() => handleRemoveSelectedEvidencePair(pair.index)}
+                    >
+                      X
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {displayTemplateFile && onRemoveSelectedFile ? (
+            <div className="selected-evidence-list">
+              <div className="selected-evidence-item selected-evidence-item-with-progress">
+                <div className="selected-evidence-copy">
+                  <span className="selected-evidence-label">
+                    <span className="selected-evidence-kind">Template:</span>
+                    <span className="selected-evidence-name" title={displayTemplateFile.name}>
+                      {displayTemplateFile.name}
+                    </span>
+                    <span className="selected-evidence-size">({formatFileSize(displayTemplateFile.size)})</span>
+                  </span>
+                  {(() => {
+                    const uploadState = buildCombinedUploadState(templateUploadItem ? [templateUploadItem] : []);
+                    return (
+                      <div className="selected-evidence-progress-block">
+                        <div className="selected-evidence-progress-track" aria-hidden="true">
+                          <div
+                            className={`selected-evidence-progress-fill selected-evidence-progress-${uploadState.tone}`}
+                            style={{ width: `${uploadState.progress}%` }}
+                          />
+                        </div>
+                        <div className={`selected-evidence-progress-label selected-evidence-progress-label-${uploadState.tone}`}>
+                          {uploadState.label}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <button
+                  type="button"
+                  className="button-icon"
+                  aria-label={`Remove ${displayTemplateFile.name}`}
+                  onClick={() => handleRemoveSelectedFile("templateFile", 0)}
+                >
+                  X
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {displayVideoFiles.length > 1 || displayTranscriptFiles.length > 1 ? (
             <div className="artifact-meta">
               Multiple videos and transcripts are paired by upload order during screenshot extraction.
             </div>
@@ -156,40 +358,6 @@ export function UploadPage({
             </div>
           ) : null}
         </div>
-
-        {hasUploadItems ? (
-          <aside className="upload-sidebar">
-            <div className="upload-progress-panel upload-progress-panel-sticky">
-              <div className="upload-progress-header">
-                <strong>Upload status</strong>
-                <span className="artifact-meta">
-                  {uploadItems.filter((item) => item.status === "uploaded").length}/{uploadItems.length} uploaded
-                </span>
-              </div>
-              <div className="upload-progress-list">
-                {uploadItems.map((item) => (
-                  <div key={item.key} className="upload-progress-card">
-                    <div className="upload-progress-main">
-                      <div className="upload-progress-title-row">
-                        <strong>{item.name}</strong>
-                        <span className={`upload-progress-badge upload-progress-${item.status}`}>{getUploadStatusLabel(item.status)}</span>
-                      </div>
-                      <div className="artifact-meta">
-                        {formatArtifactKind(item.artifactKind)} | {formatFileSize(item.size)}
-                      </div>
-                      <div className="upload-progress-track" aria-hidden="true">
-                        <div className={`upload-progress-fill upload-progress-${item.status}`} style={{ width: `${item.progress}%` }} />
-                      </div>
-                      <div className="artifact-meta">
-                        {item.status === "failed" && item.error ? item.error : `${item.progress}%`}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
-        ) : null}
       </div>
     </section>
   );

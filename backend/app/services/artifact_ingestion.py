@@ -179,3 +179,33 @@ class ArtifactIngestionService:
         db.commit()
         db.refresh(artifact)
         return artifact
+
+    def delete_artifact(
+        self,
+        db: Session,
+        *,
+        session_id: str,
+        artifact_id: str,
+        owner_id: str,
+    ) -> None:
+        """Delete one uploaded artifact from a draft-only session."""
+        session = db.get(DraftSessionModel, session_id)
+        if session is None or session.owner_id != owner_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft session not found.")
+        if session.status != "draft":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Artifacts can only be removed while the session is still in draft.",
+            )
+
+        artifact = db.get(ArtifactModel, artifact_id)
+        if artifact is None or artifact.session_id != session_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found.")
+
+        try:
+            self.storage_service.delete(artifact.storage_path)
+        except Exception:
+            pass
+
+        db.delete(artifact)
+        db.commit()

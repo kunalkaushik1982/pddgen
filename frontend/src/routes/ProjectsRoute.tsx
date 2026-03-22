@@ -2,9 +2,10 @@ import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
+import { MeetingsPanel } from "../components/session/MeetingsPanel";
 import { uiCopy } from "../constants/uiCopy";
+import { useDraftSession, useDraftSessions } from "../hooks/useDraftSessions";
 import { SessionHistoryPage } from "../pages/SessionHistoryPage";
-import { useDraftSessions } from "../hooks/useDraftSessions";
 import { exportService } from "../services/exportService";
 import { sessionService } from "../services/sessionService";
 import { useToast } from "../providers/ToastProvider";
@@ -21,8 +22,11 @@ export function ProjectsRoute(): React.JSX.Element {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const draftSessionsQuery = useDraftSessions();
+  const [extendingSessionId, setExtendingSessionId] = React.useState<string | null>(null);
+  const extendSessionQuery = useDraftSession(extendingSessionId);
   const [exportingSessionId, setExportingSessionId] = React.useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = React.useState<"docx" | "pdf" | null>(null);
+  const [generatingScreenshotsSessionId, setGeneratingScreenshotsSessionId] = React.useState<string | null>(null);
 
   const retryMutation = useMutation({
     mutationFn: (sessionId: string) => sessionService.generateDraftSession(sessionId),
@@ -55,19 +59,92 @@ export function ProjectsRoute(): React.JSX.Element {
     },
   });
 
+  const extendDraftMutation = useMutation({
+    mutationFn: (sessionId: string) => sessionService.generateDraftSession(sessionId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
+      if (extendingSessionId) {
+        await queryClient.invalidateQueries({ queryKey: ["draftSession", extendingSessionId] });
+      }
+      showToast("info", "Draft generation started for this session.");
+      setExtendingSessionId(null);
+    },
+    onError: (error) => showToast("error", getErrorMessage(error)),
+  });
+
+  const screenshotMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const session = await sessionService.getDraftSession(sessionId);
+      const hasExistingScreenshots = session.processSteps.some((step) => step.screenshots.length > 0);
+      if (hasExistingScreenshots) {
+        const confirmed = window.confirm("Screenshots already exist for this session. Regenerate screenshots and replace the current set?");
+        if (!confirmed) {
+          throw new Error("__screenshots_cancelled__");
+        }
+      }
+      return sessionService.generateSessionScreenshots(sessionId);
+    },
+    onMutate: (sessionId) => {
+      setGeneratingScreenshotsSessionId(sessionId);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
+      showToast("info", "Screenshot generation started for this session.");
+    },
+    onError: (error) => {
+      if (error instanceof Error && error.message === "__screenshots_cancelled__") {
+        return;
+      }
+      showToast("error", getErrorMessage(error));
+    },
+    onSettled: () => {
+      setGeneratingScreenshotsSessionId(null);
+    },
+  });
+
   const sessions = (draftSessionsQuery.data ?? []).filter((session) => session.status !== "draft");
 
   return (
-    <SessionHistoryPage
-      sessions={sessions}
-      disabled={retryMutation.isPending}
-      exportingSessionId={exportingSessionId}
-      exportingFormat={exportingFormat}
-      onOpenView={(sessionId) => navigate(`/session/${sessionId}?mode=view`)}
-      onOpenEdit={(sessionId) => navigate(`/session/${sessionId}?mode=edit`)}
-      onRetry={(sessionId) => retryMutation.mutate(sessionId)}
-      onExportDocx={(sessionId) => exportMutation.mutate({ sessionId, format: "docx" })}
-      onExportPdf={(sessionId) => exportMutation.mutate({ sessionId, format: "pdf" })}
-    />
+    <>
+      {extendingSessionId && extendSessionQuery.data ? (
+        <div className="editor-overlay" role="dialog" aria-modal="true" aria-labelledby="projects-extend-session-title">
+          <div className="editor-workspace extend-workspace">
+            <div className="editor-workspace-header">
+              <div>
+                <h3 id="projects-extend-session-title">Extend Session</h3>
+                <div className="artifact-meta">Add new evidence and update the draft for {extendSessionQuery.data.title}.</div>
+              </div>
+              <button type="button" className="button-secondary" onClick={() => setExtendingSessionId(null)}>
+                Close
+              </button>
+            </div>
+            <div className="extend-workspace-body">
+              <MeetingsPanel
+                sessionId={extendingSessionId}
+                session={extendSessionQuery.data}
+                disabled={extendSessionQuery.isLoading || retryMutation.isPending || extendDraftMutation.isPending}
+                onUpdateDraft={() => extendDraftMutation.mutate(extendingSessionId)}
+                updatingDraft={extendDraftMutation.isPending}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <SessionHistoryPage
+        sessions={sessions}
+        disabled={retryMutation.isPending}
+        exportingSessionId={exportingSessionId}
+        exportingFormat={exportingFormat}
+        extendingSessionId={extendingSessionId}
+        generatingScreenshotsSessionId={generatingScreenshotsSessionId}
+        onOpenView={(sessionId) => navigate(`/session/${sessionId}?mode=view`)}
+        onOpenEdit={(sessionId) => navigate(`/session/${sessionId}?mode=edit`)}
+        onOpenExtend={(sessionId) => setExtendingSessionId(sessionId)}
+        onGenerateScreenshots={(sessionId) => screenshotMutation.mutate(sessionId)}
+        onRetry={(sessionId) => retryMutation.mutate(sessionId)}
+        onExportDocx={(sessionId) => exportMutation.mutate({ sessionId, format: "docx" })}
+        onExportPdf={(sessionId) => exportMutation.mutate({ sessionId, format: "pdf" })}
+      />
+    </>
   );
 }

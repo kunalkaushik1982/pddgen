@@ -44,6 +44,17 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
     const fallback = await response.text();
     throw new Error(fallback || `Request failed with status ${response.status}`);
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  const contentLength = response.headers.get("content-length");
+  if (contentLength === "0") {
+    return undefined as T;
+  }
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return undefined as T;
+  }
   return (await response.json()) as T;
 }
 

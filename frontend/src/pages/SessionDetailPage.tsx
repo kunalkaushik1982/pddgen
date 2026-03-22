@@ -17,7 +17,6 @@ type ReviewMode = "view" | "edit";
 
 type SessionDetailPageProps = {
   session: DraftSession | null;
-  meetingSection?: React.ReactNode;
   selectedStepId: string | null;
   initialReviewMode?: ReviewMode;
   disabled?: boolean;
@@ -40,7 +39,6 @@ type SessionDetailPageProps = {
 
 export function SessionDetailPage({
   session,
-  meetingSection = null,
   selectedStepId,
   initialReviewMode = "view",
   disabled,
@@ -81,7 +79,6 @@ export function SessionDetailPage({
       >
         <StepReviewPage
           session={session}
-          meetingSection={meetingSection}
           selectedStepId={selectedStepId}
           initialReviewMode={initialReviewMode}
           disabled={disabled}

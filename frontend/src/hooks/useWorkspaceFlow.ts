@@ -32,6 +32,7 @@ export function useWorkspaceFlow() {
     setUploadSessionId,
     setUploadItems,
     hydrateFromDraftSession,
+    removeSelectedFile: removeLocalSelectedFile,
     reset,
   } = draftState;
 
@@ -50,6 +51,9 @@ export function useWorkspaceFlow() {
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
+      if (uploadSessionId) {
+        throw new Error("Inputs are already uploaded for this draft. Continue with Generate Draft.");
+      }
       if (uploads.videoFiles.length === 0 || uploads.transcriptFiles.length === 0 || !uploads.templateFile) {
         throw new Error("At least one video, one transcript, and one template are required.");
       }
@@ -72,7 +76,7 @@ export function useWorkspaceFlow() {
           ),
         );
         try {
-          await uploadService.uploadArtifactWithProgress(session.id, item.artifactKind, item.file, {
+          const uploadedArtifact = await uploadService.uploadArtifactWithProgress(session.id, item.artifactKind, item.file, {
             onProgress: (progress) => {
               setUploadItems((current) =>
                 current.map((entry) =>
@@ -92,10 +96,11 @@ export function useWorkspaceFlow() {
             current.map((entry) =>
               entry.key === item.key
                 ? {
-                    ...entry,
-                    status: "uploaded",
-                    progress: 100,
-                    error: null,
+                  ...entry,
+                  artifactId: uploadedArtifact.id,
+                  status: "uploaded",
+                  progress: 100,
+                  error: null,
                   }
                 : entry,
             ),
@@ -153,6 +158,17 @@ export function useWorkspaceFlow() {
     },
   });
 
+  const deleteDraftMutation = useMutation({
+    mutationFn: async (sessionId: string) => sessionService.deleteDraftSession(sessionId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
+      showToast("info", "Draft removed from Workspace.");
+    },
+    onError: (error) => {
+      showToast("error", getErrorMessage(error));
+    },
+  });
+
   async function resumeDraft(sessionId: string): Promise<void> {
     try {
       const fullSession = await sessionService.getDraftSession(sessionId);
@@ -163,20 +179,68 @@ export function useWorkspaceFlow() {
     }
   }
 
+  async function removeSelectedFile(
+    field: "videoFiles" | "transcriptFiles" | "templateFile" | "sopFiles" | "diagramFiles",
+    index: number,
+  ): Promise<void> {
+    const artifactKind =
+      field === "videoFiles"
+        ? "video"
+        : field === "transcriptFiles"
+          ? "transcript"
+          : field === "templateFile"
+            ? "template"
+            : field === "sopFiles"
+              ? "sop"
+              : "diagram";
+    const matchingItems = draftState.uploadItems.filter((item) => item.artifactKind === artifactKind);
+    const targetItem = matchingItems[index] ?? null;
+
+    if (uploadSessionId && targetItem?.artifactId && targetItem.status === "uploaded") {
+      try {
+        await uploadService.deleteUploadedArtifact(uploadSessionId, targetItem.artifactId);
+        removeLocalSelectedFile(field, index);
+        setUploadItems((current) => current.filter((item) => item.key !== targetItem.key));
+        await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
+        showToast("info", `${artifactKind === "template" ? "Template" : "Uploaded input"} removed.`);
+        return;
+      } catch (error) {
+        showToast("error", getErrorMessage(error));
+        return;
+      }
+    }
+
+    removeLocalSelectedFile(field, index);
+    if (targetItem) {
+      setUploadItems((current) => current.filter((item) => item.key !== targetItem.key));
+    }
+  }
+
+  async function deleteDraft(sessionId: string): Promise<void> {
+    await deleteDraftMutation.mutateAsync(sessionId);
+  }
+
   return {
     ...draftState,
     resumableDraftSessions,
     isUploadingInputs,
-    canUploadInputs: requiredUploadSelected && !isUploadingInputs,
+    canUploadInputs: requiredUploadSelected && !isUploadingInputs && !uploadSessionId,
     canGenerateDraft: hasUploadedDraftReady && !isUploadingInputs,
     uploadPending: uploadMutation.isPending,
     generatePending: generateMutation.isPending,
-    uploadInputs: () => uploadMutation.mutate(),
+    deleteDraftPending: deleteDraftMutation.isPending,
+    uploadInputs: () => {
+      if (!uploadSessionId) {
+        uploadMutation.mutate();
+      }
+    },
     generateDraft: () => {
       if (uploadSessionId) {
         generateMutation.mutate(uploadSessionId);
       }
     },
+    removeSelectedFile,
     resumeDraft,
+    deleteDraft,
   };
 }

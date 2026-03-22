@@ -85,13 +85,12 @@ export function ReviewWorkspaceTabs({
     );
   }
 
-  const editTabs = ["steps", "diagram", "meetings"] as const;
+  const editTabs = ["steps", "diagram"] as const;
   return (
     <div className="review-workspace-tabs" role="tablist" aria-label="Edit workspace">
       {[
         ["steps", "Process"],
         ["diagram", "Diagram"],
-        ["meetings", "Meetings"],
       ].map(([value, label], index) => (
         <button
           key={value}

@@ -29,7 +29,6 @@ const SessionChatPanel = lazy(async () => {
 
 type StepReviewPageProps = {
   session: DraftSession | null;
-  meetingSection?: React.ReactNode;
   selectedStepId: string | null;
   initialReviewMode?: ReviewMode;
   disabled?: boolean;
@@ -50,7 +49,6 @@ type StepReviewPageProps = {
 
 export function StepReviewPage({
   session,
-  meetingSection = null,
   selectedStepId,
   initialReviewMode = "view",
   disabled,
@@ -375,14 +373,6 @@ export function StepReviewPage({
                 await onSelectCandidateScreenshot(step.id, candidate.id, { isPrimary: makePrimary });
               }}
             />
-          ) : null}
-
-          {workspace.reviewMode === "edit" && workspace.activeEditTab === "meetings" ? (
-            <section role="tabpanel" id="review-edit-panel-meetings" aria-labelledby="review-edit-tab-meetings">
-              {meetingSection ?? (
-                <div className="empty-state">Meeting evidence controls are not available for this session.</div>
-              )}
-            </section>
           ) : null}
 
           {workspace.reviewMode === "view" && workspace.activeViewTab === "log" ? (

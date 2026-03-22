@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 export type ReviewMode = "view" | "edit";
 export type ViewWorkspaceTab = "summary" | "steps" | "diagram" | "ask" | "log";
-export type EditWorkspaceTab = "steps" | "diagram" | "meetings";
+export type EditWorkspaceTab = "steps" | "diagram";
 
 type UseReviewWorkspaceOptions = {
   initialReviewMode: ReviewMode;

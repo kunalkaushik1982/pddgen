@@ -136,3 +136,32 @@ class PipelineOrchestratorService:
         session.status = "review"
         db.commit()
         return self.get_session(db, session_id)
+
+    def delete_draft_session(self, db: Session, session_id: str, owner_id: str | None = None) -> None:
+        """Delete one draft-only session and its stored artifacts."""
+        session = self.get_session(db, session_id, owner_id=owner_id)
+        if session.status != "draft":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only draft sessions can be deleted from Workspace.",
+            )
+
+        storage_paths = {
+            artifact.storage_path
+            for artifact in session.artifacts
+            if artifact.storage_path
+        }
+        storage_paths.update(
+            output.storage_path
+            for output in session.output_documents
+            if output.storage_path
+        )
+
+        for storage_path in storage_paths:
+            try:
+                self.storage_service.delete(storage_path)
+            except Exception:
+                continue
+
+        db.delete(session)
+        db.commit()

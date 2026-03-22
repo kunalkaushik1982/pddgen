@@ -205,6 +205,139 @@
   background: linear-gradient(180deg, var(--surface-soft) 0%, var(--surface-card) 100%);
 }
 
+.selected-evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selected-evidence-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.selected-evidence-item-with-progress {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.selected-evidence-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  font-size: 0.94rem;
+}
+
+.selected-evidence-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.selected-evidence-kind {
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.selected-evidence-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-evidence-divider {
+  color: var(--app-muted);
+  flex-shrink: 0;
+}
+
+.selected-evidence-missing {
+  color: var(--app-muted);
+  flex-shrink: 0;
+}
+
+.selected-evidence-size {
+  color: var(--app-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.selected-evidence-actions {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.selected-evidence-progress-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.selected-evidence-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--accent-border);
+}
+
+.selected-evidence-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 160ms ease;
+}
+
+.selected-evidence-progress-pending {
+  background: rgba(148, 163, 184, 0.7);
+}
+
+.selected-evidence-progress-uploading {
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+}
+
+.selected-evidence-progress-uploaded {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.selected-evidence-progress-failed {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.selected-evidence-progress-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.selected-evidence-progress-label-pending {
+  color: var(--app-muted);
+}
+
+.selected-evidence-progress-label-uploading {
+  color: #60a5fa;
+}
+
+.selected-evidence-progress-label-uploaded {
+  color: #4ade80;
+}
+
+.selected-evidence-progress-label-failed {
+  color: #f87171;
+}
+
 .upload-workspace {
   display: block;
 }
@@ -253,6 +386,72 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.upload-progress-list-compact {
+  gap: 12px;
+}
+
+.upload-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 8px;
+}
+
+.upload-summary-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.upload-summary-chip strong {
+  font-size: 1rem;
+}
+
+.upload-summary-chip span {
+  color: var(--app-muted);
+  font-size: 0.84rem;
+}
+
+.upload-progress-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.upload-progress-group-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.upload-progress-item-compact {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.upload-progress-item-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.upload-progress-item-copy span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .upload-progress-card {
@@ -350,6 +549,68 @@
 
 .history-card-main {
   min-width: 0;
+}
+
+.history-card-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.history-action-button {
+  min-width: 116px;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.history-action-button-export {
+  min-width: 108px;
+}
+
+.history-export-menu {
+  position: relative;
+}
+
+.history-export-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+  padding: 8px;
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  background: var(--surface-strong);
+  box-shadow: var(--panel-shadow);
+}
+
+.history-export-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface-soft);
+  color: var(--app-text);
+  text-align: left;
+}
+
+.history-export-item:hover {
+  background: color-mix(in srgb, var(--button-secondary-bg) 72%, var(--surface-soft));
+}
+
+.history-export-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .history-progress {
@@ -523,6 +784,11 @@
 @media (max-width: 960px) {
   .history-card {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-card-actions {
+    flex-wrap: wrap;
     align-items: stretch;
   }
 

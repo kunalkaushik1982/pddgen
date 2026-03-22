@@ -40,6 +40,7 @@ export type ArtifactUploadProgressStatus = "pending" | "uploading" | "uploaded" 
 
 export type ArtifactUploadProgressItem = {
   key: string;
+  artifactId?: string | null;
   artifactKind: InputArtifact["kind"];
   name: string;
   size: number;

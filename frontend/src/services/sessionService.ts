@@ -48,6 +48,12 @@ export const sessionService = {
     return mapDraftSession(session);
   },
 
+  async deleteDraftSession(sessionId: string): Promise<void> {
+    await fetchJson<void>(`/draft-sessions/${sessionId}`, {
+      method: "DELETE",
+    });
+  },
+
   async getDraftSession(sessionId: string): Promise<DraftSession> {
     const session = await fetchJson<BackendDraftSession>(`/draft-sessions/${sessionId}`);
     return mapDraftSession(session);

@@ -6,7 +6,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\routes\uploa
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -124,3 +124,21 @@ def get_artifact_content(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found.")
     headers = {"Content-Disposition": f'inline; filename="{quote(artifact.name)}"'}
     return StreamingResponse(iter([storage_service.read_bytes(artifact.storage_path)]), media_type=artifact.content_type, headers=headers)
+
+
+@router.delete("/sessions/{session_id}/artifacts/{artifact_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_uploaded_artifact(
+    session_id: str,
+    artifact_id: str,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[ArtifactIngestionService, Depends(get_artifact_ingestion_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+) -> Response:
+    """Delete one uploaded artifact from a draft-only workspace session."""
+    service.delete_artifact(
+        db,
+        session_id=session_id,
+        artifact_id=artifact_id,
+        owner_id=current_user.username,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
