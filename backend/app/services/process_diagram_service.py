@@ -25,13 +25,14 @@ class ProcessDiagramService:
     ROW_GAP = 120
     NODES_PER_ROW = 4
 
-    def build_diagram_model(self, draft_session, view_type: str) -> dict:
-        stored = self._load_stored_diagram_model(draft_session, view_type)
+    def build_diagram_model(self, draft_session, view_type: str, process_group_id: str | None = None) -> dict:
+        scoped_session = self._scope_session(draft_session, process_group_id)
+        stored = self._load_stored_diagram_model(scoped_session, view_type)
         if stored is not None:
             return stored
         if view_type == "detailed":
-            return self.build_detailed_flowchart_model(draft_session)
-        return self.build_flowchart_model(draft_session)
+            return self.build_detailed_flowchart_model(scoped_session)
+        return self.build_flowchart_model(scoped_session)
 
     def build_flowchart_model(self, draft_session) -> dict:
         normalized_steps = self._build_normalized_detailed_steps(draft_session)
@@ -101,6 +102,35 @@ class ProcessDiagramService:
             return self.build_mermaid_sequence_diagram(draft_session)
         return json.dumps(self.build_flowchart_model(draft_session), ensure_ascii=True, indent=2)
 
+    def _scope_session(self, draft_session, process_group_id: str | None):
+        if not process_group_id:
+            return draft_session
+
+        matched_group = next((group for group in getattr(draft_session, "process_groups", []) if group.id == process_group_id), None)
+        scoped_title = matched_group.title if matched_group and getattr(matched_group, "title", "") else draft_session.title
+
+        class ScopedSession:
+            pass
+
+        scoped = ScopedSession()
+        scoped.id = draft_session.id
+        scoped.title = scoped_title
+        scoped.diagram_type = draft_session.diagram_type
+        scoped.process_steps = [step for step in getattr(draft_session, "process_steps", []) if getattr(step, "process_group_id", None) == process_group_id]
+        scoped.process_notes = [note for note in getattr(draft_session, "process_notes", []) if getattr(note, "process_group_id", None) == process_group_id]
+        scoped.diagram_layouts = [
+            layout
+            for layout in getattr(draft_session, "diagram_layouts", [])
+            if getattr(layout, "process_group_id", None) == process_group_id
+        ]
+        if matched_group is not None:
+            scoped.overview_diagram_json = getattr(matched_group, "overview_diagram_json", "") or ""
+            scoped.detailed_diagram_json = getattr(matched_group, "detailed_diagram_json", "") or ""
+        else:
+            scoped.overview_diagram_json = ""
+            scoped.detailed_diagram_json = ""
+        return scoped
+
     def _load_stored_diagram_model(self, draft_session, view_type: str) -> dict | None:
         raw_value = draft_session.detailed_diagram_json if view_type == "detailed" else draft_session.overview_diagram_json
         if not raw_value:
@@ -123,8 +153,20 @@ class ProcessDiagramService:
             "edges": edges,
         }
 
-    def render_flowchart_view(self, draft_session, view_type: str, output_path: Path, saved_positions: dict[str, dict[str, float]] | None = None) -> Path | None:
-        layout = self.build_export_layout(draft_session, view_type, saved_positions=saved_positions)
+    def render_flowchart_view(
+        self,
+        draft_session,
+        view_type: str,
+        output_path: Path,
+        saved_positions: dict[str, dict[str, float]] | None = None,
+        process_group_id: str | None = None,
+    ) -> Path | None:
+        layout = self.build_export_layout(
+            draft_session,
+            view_type,
+            saved_positions=saved_positions,
+            process_group_id=process_group_id,
+        )
         return self._draw_png(layout, output_path)
 
     def render_sequence_diagram(self, draft_session, output_path: Path) -> Path | None:
@@ -151,8 +193,9 @@ class ProcessDiagramService:
         draft_session,
         view_type: str,
         saved_positions: dict[str, dict[str, float]] | None = None,
+        process_group_id: str | None = None,
     ) -> dict:
-        model = self.build_diagram_model(draft_session, view_type)
+        model = self.build_diagram_model(draft_session, view_type, process_group_id=process_group_id)
         layout = self._build_detailed_layout(model) if view_type == "detailed" else self._build_overview_layout(model)
         saved = saved_positions if saved_positions is not None else self._load_saved_positions(draft_session, view_type)
         for node in layout["nodes"]:

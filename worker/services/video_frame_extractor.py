@@ -7,6 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 import shutil
 import subprocess
+from app.core.observability import get_logger
+
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -22,8 +26,10 @@ class ExtractedFrameCandidate:
 class VideoFrameExtractor:
     """Extract timestamp-aligned frames from videos for BA review."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, timeout_seconds: float | None = None) -> None:
         self.ffmpeg_path = shutil.which("ffmpeg")
+        self.ffprobe_path = shutil.which("ffprobe")
+        self.timeout_seconds = timeout_seconds
 
     def is_available(self) -> bool:
         """Return whether ffmpeg is available on the current machine."""
@@ -48,8 +54,23 @@ class VideoFrameExtractor:
             output_path,
         ]
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True)
-        except (subprocess.CalledProcessError, FileNotFoundError):
+            subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+            logger.info(
+                "ffmpeg frame extraction failed",
+                extra={
+                    "event": "screenshot_generation.ffmpeg_failed",
+                    "video_path": video_path,
+                    "output_path": output_path,
+                    "timestamp": timestamp,
+                },
+            )
             return False
         return output.exists()
 
@@ -131,6 +152,37 @@ class VideoFrameExtractor:
                 )
             )
         return candidates
+
+    def get_video_duration_seconds(self, *, video_path: str) -> int | None:
+        """Return the rounded-down video duration in seconds when ffprobe is available."""
+        if not self.ffprobe_path:
+            return None
+
+        command = [
+            self.ffprobe_path,
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            video_path,
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+
+        try:
+            return max(1, int(float((completed.stdout or "").strip())))
+        except ValueError:
+            return None
 
     @staticmethod
     def _timestamp_to_seconds(timestamp: str) -> int:

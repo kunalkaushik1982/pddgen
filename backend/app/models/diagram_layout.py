@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -23,6 +23,7 @@ class DiagramLayoutModel(Base):
 
     id: Mapped[str] = mapped_column(primary_key=True, default=lambda: str(uuid4()))
     session_id: Mapped[str] = mapped_column(ForeignKey("draft_sessions.id", ondelete="CASCADE"), index=True)
+    process_group_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
     view_type: Mapped[str] = mapped_column(index=True)
     layout_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

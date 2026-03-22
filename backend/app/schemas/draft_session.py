@@ -24,6 +24,7 @@ class ArtifactResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    meeting_id: str | None = None
     name: str
     kind: ArtifactKind
     storage_path: str
@@ -68,6 +69,8 @@ class ProcessStepResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    process_group_id: str | None = None
+    meeting_id: str | None = None
     step_number: int
     application_name: str
     action_text: str
@@ -90,6 +93,8 @@ class ProcessNoteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    process_group_id: str | None = None
+    meeting_id: str | None = None
     text: str
     related_step_ids: list[str]
     evidence_reference_ids: list[str]
@@ -106,6 +111,22 @@ class OutputDocumentResponse(BaseModel):
     kind: str
     storage_path: str
     exported_at: datetime
+
+
+class ProcessGroupResponse(BaseModel):
+    """Logical process group persisted inside one session."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    session_id: str
+    title: str
+    canonical_slug: str
+    status: str
+    display_order: int
+    summary_text: str
+    overview_diagram_json: str
+    detailed_diagram_json: str
 
 
 class ActionLogResponse(BaseModel):
@@ -133,6 +154,7 @@ class DraftSessionResponse(BaseModel):
     diagram_type: str
     created_at: datetime
     updated_at: datetime
+    process_groups: list[ProcessGroupResponse]
     artifacts: list[ArtifactResponse]
     process_steps: list[ProcessStepResponse]
     process_notes: list[ProcessNoteResponse]
@@ -163,6 +185,7 @@ class SessionQuestionRequest(BaseModel):
     """Question asked against one session's evidence."""
 
     question: str = Field(min_length=1, max_length=4000)
+    process_group_id: str | None = None
 
 
 class SessionAnswerCitationResponse(BaseModel):
@@ -237,6 +260,7 @@ class DiagramLayoutResponse(BaseModel):
     """Saved diagram layout response for one session view."""
 
     session_id: str
+    process_group_id: str | None = None
     view_type: str
     nodes: list[DiagramLayoutNodePosition]
     export_preset: str = "balanced"

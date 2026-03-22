@@ -14,6 +14,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.draft_session import DraftSessionModel
+    from app.models.meeting import MeetingModel
 
 
 class ArtifactModel(Base):
@@ -23,6 +24,13 @@ class ArtifactModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     session_id: Mapped[str] = mapped_column(ForeignKey("draft_sessions.id", ondelete="CASCADE"), index=True)
+    meeting_id: Mapped[str | None] = mapped_column(
+        ForeignKey("meetings.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    upload_batch_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
+    upload_pair_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     name: Mapped[str] = mapped_column(String(255))
     kind: Mapped[str] = mapped_column(String(50), index=True)
     storage_path: Mapped[str] = mapped_column(Text())
@@ -31,3 +39,4 @@ class ArtifactModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     session: Mapped["DraftSessionModel"] = relationship(back_populates="artifacts")
+    meeting: Mapped["MeetingModel"] = relationship(back_populates="artifacts")

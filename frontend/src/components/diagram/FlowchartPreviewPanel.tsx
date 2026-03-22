@@ -36,6 +36,7 @@ type FlowchartPreviewPanelProps = {
   session: DraftSession;
   allowEditing?: boolean;
   onSessionRefresh?: () => Promise<void> | void;
+  processGroupId?: string | null;
 };
 
 type DiagramHistoryState = {
@@ -52,6 +53,7 @@ export function FlowchartPreviewPanel({
   session,
   allowEditing = false,
   onSessionRefresh,
+  processGroupId = null,
 }: FlowchartPreviewPanelProps): React.JSX.Element | null {
   const [diagram, setDiagram] = useState<DiagramModel | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -71,13 +73,14 @@ export function FlowchartPreviewPanel({
   const savedDiagramArtifact = session.inputArtifacts.find(
     (artifact) => artifact.kind === "diagram" && artifact.name === "detailed-process-flow.png",
   );
+  const useSavedDiagramArtifact = !allowEditing && !processGroupId;
 
-  function attachNodeEditing(nextNodes: Node[]): Node[] {
+  function attachNodeEditing(nextNodes: Node[], theme: DiagramCanvasSettings["theme"] = canvasSettings.theme): Node[] {
     return nextNodes.map((node) => ({
       ...node,
       data: {
         ...(typeof node.data === "object" && node.data ? node.data : {}),
-        canvasTheme: canvasSettings.theme,
+        canvasTheme: theme,
         editable: allowEditing,
         onLabelChange: (value: string) => handleNodeLabelChange(node.id, value),
         selected: node.id === selectedNodeId,
@@ -187,19 +190,19 @@ export function FlowchartPreviewPanel({
     setErrorMessage("");
 
     void diagramService
-      .getDiagramModel(session.id, "detailed")
+      .getDiagramModel(session.id, "detailed", processGroupId)
       .then(async (model) => {
         if (!isMounted) {
           return;
         }
         setDiagram(model);
-        const savedLayout = await diagramService.getDiagramLayout(session.id, "detailed");
+        const savedLayout = await diagramService.getDiagramLayout(session.id, "detailed", processGroupId);
         const layout = await buildFlowchartLayout(model, savedLayout.nodes);
         if (!isMounted) {
           return;
         }
         setCanvasSettings(savedLayout.canvasSettings);
-        const preparedNodes = attachNodeEditing(layout.nodes);
+        const preparedNodes = attachNodeEditing(layout.nodes, savedLayout.canvasSettings.theme);
         setNodes(preparedNodes);
         setEdges(attachEdgeEditing(layout.edges, preparedNodes));
         setSelectedNodeId("");
@@ -223,11 +226,11 @@ export function FlowchartPreviewPanel({
     return () => {
       isMounted = false;
     };
-  }, [allowEditing, session.diagramType, session.id]);
+  }, [allowEditing, processGroupId, session.diagramType, session.id]);
 
   useEffect(() => {
     setNodes((currentNodes) => attachNodeEditing(currentNodes));
-  }, [selectedNodeId, pendingConnectorSourceId, allowEditing]);
+  }, [selectedNodeId, pendingConnectorSourceId, allowEditing, canvasSettings.theme]);
 
   useEffect(() => {
     setEdges((currentEdges) => attachEdgeEditing(currentEdges));
@@ -612,7 +615,7 @@ export function FlowchartPreviewPanel({
       if (!currentDiagramModel) {
         throw new Error("Diagram model is not available.");
       }
-      await diagramService.saveDiagramModel(session.id, currentDiagramModel);
+      await diagramService.saveDiagramModel(session.id, currentDiagramModel, processGroupId);
       await diagramService.saveDiagramLayout(
         session.id,
         nodes.map((node) => ({
@@ -631,6 +634,7 @@ export function FlowchartPreviewPanel({
         "balanced",
         canvasSettings,
         "detailed",
+        processGroupId,
       );
       if (!diagramContainer) {
         throw new Error("Diagram canvas is not available for export.");
@@ -714,7 +718,7 @@ export function FlowchartPreviewPanel({
           </div>
           <div className={`diagram-editor-layout ${inspectorMode === "pinned" ? "diagram-editor-layout-pinned" : ""}`}>
             <div className="diagram-canvas-stack">
-              {!allowEditing && savedDiagramArtifact ? (
+              {useSavedDiagramArtifact && savedDiagramArtifact ? (
                 <div className={`${canvasClassName} diagram-preview-image-shell`}>
                   <AuthenticatedArtifactImage
                     artifactId={savedDiagramArtifact.id}

@@ -12,7 +12,7 @@ from typing import Any
 
 from docxtpl import DocxTemplate, InlineImage
 from docx.shared import Mm
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -47,33 +47,8 @@ class DocumentExportContextBuilder:
             for artifact in draft_session.artifacts
             if artifact.kind == "screenshot"
         }
-        diagram_source = self.process_diagram_service.build_diagram_source(draft_session)
         output_dir = asset_root / "generated"
         output_dir.mkdir(parents=True, exist_ok=True)
-        detailed_saved_positions = self._load_saved_diagram_positions(db, draft_session.id, "detailed")
-
-        detailed_diagram_path = None
-        if (draft_session.diagram_type or "flowchart").lower() == "flowchart":
-            stored_diagram_path = self._resolve_saved_diagram_artifact_path(
-                db,
-                draft_session.id,
-                storage_service=storage_service,
-                asset_root=asset_root,
-            )
-            if stored_diagram_path:
-                detailed_diagram_path = stored_diagram_path
-            else:
-                detailed_diagram_path = self.process_diagram_service.render_flowchart_view(
-                    draft_session,
-                    "detailed",
-                    output_dir / f"{draft_session.id}_detailed.png",
-                    saved_positions=detailed_saved_positions,
-                )
-        else:
-            detailed_diagram_path = self.process_diagram_service.render_sequence_diagram(
-                draft_session,
-                output_dir / f"{draft_session.id}_sequence.png",
-            )
 
         process_steps = [
             self._build_step_context(
@@ -87,22 +62,41 @@ class DocumentExportContextBuilder:
         ]
         process_notes = [
             {
+                "process_group_id": note.process_group_id,
                 "text": note.text,
                 "confidence": note.confidence,
                 "inference_type": note.inference_type,
             }
             for note in draft_session.process_notes
         ]
+        process_sections = self._build_process_sections(
+            db,
+            draft_session,
+            template_document,
+            output_dir=output_dir,
+            process_steps=process_steps,
+            process_notes=process_notes,
+        )
         to_be_recommendations = self.process_diagram_service.build_to_be_suggestions(draft_session)
         process_summary = self._build_process_summary(draft_session, process_steps, process_notes)
         generated_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-        rendered_diagram_path = str(detailed_diagram_path) if detailed_diagram_path else ""
+        rendered_diagram_path = (
+            process_sections[0]["diagram_path"]
+            if len(process_sections) == 1
+            else self._build_combined_process_diagram_image(
+                output_dir=output_dir,
+                session_id=draft_session.id,
+                process_sections=process_sections,
+            )
+        )
+        diagram_source = "\n\n".join(section["diagram_source"] for section in process_sections if section["diagram_source"])
 
         return {
             "session_title": draft_session.title,
             "owner_id": draft_session.owner_id,
             "process_steps": process_steps,
             "process_notes": process_notes,
+            "process_sections": process_sections,
             "pdd": {
                 "title": draft_session.title,
                 "owner_id": draft_session.owner_id,
@@ -120,6 +114,7 @@ class DocumentExportContextBuilder:
                     "generated_at": generated_at,
                     "process_summary": process_summary,
                 },
+                "process_sections": process_sections,
                 "as_is_steps": process_steps,
                 "to_be_recommendations": to_be_recommendations,
                 "process_flow": {
@@ -129,15 +124,176 @@ class DocumentExportContextBuilder:
                     "diagram_image": self._build_process_diagram_image(template_document, rendered_diagram_path),
                     "detailed_path": rendered_diagram_path,
                     "detailed_image": self._build_process_diagram_image(template_document, rendered_diagram_path),
-                    "rendered": bool(detailed_diagram_path),
+                    "rendered": bool(rendered_diagram_path),
                 },
                 "business_rules": process_notes,
             },
         }
 
+    def _build_process_sections(
+        self,
+        db: Session,
+        draft_session: DraftSessionModel,
+        template_document: DocxTemplate,
+        *,
+        output_dir: Path,
+        process_steps: list[dict[str, Any]],
+        process_notes: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        process_groups = sorted(getattr(draft_session, "process_groups", []), key=lambda item: item.display_order)
+        if not process_groups:
+            process_groups = [None]
+
+        sections: list[dict[str, Any]] = []
+        for index, process_group in enumerate(process_groups, start=1):
+            process_group_id = getattr(process_group, "id", None)
+            group_title = getattr(process_group, "title", "") or draft_session.title
+            group_steps = [step for step in process_steps if process_group is None or step.get("process_group_id") == process_group_id]
+            group_notes = [note for note in process_notes if process_group is None or note.get("process_group_id") == process_group_id]
+            if process_group is not None and not group_steps and not group_notes:
+                continue
+            scoped_session = (
+                draft_session
+                if process_group is None
+                else self.process_diagram_service._scope_session(draft_session, process_group_id)
+            )
+            diagram_source = self.process_diagram_service.build_diagram_source(scoped_session)
+            detailed_diagram_path = self._render_process_diagram(
+                db,
+                draft_session,
+                output_dir=output_dir,
+                process_group_id=process_group_id,
+                section_index=index,
+            )
+            rendered_diagram_path = str(detailed_diagram_path) if detailed_diagram_path else ""
+            sections.append(
+                {
+                    "process_group_id": process_group_id,
+                    "title": group_title,
+                    "summary": self._build_single_process_summary(
+                        process_name=group_title,
+                        process_steps=group_steps,
+                        process_notes=group_notes,
+                    ),
+                    "steps": group_steps,
+                    "notes": group_notes,
+                    "step_bullets": [step["bullet_entry"] for step in group_steps],
+                    "diagram_source": diagram_source,
+                    "diagram_path": rendered_diagram_path,
+                    "diagram_image": self._build_process_diagram_image(template_document, rendered_diagram_path),
+                    "diagram_rendered": bool(detailed_diagram_path),
+                }
+            )
+        return sections
+
+    def _render_process_diagram(
+        self,
+        db: Session,
+        draft_session: DraftSessionModel,
+        *,
+        output_dir: Path,
+        process_group_id: str | None,
+        section_index: int,
+    ) -> str:
+        if (draft_session.diagram_type or "flowchart").lower() != "flowchart":
+            path = self.process_diagram_service.render_sequence_diagram(
+                (
+                    draft_session
+                    if process_group_id is None
+                    else self.process_diagram_service._scope_session(draft_session, process_group_id)
+                ),
+                output_dir / f"{draft_session.id}_sequence_{section_index}.png",
+            )
+            return str(path) if path else ""
+
+        saved_positions = self._load_saved_diagram_positions(
+            db,
+            draft_session.id,
+            "detailed",
+            process_group_id=process_group_id,
+        )
+        path = self.process_diagram_service.render_flowchart_view(
+            draft_session,
+            "detailed",
+            output_dir / f"{draft_session.id}_detailed_{section_index}.png",
+            saved_positions=saved_positions,
+            process_group_id=process_group_id,
+        )
+        return str(path) if path else ""
+
+    @staticmethod
+    def _build_combined_process_diagram_image(
+        *,
+        output_dir: Path,
+        session_id: str,
+        process_sections: list[dict[str, Any]],
+    ) -> str:
+        diagram_paths = [section["diagram_path"] for section in process_sections if section.get("diagram_path")]
+        if not diagram_paths:
+            return ""
+        if len(diagram_paths) == 1:
+            return str(diagram_paths[0])
+
+        images: list[Image.Image] = []
+        try:
+            for path in diagram_paths:
+                images.append(Image.open(path).convert("RGB"))
+            max_width = max(image.width for image in images)
+            spacing = 48
+            title_band = 64
+            total_height = sum(image.height for image in images) + spacing * (len(images) - 1) + title_band * len(images)
+            combined = Image.new("RGB", (max_width, total_height), "white")
+            draw = ImageDraw.Draw(combined)
+            font = ImageFont.load_default()
+            current_y = 0
+            for image, section in zip(images, process_sections, strict=False):
+                title = str(section.get("title", "") or "")
+                if title:
+                    draw.text((24, current_y + 20), title, fill="#000000", font=font)
+                current_y += title_band
+                combined.paste(image, ((max_width - image.width) // 2, current_y))
+                current_y += image.height + spacing
+            output_path = output_dir / f"{session_id}_combined_process_diagram.png"
+            combined.save(output_path, format="PNG", optimize=True)
+            return str(output_path)
+        finally:
+            for image in images:
+                image.close()
+
     @staticmethod
     def _build_process_summary(
         draft_session: DraftSessionModel,
+        process_steps: list[dict[str, Any]],
+        process_notes: list[dict[str, Any]],
+    ) -> str:
+        process_groups = sorted(getattr(draft_session, "process_groups", []), key=lambda item: item.display_order)
+        if len(process_groups) > 1:
+            grouped_sections: list[str] = []
+            for process_group in process_groups:
+                group_steps = [step for step in process_steps if step.get("process_group_id") == process_group.id]
+                group_notes = [note for note in process_notes if note.get("process_group_id") == process_group.id]
+                if not group_steps and not group_notes:
+                    continue
+                grouped_sections.append(
+                    DocumentExportContextBuilder._build_single_process_summary(
+                        process_name=process_group.title or draft_session.title,
+                        process_steps=group_steps,
+                        process_notes=group_notes,
+                    )
+                )
+            if grouped_sections:
+                return " ".join(grouped_sections)
+
+        return DocumentExportContextBuilder._build_single_process_summary(
+            process_name=draft_session.title,
+            process_steps=process_steps,
+            process_notes=process_notes,
+        )
+
+    @staticmethod
+    def _build_single_process_summary(
+        *,
+        process_name: str,
         process_steps: list[dict[str, Any]],
         process_notes: list[dict[str, Any]],
     ) -> str:
@@ -160,7 +316,7 @@ class DocumentExportContextBuilder:
             if str(note.get("text", "") or "").strip()
         ]
 
-        process_name = (draft_session.title or "the observed business process").strip()
+        process_name = (process_name or "the observed business process").strip()
         application_text = ", ".join(applications) if applications else "the supporting business application landscape"
         step_count = len(process_steps)
 
@@ -202,10 +358,16 @@ class DocumentExportContextBuilder:
         db: Session,
         session_id: str,
         view_type: str,
+        *,
+        process_group_id: str | None = None,
     ) -> dict[str, dict[str, float | str]]:
         layout = (
             db.query(DiagramLayoutModel)
-            .filter(DiagramLayoutModel.session_id == session_id, DiagramLayoutModel.view_type == view_type)
+            .filter(
+                DiagramLayoutModel.session_id == session_id,
+                DiagramLayoutModel.view_type == view_type,
+                DiagramLayoutModel.process_group_id == process_group_id,
+            )
             .one_or_none()
         )
         if layout is None or not layout.layout_json:
@@ -295,6 +457,7 @@ class DocumentExportContextBuilder:
         primary_screenshot_image = self._build_inline_image(template_document, primary_screenshot_path)
 
         return {
+            "process_group_id": step.process_group_id,
             "step_number": step.step_number,
             "application_name": step.application_name,
             "action_text": step.action_text,

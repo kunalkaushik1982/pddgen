@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
+from app.models.process_group import ProcessGroupModel
 from app.models.process_note import ProcessNoteModel
 from app.models.process_step import ProcessStepModel
 from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
@@ -16,6 +17,7 @@ from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.services.screenshot_mapping import ScreenshotMappingService
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
+from app.services.process_group_service import ProcessGroupService
 from app.storage.storage_service import StorageService
 
 
@@ -33,6 +35,7 @@ class PipelineOrchestratorService:
         self.step_extraction_service = step_extraction_service or StepExtractionService()
         self.transcript_intelligence_service = transcript_intelligence_service or TranscriptIntelligenceService()
         self.screenshot_mapping_service = screenshot_mapping_service or ScreenshotMappingService()
+        self.process_group_service = ProcessGroupService()
 
     def get_session(self, db: Session, session_id: str, owner_id: str | None = None) -> DraftSessionModel:
         """Load a draft session with related entities."""
@@ -43,6 +46,7 @@ class PipelineOrchestratorService:
                 selectinload(DraftSessionModel.artifacts),
                 selectinload(DraftSessionModel.action_logs),
                 selectinload(DraftSessionModel.diagram_layouts),
+                selectinload(DraftSessionModel.process_groups),
                 selectinload(DraftSessionModel.process_steps).selectinload(ProcessStepModel.step_screenshots).selectinload(ProcessStepScreenshotModel.artifact),
                 selectinload(DraftSessionModel.process_steps).selectinload(ProcessStepModel.step_screenshot_candidates).selectinload(ProcessStepScreenshotCandidateModel.artifact),
                 selectinload(DraftSessionModel.process_notes),
@@ -52,24 +56,19 @@ class PipelineOrchestratorService:
         session = db.execute(statement).scalar_one_or_none()
         if session is None or (owner_id is not None and session.owner_id != owner_id):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft session not found.")
+        self.process_group_service.ensure_default_process_group(db, session=session)
         return session
 
     def mark_session_processing(self, db: Session, session_id: str, owner_id: str | None = None) -> DraftSessionModel:
-        """Validate prerequisites and mark the session as processing."""
+        """Validate draft-generation prerequisites and mark the session as processing."""
         session = self.get_session(db, session_id, owner_id=owner_id)
         transcript_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "transcript"]
-        video_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "video"]
         template_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "template"]
 
         if not transcript_artifacts:
           raise HTTPException(
               status_code=status.HTTP_400_BAD_REQUEST,
               detail="At least one transcript artifact is required before generation.",
-          )
-        if not video_artifacts:
-          raise HTTPException(
-              status_code=status.HTTP_400_BAD_REQUEST,
-              detail="At least one video artifact is required before generation.",
           )
         if not template_artifacts:
           raise HTTPException(
@@ -94,6 +93,7 @@ class PipelineOrchestratorService:
             )
 
         screenshot_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "screenshot"]
+        process_group = self.process_group_service.ensure_default_process_group(db, session=session)
         db.query(ProcessStepModel).filter(ProcessStepModel.session_id == session_id).delete()
         db.query(ProcessNoteModel).filter(ProcessNoteModel.session_id == session_id).delete()
 
@@ -114,6 +114,11 @@ class PipelineOrchestratorService:
                     transcript_text=transcript_text,
                 )
             )
+
+        for step in all_steps:
+            step["process_group_id"] = process_group.id
+        for note in all_notes:
+            note["process_group_id"] = process_group.id
 
         for step_number, step in enumerate(all_steps, start=1):
             step["step_number"] = step_number

@@ -5,8 +5,21 @@
 
 import type { ProcessNote, ProcessStep } from "./process";
 
+export type ProcessGroup = {
+  id: string;
+  sessionId: string;
+  title: string;
+  canonicalSlug: string;
+  status: string;
+  displayOrder: number;
+  summaryText: string;
+  overviewDiagramJson: string;
+  detailedDiagramJson: string;
+};
+
 export type InputArtifact = {
   id: string;
+  meetingId?: string | null;
   name: string;
   kind: "video" | "transcript" | "template" | "sop" | "diagram" | "screenshot";
   storagePath: string;
@@ -34,6 +47,7 @@ export type DraftSession = {
   status: "draft" | "processing" | "review" | "exported" | "failed";
   ownerId: string;
   diagramType: "flowchart" | "sequence";
+  processGroups: ProcessGroup[];
   inputArtifacts: InputArtifact[];
   processSteps: ProcessStep[];
   processNotes: ProcessNote[];

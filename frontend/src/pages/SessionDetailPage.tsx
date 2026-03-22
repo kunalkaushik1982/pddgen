@@ -17,11 +17,17 @@ type ReviewMode = "view" | "edit";
 
 type SessionDetailPageProps = {
   session: DraftSession | null;
+  meetingSection?: React.ReactNode;
   selectedStepId: string | null;
   initialReviewMode?: ReviewMode;
   disabled?: boolean;
+  generatingDraft?: boolean;
+  generatingScreenshots?: boolean;
+  draftActionLabel?: string;
   exportingFormat?: "docx" | "pdf" | null;
   onBackToWorkspace: () => void;
+  onGenerateDraft?: () => void;
+  onGenerateScreenshots?: () => void;
   onExportDocx: () => void;
   onExportPdf: () => void;
   onSelectStep: (stepId: string) => void;
@@ -38,11 +44,17 @@ type SessionDetailPageProps = {
 
 export function SessionDetailPage({
   session,
+  meetingSection = null,
   selectedStepId,
   initialReviewMode = "view",
   disabled,
+  generatingDraft = false,
+  generatingScreenshots = false,
+  draftActionLabel = "Generate Draft",
   exportingFormat = null,
   onBackToWorkspace,
+  onGenerateDraft,
+  onGenerateScreenshots,
   onExportDocx,
   onExportPdf,
   onSelectStep,
@@ -80,6 +92,7 @@ export function SessionDetailPage({
       >
         <StepReviewPage
           session={session}
+          meetingSection={meetingSection}
           selectedStepId={selectedStepId}
           initialReviewMode={initialReviewMode}
           disabled={disabled}
@@ -91,13 +104,31 @@ export function SessionDetailPage({
               </button>
               <button
                 type="button"
+                className="button-primary"
+                onClick={onGenerateDraft}
+                disabled={disabled || !onGenerateDraft}
+                aria-busy={generatingDraft}
+              >
+                {generatingDraft ? "Generating..." : draftActionLabel}
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={onGenerateScreenshots}
+                disabled={disabled || !onGenerateScreenshots}
+                aria-busy={generatingScreenshots}
+              >
+                {generatingScreenshots ? "Generating Screenshots..." : "Generate Screenshots"}
+              </button>
+              <button
+                type="button"
                 className="button-secondary export-button"
                 onClick={onExportDocx}
                 disabled={disabled || exportingFormat !== null}
                 aria-busy={exportingFormat === "docx"}
               >
                 <span className="file-badge file-badge-docx" aria-hidden="true">W</span>
-                <span>{exportingFormat === "docx" ? "Preparing Word..." : "Word"}</span>
+                <span>Word</span>
               </button>
               <button
                 type="button"
@@ -107,7 +138,7 @@ export function SessionDetailPage({
                 aria-busy={exportingFormat === "pdf"}
               >
                 <span className="file-badge file-badge-pdf" aria-hidden="true">P</span>
-                <span>{exportingFormat === "pdf" ? "Preparing PDF..." : "PDF"}</span>
+                <span>PDF</span>
               </button>
             </div>
           }

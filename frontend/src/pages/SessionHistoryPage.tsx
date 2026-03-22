@@ -113,7 +113,7 @@ export function SessionHistoryPage({
                     onClick={() => onExportDocx(session.id)}
                   >
                     <span className="file-badge file-badge-docx" aria-hidden="true">W</span>
-                    <span>{isExportingThisSession && exportingFormat === "docx" ? "Preparing Word..." : "Word"}</span>
+                    <span>Word</span>
                   </button>
                   <button
                     type="button"
@@ -123,7 +123,7 @@ export function SessionHistoryPage({
                     onClick={() => onExportPdf(session.id)}
                   >
                     <span className="file-badge file-badge-pdf" aria-hidden="true">P</span>
-                    <span>{isExportingThisSession && exportingFormat === "pdf" ? "Preparing PDF..." : "PDF"}</span>
+                    <span>PDF</span>
                   </button>
                 </div>
               </div>

@@ -10,7 +10,13 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_artifact_ingestion_service, get_current_user, get_storage_service
+from app.api.dependencies import (
+    get_artifact_ingestion_service,
+    get_current_user,
+    get_meeting_service,
+    get_process_group_service,
+    get_storage_service,
+)
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.common import ArtifactKind
@@ -20,6 +26,8 @@ from app.services.action_log_service import ActionLogService
 from app.services.mappers import map_draft_session
 from app.models.artifact import ArtifactModel
 from app.storage.storage_service import StorageService
+from app.services.meeting_service import MeetingService
+from app.services.process_group_service import ProcessGroupService
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 action_log_service = ActionLogService()
@@ -30,6 +38,8 @@ def create_upload_session(
     payload: CreateDraftSessionRequest,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[ArtifactIngestionService, Depends(get_artifact_ingestion_service)],
+    meeting_service: Annotated[MeetingService, Depends(get_meeting_service)],
+    process_group_service: Annotated[ProcessGroupService, Depends(get_process_group_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> DraftSessionResponse:
     """Create an upload session for required and optional artifacts."""
@@ -39,6 +49,8 @@ def create_upload_session(
         owner_id=current_user.username,
         diagram_type=payload.diagram_type,
     )
+    meeting_service.ensure_default_meeting(db, session=session)
+    process_group_service.ensure_default_process_group(db, session=session)
     action_log_service.record(
         db,
         session_id=session.id,
@@ -63,15 +75,28 @@ def upload_artifact(
     file: Annotated[UploadFile, File(...)],
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[ArtifactIngestionService, Depends(get_artifact_ingestion_service)],
+    meeting_service: Annotated[MeetingService, Depends(get_meeting_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
+    meeting_id: Annotated[str | None, Form()] = None,
+    upload_batch_id: Annotated[str | None, Form()] = None,
+    upload_pair_index: Annotated[int | None, Form()] = None,
 ) -> ArtifactResponse:
     """Store one artifact for an existing draft session."""
+    meeting = meeting_service.get_meeting_or_default(
+        db,
+        session_id=session_id,
+        owner_id=current_user.username,
+        meeting_id=meeting_id,
+    )
     artifact = service.ingest_artifact(
         db,
         session_id=session_id,
         upload=file,
         artifact_kind=artifact_kind,
         owner_id=current_user.username,
+        meeting_id=meeting.id,
+        upload_batch_id=upload_batch_id,
+        upload_pair_index=upload_pair_index,
     )
     action_log_service.record(
         db,

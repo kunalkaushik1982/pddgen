@@ -9,14 +9,16 @@ from sqlalchemy.orm import selectinload
 
 from worker.bootstrap import get_db_session
 from worker.services.draft_generation_stage_services import (
+    CanonicalMergeStage,
     DiagramAssemblyStage,
     FailureStage,
     PersistenceStage,
-    ScreenshotDerivationStage,
+    ProcessGroupingStage,
     SessionPreparationStage,
     TranscriptInterpretationStage,
 )
 
+from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 
 logger = get_logger(__name__)
@@ -29,7 +31,8 @@ class DraftGenerationWorker:
         self.task_id = task_id
         self.session_preparation_stage = SessionPreparationStage()
         self.transcript_stage = TranscriptInterpretationStage()
-        self.screenshot_stage = ScreenshotDerivationStage()
+        self.process_grouping_stage = ProcessGroupingStage()
+        self.canonical_merge_stage = CanonicalMergeStage()
         self.diagram_stage = DiagramAssemblyStage()
         self.persistence_stage = PersistenceStage()
         self.failure_stage = FailureStage()
@@ -43,7 +46,8 @@ class DraftGenerationWorker:
                 logger.info("Loaded draft session for background generation", extra={"event": "draft_generation.session_loaded"})
                 context = self.session_preparation_stage.load_and_prepare(db, session)
                 self.transcript_stage.run(db, context)
-                self.screenshot_stage.run(db, context)
+                self.process_grouping_stage.run(db, context)
+                self.canonical_merge_stage.run(db, context)
                 self.diagram_stage.run(db, context)
                 result = self.persistence_stage.run(db, context)
                 logger.info(
@@ -63,7 +67,7 @@ class DraftGenerationWorker:
             select(DraftSessionModel)
             .where(DraftSessionModel.id == session_id)
             .options(
-                selectinload(DraftSessionModel.artifacts),
+                selectinload(DraftSessionModel.artifacts).selectinload(ArtifactModel.meeting),
                 selectinload(DraftSessionModel.process_steps),
                 selectinload(DraftSessionModel.process_notes),
             )

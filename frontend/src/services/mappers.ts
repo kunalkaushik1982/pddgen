@@ -1,5 +1,6 @@
 import type { User } from "../types/auth";
 import type { AdminUserSummary } from "../types/admin";
+import type { Meeting } from "../types/meeting";
 import type {
   DiagramCanvasSettings,
   DiagramExportPreset,
@@ -7,7 +8,7 @@ import type {
   DiagramModel,
 } from "../types/diagram";
 import type { CandidateScreenshot, ProcessNote, ProcessStep, StepScreenshot } from "../types/process";
-import type { ActionLogEntry, DraftSession, DraftSessionListItem, InputArtifact, OutputDocument, SessionAnswer } from "../types/session";
+import type { ActionLogEntry, DraftSession, DraftSessionListItem, InputArtifact, OutputDocument, ProcessGroup, SessionAnswer } from "../types/session";
 import type {
   BackendActionLog,
   BackendAdminUserSummary,
@@ -17,7 +18,9 @@ import type {
   BackendDiagramModel,
   BackendDraftSession,
   BackendDraftSessionListItem,
+  BackendMeeting,
   BackendOutputDocument,
+  BackendProcessGroup,
   BackendProcessNote,
   BackendProcessStep,
   BackendSessionAnswer,
@@ -28,6 +31,7 @@ import type {
 export function mapArtifact(artifact: BackendArtifact): InputArtifact {
   return {
     id: artifact.id,
+    meetingId: artifact.meeting_id ?? null,
     name: artifact.name,
     kind: artifact.kind,
     storagePath: artifact.storage_path,
@@ -82,6 +86,8 @@ export function mapCandidateScreenshot(candidateScreenshot: BackendCandidateScre
 export function mapProcessStep(step: BackendProcessStep): ProcessStep {
   return {
     id: step.id,
+    processGroupId: step.process_group_id ?? null,
+    meetingId: step.meeting_id ?? null,
     stepNumber: step.step_number,
     applicationName: step.application_name,
     actionText: step.action_text,
@@ -107,11 +113,24 @@ export function mapProcessStep(step: BackendProcessStep): ProcessStep {
 export function mapProcessNote(note: BackendProcessNote): ProcessNote {
   return {
     id: note.id,
+    processGroupId: note.process_group_id ?? null,
+    meetingId: note.meeting_id ?? null,
     text: note.text,
     relatedStepIds: note.related_step_ids,
     evidenceReferenceIds: note.evidence_reference_ids,
     confidence: note.confidence,
     inferenceType: note.inference_type,
+  };
+}
+
+export function mapMeeting(meeting: BackendMeeting): Meeting {
+  return {
+    id: meeting.id,
+    sessionId: meeting.session_id,
+    title: meeting.title,
+    meetingDate: meeting.meeting_date,
+    uploadedAt: meeting.uploaded_at,
+    orderIndex: meeting.order_index,
   };
 }
 
@@ -126,6 +145,20 @@ export function mapActionLog(actionLog: BackendActionLog): ActionLogEntry {
   };
 }
 
+export function mapProcessGroup(processGroup: BackendProcessGroup): ProcessGroup {
+  return {
+    id: processGroup.id,
+    sessionId: processGroup.session_id,
+    title: processGroup.title,
+    canonicalSlug: processGroup.canonical_slug,
+    status: processGroup.status,
+    displayOrder: processGroup.display_order,
+    summaryText: processGroup.summary_text,
+    overviewDiagramJson: processGroup.overview_diagram_json,
+    detailedDiagramJson: processGroup.detailed_diagram_json,
+  };
+}
+
 export function mapDraftSession(session: BackendDraftSession): DraftSession {
   return {
     id: session.id,
@@ -133,6 +166,7 @@ export function mapDraftSession(session: BackendDraftSession): DraftSession {
     status: session.status,
     ownerId: session.owner_id,
     diagramType: session.diagram_type,
+    processGroups: session.process_groups.map(mapProcessGroup),
     inputArtifacts: session.artifacts.map(mapArtifact),
     processSteps: session.process_steps.map(mapProcessStep),
     processNotes: session.process_notes.map(mapProcessNote),

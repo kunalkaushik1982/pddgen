@@ -41,16 +41,23 @@ export const sessionService = {
     return mapDraftSession(session);
   },
 
+  async generateSessionScreenshots(sessionId: string): Promise<DraftSession> {
+    const session = await fetchJson<BackendDraftSession>(`/draft-sessions/${sessionId}/generate-screenshots`, {
+      method: "POST",
+    });
+    return mapDraftSession(session);
+  },
+
   async getDraftSession(sessionId: string): Promise<DraftSession> {
     const session = await fetchJson<BackendDraftSession>(`/draft-sessions/${sessionId}`);
     return mapDraftSession(session);
   },
 
-  async askSession(sessionId: string, question: string): Promise<SessionAnswer> {
+  async askSession(sessionId: string, question: string, processGroupId?: string | null): Promise<SessionAnswer> {
     const answer = await fetchJson<BackendSessionAnswer>(`/draft-sessions/${sessionId}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, process_group_id: processGroupId ?? null }),
     });
     return mapSessionAnswer(answer);
   },

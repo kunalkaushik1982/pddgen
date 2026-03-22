@@ -40,6 +40,42 @@
   gap: 18px;
 }
 
+.process-group-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.process-group-switcher-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.process-group-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.process-group-pill {
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--surface-soft);
+  color: var(--app-muted);
+  font-weight: 700;
+}
+
+.process-group-pill-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  color: #faf5ff;
+  box-shadow: 0 10px 24px var(--button-primary-shadow);
+}
+
 .review-workspace-tabs {
   display: inline-flex;
   align-items: center;

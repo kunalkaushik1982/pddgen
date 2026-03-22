@@ -5,8 +5,15 @@ import { getCookieValue } from "./csrf";
 import { mapArtifact } from "./mappers";
 
 export const uploadService = {
-  async uploadArtifact(sessionId: string, artifactKind: InputArtifact["kind"], file: File): Promise<InputArtifact> {
-    return this.uploadArtifactWithProgress(sessionId, artifactKind, file);
+  async uploadArtifact(
+    sessionId: string,
+    artifactKind: InputArtifact["kind"],
+    file: File,
+    meetingId?: string,
+    uploadBatchId?: string,
+    uploadPairIndex?: number,
+  ): Promise<InputArtifact> {
+    return this.uploadArtifactWithProgress(sessionId, artifactKind, file, undefined, meetingId, uploadBatchId, uploadPairIndex);
   },
 
   async uploadArtifactWithProgress(
@@ -14,9 +21,21 @@ export const uploadService = {
     artifactKind: InputArtifact["kind"],
     file: File,
     options?: { onProgress?: (progress: number) => void },
+    meetingId?: string,
+    uploadBatchId?: string,
+    uploadPairIndex?: number,
   ): Promise<InputArtifact> {
     const formData = new FormData();
     formData.append("artifact_kind", artifactKind);
+    if (meetingId) {
+      formData.append("meeting_id", meetingId);
+    }
+    if (uploadBatchId) {
+      formData.append("upload_batch_id", uploadBatchId);
+    }
+    if (typeof uploadPairIndex === "number") {
+      formData.append("upload_pair_index", String(uploadPairIndex));
+    }
     formData.append("file", file);
 
     return new Promise<InputArtifact>((resolve, reject) => {

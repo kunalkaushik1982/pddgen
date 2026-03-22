@@ -21,7 +21,9 @@ from app.services.draft_session_diagram_service import DraftSessionDiagramServic
 from app.services.draft_session_review_service import DraftSessionReviewService
 from app.services.document_renderer import DocumentRendererService
 from app.services.job_dispatcher import JobDispatcherService
+from app.services.meeting_service import MeetingService
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.process_group_service import ProcessGroupService
 from app.services.session_chat_service import SessionChatService
 from app.storage.storage_service import StorageService
 
@@ -67,6 +69,15 @@ def get_session_chat_service() -> SessionChatService:
 def get_job_dispatcher_service() -> JobDispatcherService:
     """Provide the background job dispatcher service."""
     return JobDispatcherService()
+
+def get_meeting_service() -> MeetingService:
+    """Provide meeting management service."""
+    return MeetingService()
+
+
+def get_process_group_service() -> ProcessGroupService:
+    """Provide process-group management service."""
+    return ProcessGroupService()
 
 
 def get_auth_service() -> AuthService:

@@ -10,13 +10,21 @@ import { fetchJson } from "./http";
 import { mapDiagramLayout, mapDiagramModel, mapDraftSession } from "./mappers";
 
 export const diagramService = {
-  async getDiagramModel(sessionId: string, viewType: DiagramModel["viewType"] = "overview"): Promise<DiagramModel> {
-    const diagram = await fetchJson<BackendDiagramModel>(`/draft-sessions/${sessionId}/diagram-model?view=${viewType}`);
+  async getDiagramModel(
+    sessionId: string,
+    viewType: DiagramModel["viewType"] = "overview",
+    processGroupId?: string | null,
+  ): Promise<DiagramModel> {
+    const query = processGroupId ? `?view=${viewType}&process_group_id=${encodeURIComponent(processGroupId)}` : `?view=${viewType}`;
+    const diagram = await fetchJson<BackendDiagramModel>(`/draft-sessions/${sessionId}/diagram-model${query}`);
     return mapDiagramModel(diagram);
   },
 
-  async saveDiagramModel(sessionId: string, model: DiagramModel): Promise<DiagramModel> {
-    const diagram = await fetchJson<BackendDiagramModel>(`/draft-sessions/${sessionId}/diagram-model?view=${model.viewType}`, {
+  async saveDiagramModel(sessionId: string, model: DiagramModel, processGroupId?: string | null): Promise<DiagramModel> {
+    const query = processGroupId
+      ? `?view=${model.viewType}&process_group_id=${encodeURIComponent(processGroupId)}`
+      : `?view=${model.viewType}`;
+    const diagram = await fetchJson<BackendDiagramModel>(`/draft-sessions/${sessionId}/diagram-model${query}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -46,8 +54,10 @@ export const diagramService = {
   async getDiagramLayout(
     sessionId: string,
     viewType: DiagramModel["viewType"] = "detailed",
+    processGroupId?: string | null,
   ): Promise<{ nodes: DiagramLayoutNodePosition[]; exportPreset: DiagramExportPreset; canvasSettings: DiagramCanvasSettings }> {
-    const layout = await fetchJson<BackendDiagramLayoutResponse>(`/draft-sessions/${sessionId}/diagram-layout?view=${viewType}`);
+    const query = processGroupId ? `?view=${viewType}&process_group_id=${encodeURIComponent(processGroupId)}` : `?view=${viewType}`;
+    const layout = await fetchJson<BackendDiagramLayoutResponse>(`/draft-sessions/${sessionId}/diagram-layout${query}`);
     return mapDiagramLayout(layout);
   },
 
@@ -57,8 +67,10 @@ export const diagramService = {
     exportPreset: DiagramExportPreset,
     canvasSettings: DiagramCanvasSettings,
     viewType: DiagramModel["viewType"] = "detailed",
+    processGroupId?: string | null,
   ): Promise<{ nodes: DiagramLayoutNodePosition[]; exportPreset: DiagramExportPreset; canvasSettings: DiagramCanvasSettings }> {
-    const layout = await fetchJson<BackendDiagramLayoutResponse>(`/draft-sessions/${sessionId}/diagram-layout?view=${viewType}`, {
+    const query = processGroupId ? `?view=${viewType}&process_group_id=${encodeURIComponent(processGroupId)}` : `?view=${viewType}`;
+    const layout = await fetchJson<BackendDiagramLayoutResponse>(`/draft-sessions/${sessionId}/diagram-layout${query}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

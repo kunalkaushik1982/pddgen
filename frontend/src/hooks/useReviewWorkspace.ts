@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 export type ReviewMode = "view" | "edit";
 export type ViewWorkspaceTab = "summary" | "steps" | "diagram" | "ask" | "log";
-export type EditWorkspaceTab = "steps" | "diagram";
+export type EditWorkspaceTab = "steps" | "diagram" | "meetings";
 
 type UseReviewWorkspaceOptions = {
   initialReviewMode: ReviewMode;
@@ -23,7 +23,11 @@ export function useReviewWorkspace({ initialReviewMode, sessionId }: UseReviewWo
   function switchMode(nextMode: ReviewMode) {
     setReviewMode(nextMode);
     if (nextMode === "edit") {
-      setActiveEditTab(activeViewTab === "diagram" ? "diagram" : "steps");
+      if (activeViewTab === "diagram") {
+        setActiveEditTab("diagram");
+        return;
+      }
+      setActiveEditTab("steps");
       return;
     }
 

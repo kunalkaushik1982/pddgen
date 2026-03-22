@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, auth, draft_sessions, exports, meta, uploads
+from app.api.routes import admin, auth, draft_sessions, exports, meetings, meta, uploads
 from app.core.config import get_settings
 from app.core.observability import configure_logging, get_logger
 from app.db.schema_validation import validate_database_schema
@@ -41,6 +41,7 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(CSRFMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -48,12 +49,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.add_middleware(CSRFMiddleware)
 
     app.include_router(uploads.router, prefix=settings.api_prefix)
     app.include_router(auth.router, prefix=settings.api_prefix)
     app.include_router(admin.router, prefix=settings.api_prefix)
     app.include_router(meta.router, prefix=settings.api_prefix)
+    app.include_router(meetings.router, prefix=settings.api_prefix)
     app.include_router(draft_sessions.router, prefix=settings.api_prefix)
     app.include_router(exports.router, prefix=settings.api_prefix)
     return app

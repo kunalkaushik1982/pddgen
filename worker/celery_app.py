@@ -19,7 +19,7 @@ def create_celery_app() -> Celery:
         "pdd_generator",
         broker=settings.redis_url,
         backend=settings.redis_url,
-        include=["worker.tasks.draft_generation"],
+        include=["worker.tasks.draft_generation", "worker.tasks.screenshot_generation"],
     )
     app.conf.update(
         task_default_queue="draft-generation",

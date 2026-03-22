@@ -57,6 +57,22 @@ class Settings(BaseSettings):
     object_storage_addressing_style: str = "auto"
     max_upload_size_mb: int = 1024
     docx_output_folder: str = "exports"
+    default_meeting_title_prefix: str = "Meeting"
+    default_process_group_title_prefix: str = "Process"
+    screenshot_candidate_count: int = 5
+    screenshot_selected_count: int = 3
+    screenshot_anchor_padding_seconds: int = 1
+    screenshot_window_max_seconds: int = 45
+    screenshot_short_window_seconds: int = 3
+    screenshot_medium_window_seconds: int = 8
+    screenshot_long_window_seconds: int = 20
+    screenshot_anchor_candidate_cap: int = 5
+    screenshot_short_window_candidate_cap: int = 3
+    screenshot_medium_window_candidate_cap: int = 5
+    screenshot_long_window_candidate_cap: int = 7
+    screenshot_extended_window_candidate_cap: int = 9
+    screenshot_ffmpeg_timeout_seconds: float = 8.0
+    screenshot_generation_lock_seconds: int = 3600
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_ROOT / ".env",

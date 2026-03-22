@@ -13,6 +13,7 @@ from sqlalchemy import delete, select
 from app.models.action_log import ActionLogModel
 from app.models.artifact import ArtifactModel
 from app.models.process_note import ProcessNoteModel
+from app.models.process_group import ProcessGroupModel
 from app.models.process_step import ProcessStepModel
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
@@ -20,6 +21,7 @@ from app.services.action_log_service import ActionLogService
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
 from worker.bootstrap import get_backend_settings
+from worker.services.canonical_process_merge import CanonicalProcessMergeService
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
 from worker.services.draft_generation_stage_context import DraftGenerationContext
 from worker.services.draft_generation_support import (
@@ -32,6 +34,7 @@ from worker.services.draft_generation_support import (
     seconds_to_timestamp,
     timestamp_to_seconds,
 )
+from worker.services.process_grouping_service import ProcessGroupingService
 from worker.services.transcript_normalizer import TranscriptNormalizer
 from worker.services.video_frame_extractor import ExtractedFrameCandidate, VideoFrameExtractor
 
@@ -60,6 +63,7 @@ class SessionPreparationStage:
             )
             db.execute(delete(ProcessStepModel).where(ProcessStepModel.session_id == session.id))
             db.execute(delete(ProcessNoteModel).where(ProcessNoteModel.session_id == session.id))
+            db.execute(delete(ProcessGroupModel).where(ProcessGroupModel.session_id == session.id))
             db.execute(delete(ArtifactModel).where(ArtifactModel.session_id == session.id, ArtifactModel.kind == "screenshot"))
             db.commit()
             logger.info(
@@ -118,26 +122,40 @@ class TranscriptInterpretationStage:
 
                 if interpretation is not None and interpretation.steps:
                     self._ground_ai_step_spans(interpretation.steps, normalized_text)
+                    for step in interpretation.steps:
+                        step["_transcript_artifact_id"] = transcript.id
+                        step["process_group_id"] = context.default_process_group_id
+                        step["meeting_id"] = getattr(transcript, "meeting_id", None)
                     context.all_steps.extend(interpretation.steps)
                     context.steps_by_transcript.setdefault(transcript.id, []).extend(interpretation.steps)
+                    for note in interpretation.notes:
+                        note["_transcript_artifact_id"] = transcript.id
+                        note["process_group_id"] = context.default_process_group_id
+                        note["meeting_id"] = getattr(transcript, "meeting_id", None)
                     context.all_notes.extend(interpretation.notes)
+                    context.notes_by_transcript.setdefault(transcript.id, []).extend(interpretation.notes)
                     continue
 
                 transcript_steps = self.step_extractor.extract_steps(
                     transcript_artifact_id=transcript.id,
                     transcript_text=normalized_text,
                 )
+                for step in transcript_steps:
+                    step["_transcript_artifact_id"] = transcript.id
+                    step["process_group_id"] = context.default_process_group_id
+                    step["meeting_id"] = getattr(transcript, "meeting_id", None)
                 context.all_steps.extend(transcript_steps)
                 context.steps_by_transcript.setdefault(transcript.id, []).extend(transcript_steps)
-                context.all_notes.extend(
-                    self.note_extractor.extract_notes(
-                        transcript_artifact_id=transcript.id,
-                        transcript_text=normalized_text,
-                    )
+                transcript_notes = self.note_extractor.extract_notes(
+                    transcript_artifact_id=transcript.id,
+                    transcript_text=normalized_text,
                 )
-
-            for step_number, step in enumerate(context.all_steps, start=1):
-                step["step_number"] = step_number
+                for note in transcript_notes:
+                    note["_transcript_artifact_id"] = transcript.id
+                    note["process_group_id"] = context.default_process_group_id
+                    note["meeting_id"] = getattr(transcript, "meeting_id", None)
+                context.all_notes.extend(transcript_notes)
+                context.notes_by_transcript.setdefault(transcript.id, []).extend(transcript_notes)
 
             logger.info(
                 "Transcript interpretation completed",
@@ -170,12 +188,100 @@ class TranscriptInterpretationStage:
                 step["end_timestamp"] = step["start_timestamp"]
 
 
+class CanonicalMergeStage:
+    """Merge meeting-specific outputs into one current canonical process."""
+
+    def __init__(
+        self,
+        *,
+        merge_service: CanonicalProcessMergeService | None = None,
+        action_log_service: ActionLogService | None = None,
+    ) -> None:
+        self.merge_service = merge_service or CanonicalProcessMergeService()
+        self.action_log_service = action_log_service or ActionLogService()
+
+    def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
+        with bind_log_context(stage="canonical_merge"):
+            self.action_log_service.record(
+                db,
+                session_id=context.session_id,
+                event_type="generation_stage",
+                title="Merging meeting evidence",
+                detail=f"Canonicalizing process evidence from {len(context.transcript_artifacts)} transcript artifact(s).",
+                actor="system",
+            )
+            db.commit()
+
+            merge_result = self.merge_service.merge(
+                transcript_artifacts=context.transcript_artifacts,
+                process_groups=context.process_groups,
+                steps_by_transcript=context.steps_by_transcript,
+                notes_by_transcript=context.notes_by_transcript,
+            )
+            context.all_steps = merge_result.steps
+            context.all_notes = merge_result.notes
+            context.steps_by_transcript = merge_result.steps_by_transcript
+            context.notes_by_transcript = merge_result.notes_by_transcript
+
+            logger.info(
+                "Canonical merge completed",
+                extra={
+                    "event": "draft_generation.stage_completed",
+                    "canonical_step_count": len(context.all_steps),
+                    "canonical_note_count": len(context.all_notes),
+                },
+            )
+
+
+class ProcessGroupingStage:
+    """Assign transcript outputs into logical process groups before canonical merge."""
+
+    def __init__(
+        self,
+        *,
+        grouping_service: ProcessGroupingService | None = None,
+        action_log_service: ActionLogService | None = None,
+    ) -> None:
+        self.grouping_service = grouping_service or ProcessGroupingService()
+        self.action_log_service = action_log_service or ActionLogService()
+
+    def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
+        with bind_log_context(stage="process_grouping"):
+            self.action_log_service.record(
+                db,
+                session_id=context.session_id,
+                event_type="generation_stage",
+                title="Grouping processes",
+                detail=f"Clustering transcript evidence into logical process groups for {len(context.transcript_artifacts)} transcript artifact(s).",
+                actor="system",
+            )
+            db.commit()
+
+            grouping_result = self.grouping_service.assign_groups(
+                db=db,
+                session=context.session,
+                transcript_artifacts=context.transcript_artifacts,
+                steps_by_transcript=context.steps_by_transcript,
+                notes_by_transcript=context.notes_by_transcript,
+            )
+            context.process_groups = grouping_result.process_groups
+            logger.info(
+                "Process grouping completed",
+                extra={
+                    "event": "draft_generation.stage_completed",
+                    "process_group_count": len(grouping_result.process_groups),
+                },
+            )
+
+
 class ScreenshotDerivationStage:
     """Derive screenshot candidates and selected screenshots from video artifacts."""
 
     def __init__(self, *, frame_extractor: VideoFrameExtractor | None = None, action_log_service: ActionLogService | None = None) -> None:
         self.settings = get_backend_settings()
-        self.frame_extractor = frame_extractor or VideoFrameExtractor()
+        self.frame_extractor = frame_extractor or VideoFrameExtractor(
+            timeout_seconds=self.settings.screenshot_ffmpeg_timeout_seconds
+        )
         self.action_log_service = action_log_service or ActionLogService()
 
     def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
@@ -197,11 +303,33 @@ class ScreenshotDerivationStage:
             )
             db.commit()
 
-            for transcript_index, transcript in enumerate(context.transcript_artifacts):
+            active_transcripts = [
+                transcript for transcript in self._sort_artifacts(context.transcript_artifacts) if context.steps_by_transcript.get(transcript.id)
+            ]
+            sorted_videos = self._sort_artifacts(context.video_artifacts)
+
+            for transcript_index, transcript in enumerate(active_transcripts):
                 transcript_steps = context.steps_by_transcript.get(transcript.id, [])
                 if not transcript_steps:
                     continue
-                paired_video = context.video_artifacts[min(transcript_index, len(context.video_artifacts) - 1)]
+                paired_video = self._paired_video_for_transcript(
+                    transcript=transcript,
+                    active_transcripts=active_transcripts,
+                    all_videos=sorted_videos,
+                    fallback_transcript_index=transcript_index,
+                )
+                if paired_video is None:
+                    continue
+                logger.info(
+                    "Starting screenshot extraction for transcript group",
+                    extra={
+                        "event": "draft_generation.screenshot_group_started",
+                        "transcript_artifact_id": transcript.id,
+                        "meeting_id": getattr(transcript, "meeting_id", None),
+                        "video_artifact_id": paired_video.id,
+                        "step_count": len(transcript_steps),
+                    },
+                )
                 context.screenshot_artifacts.extend(
                     self._derive_screenshots(
                         db=db,
@@ -218,24 +346,138 @@ class ScreenshotDerivationStage:
                 },
             )
 
+    @staticmethod
+    def _sort_artifacts(artifacts: list[ArtifactModel]) -> list[ArtifactModel]:
+        return sorted(
+            artifacts,
+            key=lambda artifact: (
+                getattr(getattr(artifact, "meeting", None), "order_index", None)
+                if getattr(getattr(artifact, "meeting", None), "order_index", None) is not None
+                else 1_000_000,
+                getattr(getattr(artifact, "meeting", None), "meeting_date", None).isoformat()
+                if getattr(getattr(artifact, "meeting", None), "meeting_date", None) is not None
+                else "",
+                getattr(artifact, "created_at", None).isoformat()
+                if getattr(artifact, "created_at", None) is not None
+                else "",
+                getattr(getattr(artifact, "meeting", None), "uploaded_at", None).isoformat()
+                if getattr(getattr(artifact, "meeting", None), "uploaded_at", None) is not None
+                else "",
+                artifact.id,
+            ),
+        )
+
+    @staticmethod
+    def _videos_for_transcript(*, transcript: ArtifactModel, all_videos: list[ArtifactModel]) -> list[ArtifactModel]:
+        meeting_id = getattr(transcript, "meeting_id", None)
+        if meeting_id:
+            meeting_videos = [video for video in all_videos if getattr(video, "meeting_id", None) == meeting_id]
+            if meeting_videos:
+                return meeting_videos
+        return all_videos
+
+    def _paired_video_for_transcript(
+        self,
+        *,
+        transcript: ArtifactModel,
+        active_transcripts: list[ArtifactModel],
+        all_videos: list[ArtifactModel],
+        fallback_transcript_index: int,
+    ) -> ArtifactModel | None:
+        candidate_videos = self._videos_for_transcript(transcript=transcript, all_videos=all_videos)
+        if not candidate_videos:
+            return None
+
+        transcript_batch_id = getattr(transcript, "upload_batch_id", None)
+        transcript_pair_index = getattr(transcript, "upload_pair_index", None)
+        if transcript_batch_id:
+            batch_videos = [
+                video
+                for video in candidate_videos
+                if getattr(video, "upload_batch_id", None) == transcript_batch_id
+            ]
+            if batch_videos:
+                if transcript_pair_index is not None:
+                    indexed_match = next(
+                        (
+                            video
+                            for video in batch_videos
+                            if getattr(video, "upload_pair_index", None) == transcript_pair_index
+                        ),
+                        None,
+                    )
+                    if indexed_match is not None:
+                        return indexed_match
+                return batch_videos[min(0, len(batch_videos) - 1)]
+
+        meeting_id = getattr(transcript, "meeting_id", None)
+        if meeting_id:
+            meeting_transcripts = [item for item in active_transcripts if getattr(item, "meeting_id", None) == meeting_id]
+            meeting_videos = [item for item in candidate_videos if getattr(item, "meeting_id", None) == meeting_id]
+            if meeting_transcripts and meeting_videos:
+                local_transcript_index = next(
+                    (index for index, item in enumerate(meeting_transcripts) if item.id == transcript.id),
+                    0,
+                )
+                return meeting_videos[min(local_transcript_index, len(meeting_videos) - 1)]
+
+        return candidate_videos[min(fallback_transcript_index if len(candidate_videos) > 1 else 0, len(candidate_videos) - 1)]
+
     def _derive_screenshots(self, *, db, session_id: str, video_artifacts: list[ArtifactModel], step_candidates: list[dict]) -> list[ArtifactModel]:
         if not video_artifacts or not self.frame_extractor.is_available():
             return []
 
         primary_video = video_artifacts[0]
+        video_duration_seconds = self.frame_extractor.get_video_duration_seconds(video_path=primary_video.storage_path)
         screenshots: list[ArtifactModel] = []
         screenshots_dir = self.settings.local_storage_root / session_id / "generated-screenshots"
         screenshots_dir.mkdir(parents=True, exist_ok=True)
 
-        for step in step_candidates:
+        total_steps = len(step_candidates)
+        for step_index, step in enumerate(step_candidates, start=1):
+            logger.info(
+                "Extracting screenshot candidates for step",
+                extra={
+                    "event": "draft_generation.screenshot_step_started",
+                    "video_artifact_id": primary_video.id,
+                    "step_index": step_index,
+                    "total_steps": total_steps,
+                    "step_number": step.get("step_number"),
+                    "meeting_id": step.get("meeting_id"),
+                },
+            )
+            candidate_timestamps = self._build_candidate_timestamps(step, video_duration_seconds=video_duration_seconds)
+            logger.info(
+                "Prepared screenshot candidate timestamps",
+                extra={
+                    "event": "draft_generation.screenshot_timestamps_prepared",
+                    "video_artifact_id": primary_video.id,
+                    "step_index": step_index,
+                    "total_steps": total_steps,
+                    "step_number": step.get("step_number"),
+                    "candidate_timestamps": candidate_timestamps,
+                    "video_duration_seconds": video_duration_seconds,
+                },
+            )
             candidate_screenshots = self._derive_candidate_screenshot_pool(
                 db=db,
                 session_id=session_id,
                 video_path=primary_video.storage_path,
                 screenshots_dir=screenshots_dir,
                 step=step,
+                candidate_timestamps=candidate_timestamps,
             )
             if not candidate_screenshots:
+                logger.info(
+                    "No screenshot candidates derived for step",
+                    extra={
+                        "event": "draft_generation.screenshot_step_empty",
+                        "video_artifact_id": primary_video.id,
+                        "step_index": step_index,
+                        "total_steps": total_steps,
+                        "step_number": step.get("step_number"),
+                    },
+                )
                 continue
 
             derived_screenshots = self._select_step_screenshot_slots(step=step, candidate_screenshots=candidate_screenshots)
@@ -245,44 +487,184 @@ class ScreenshotDerivationStage:
             step["screenshot_id"] = primary_screenshot["artifact"].id
             step["timestamp"] = primary_screenshot["timestamp"]
             screenshots.extend(item["artifact"] for item in candidate_screenshots)
+            logger.info(
+                "Completed screenshot candidates for step",
+                extra={
+                    "event": "draft_generation.screenshot_step_completed",
+                    "video_artifact_id": primary_video.id,
+                    "step_index": step_index,
+                    "total_steps": total_steps,
+                    "step_number": step.get("step_number"),
+                    "candidate_count": len(candidate_screenshots),
+                    "selected_count": len(derived_screenshots),
+                },
+            )
         db.commit()
         return screenshots
 
-    def _build_candidate_offsets(self, step: dict) -> list[int]:
-        action_type = classify_action_type(step.get("action_text", ""))
-        offsets = ACTION_OFFSET_WINDOWS.get(action_type, ACTION_OFFSET_WINDOWS["default"])
-        if step.get("confidence") in {"low", "unknown"}:
-            widened = offsets + [-4, 4, -5, 5]
-            seen: set[int] = set()
-            ordered: list[int] = []
-            for item in widened:
-                if item in seen:
-                    continue
-                seen.add(item)
-                ordered.append(item)
-            return ordered
-        return offsets
+    def _window_sampling_is_reliable(self, step: dict) -> bool:
+        start_timestamp = str(step.get("start_timestamp") or "").strip()
+        end_timestamp = str(step.get("end_timestamp") or "").strip()
+        display_timestamp = str(step.get("timestamp") or "").strip()
+        if not start_timestamp or not end_timestamp:
+            return False
 
-    def _build_candidate_timestamps(self, step: dict) -> list[str]:
-        fallback_timestamp = step.get("timestamp") or "00:00:01"
-        start_timestamp = step.get("start_timestamp") or fallback_timestamp
-        end_timestamp = step.get("end_timestamp") or fallback_timestamp
         start_seconds = timestamp_to_seconds(start_timestamp)
-        end_seconds = max(start_seconds, timestamp_to_seconds(end_timestamp))
-        display_seconds = timestamp_to_seconds(fallback_timestamp)
+        end_seconds = timestamp_to_seconds(end_timestamp)
+        if end_seconds < start_seconds:
+            return False
 
-        sample_points = list(range(start_seconds, end_seconds + 1))
-        for offset in self._build_candidate_offsets(step):
-            sample_points.append(max(1, display_seconds + offset))
+        span_seconds = end_seconds - start_seconds
+        if span_seconds <= 0 or span_seconds > self.settings.screenshot_window_max_seconds:
+            return False
 
-        ordered_points: list[int] = []
+        if not step.get("evidence_references"):
+            return False
+
+        if display_timestamp:
+            display_seconds = timestamp_to_seconds(display_timestamp)
+            if not start_seconds <= display_seconds <= end_seconds:
+                return False
+
+        return True
+
+    def _effective_span_seconds(
+        self,
+        step: dict,
+        *,
+        video_duration_seconds: int | None,
+    ) -> tuple[bool, int, int, int, int]:
+        fallback_timestamp = step.get("timestamp") or "00:00:01"
+        start_seconds = self._coerce_seconds_for_video(
+            step.get("start_timestamp") or fallback_timestamp,
+            video_duration_seconds=video_duration_seconds,
+        )
+        end_seconds = max(
+            start_seconds,
+            self._coerce_seconds_for_video(
+                step.get("end_timestamp") or fallback_timestamp,
+                video_duration_seconds=video_duration_seconds,
+            ),
+        )
+        display_seconds = self._coerce_seconds_for_video(
+            fallback_timestamp,
+            video_duration_seconds=video_duration_seconds,
+        )
+        return (
+            self._window_sampling_is_reliable(step),
+            max(0, end_seconds - start_seconds),
+            start_seconds,
+            end_seconds,
+            display_seconds,
+        )
+
+    def _ordered_unique_points(self, points: list[int]) -> list[int]:
+        ordered: list[int] = []
         seen: set[int] = set()
-        for point in sample_points:
-            if point in seen:
+        for point in points:
+            normalized = max(1, point)
+            if normalized in seen:
                 continue
-            seen.add(point)
-            ordered_points.append(point)
-        return [seconds_to_timestamp(point) for point in ordered_points]
+            seen.add(normalized)
+            ordered.append(normalized)
+        return ordered
+
+    def _fill_points_to_limit(self, base_points: list[int], *, anchor_seconds: int, limit: int) -> list[int]:
+        ordered = self._ordered_unique_points(base_points)
+        if len(ordered) >= limit:
+            return ordered[:limit]
+
+        padding = max(1, self.settings.screenshot_anchor_padding_seconds)
+        step_distance = 1
+        while len(ordered) < limit:
+            for direction in (-1, 1):
+                candidate = anchor_seconds + (direction * padding * step_distance)
+                candidate_points = self._ordered_unique_points(ordered + [candidate])
+                if len(candidate_points) != len(ordered):
+                    ordered = candidate_points
+                if len(ordered) >= limit:
+                    break
+            step_distance += 1
+        return ordered[:limit]
+
+    @staticmethod
+    def _split_timestamp_parts(value: str) -> tuple[int, int, int] | None:
+        parts = str(value or "").split(":")
+        if len(parts) != 3:
+            return None
+        try:
+            return int(parts[0]), int(parts[1]), int(parts[2])
+        except ValueError:
+            return None
+
+    def _coerce_seconds_for_video(self, timestamp_value: str, *, video_duration_seconds: int | None) -> int:
+        parsed_seconds = timestamp_to_seconds(timestamp_value or "00:00:01")
+        if not video_duration_seconds or parsed_seconds <= video_duration_seconds:
+            return parsed_seconds
+
+        parts = self._split_timestamp_parts(timestamp_value)
+        if parts is not None:
+            first, second, third = parts
+            if third == 0:
+                recovered_mmss_seconds = (first * 60) + second
+                if 1 <= recovered_mmss_seconds <= video_duration_seconds:
+                    logger.info(
+                        "Recovered malformed step timestamp for screenshot extraction",
+                        extra={
+                            "event": "draft_generation.screenshot_timestamp_recovered",
+                            "original_timestamp": timestamp_value,
+                            "recovered_timestamp": seconds_to_timestamp(recovered_mmss_seconds),
+                            "video_duration_seconds": video_duration_seconds,
+                        },
+                    )
+                    return recovered_mmss_seconds
+
+        logger.info(
+            "Clamped out-of-range step timestamp for screenshot extraction",
+            extra={
+                "event": "draft_generation.screenshot_timestamp_clamped",
+                "original_timestamp": timestamp_value,
+                "clamped_timestamp": seconds_to_timestamp(video_duration_seconds),
+                "video_duration_seconds": video_duration_seconds,
+            },
+        )
+        return video_duration_seconds
+
+    def _practical_candidate_limit(self, *, reliable_window: bool, span_seconds: int) -> int:
+        configured_max = max(1, self.settings.screenshot_candidate_count)
+        if not reliable_window:
+            return min(configured_max, max(1, self.settings.screenshot_anchor_candidate_cap))
+        if span_seconds <= self.settings.screenshot_short_window_seconds:
+            return min(configured_max, max(1, self.settings.screenshot_short_window_candidate_cap))
+        if span_seconds <= self.settings.screenshot_medium_window_seconds:
+            return min(configured_max, max(1, self.settings.screenshot_medium_window_candidate_cap))
+        if span_seconds <= self.settings.screenshot_long_window_seconds:
+            return min(configured_max, max(1, self.settings.screenshot_long_window_candidate_cap))
+        return min(configured_max, max(1, self.settings.screenshot_extended_window_candidate_cap))
+
+    def _candidate_seconds_for_step(self, step: dict, *, video_duration_seconds: int | None) -> list[int]:
+        reliable_window, span_seconds, start_seconds, end_seconds, display_seconds = self._effective_span_seconds(
+            step,
+            video_duration_seconds=video_duration_seconds,
+        )
+        limit = self._practical_candidate_limit(reliable_window=reliable_window, span_seconds=span_seconds)
+
+        if reliable_window:
+            midpoint = start_seconds + ((end_seconds - start_seconds) // 2)
+            return self._fill_points_to_limit(
+                [start_seconds, midpoint, end_seconds],
+                anchor_seconds=midpoint,
+                limit=limit,
+            )
+
+        anchor_seconds = display_seconds or start_seconds or end_seconds
+        return self._fill_points_to_limit([anchor_seconds], anchor_seconds=anchor_seconds, limit=limit)
+
+    def _build_candidate_timestamps(self, step: dict, *, video_duration_seconds: int | None) -> list[str]:
+        return [
+            seconds_to_timestamp(point)
+            for point in self._candidate_seconds_for_step(step, video_duration_seconds=video_duration_seconds)
+        ]
 
     def _derive_candidate_screenshot_pool(
         self,
@@ -292,8 +674,8 @@ class ScreenshotDerivationStage:
         video_path: str,
         screenshots_dir: Path,
         step: dict,
+        candidate_timestamps: list[str],
     ) -> list[dict]:
-        candidate_timestamps = self._build_candidate_timestamps(step)
         extracted_candidates = self.frame_extractor.extract_frames_at_timestamps(
             video_path=video_path,
             output_dir=str(screenshots_dir),
@@ -334,6 +716,7 @@ class ScreenshotDerivationStage:
             return []
 
         roles = self._select_screenshot_roles(step)
+        roles = self._apply_selected_limit(roles)
         screenshots: list[dict] = []
         used_artifact_ids: set[str] = set()
         for sequence_number, role in enumerate(roles, start=1):
@@ -366,6 +749,23 @@ class ScreenshotDerivationStage:
         if screenshots and not any(item["is_primary"] for item in screenshots):
             screenshots[0]["is_primary"] = True
         return screenshots
+
+    def _apply_selected_limit(self, roles: list[str]) -> list[str]:
+        if not roles:
+            return []
+
+        max_selected = max(1, self.settings.screenshot_selected_count)
+        if max_selected >= len(roles):
+            return roles
+        if max_selected == 1:
+            return ["during"] if "during" in roles else [roles[-1]]
+        if max_selected == 2:
+            if "before" in roles and "after" in roles and "during" not in roles:
+                return ["before", "after"]
+            prioritized = [role for role in ("during", "after", "before") if role in roles]
+            return prioritized[:2]
+        prioritized = [role for role in ("before", "during", "after") if role in roles]
+        return prioritized[:max_selected]
 
     def _select_best_candidate_record(self, step: dict, candidates: list[dict]) -> dict | None:
         if not candidates:
@@ -507,7 +907,7 @@ class PersistenceStage:
             db.add_all(step_models)
             db.flush()
             self._persist_step_screenshots(db, step_models, context.all_steps)
-            db.add_all(ProcessNoteModel(session_id=context.session_id, **note) for note in context.all_notes)
+            db.add_all(ProcessNoteModel(session_id=context.session_id, **self._to_note_record(note)) for note in context.all_notes)
             context.session.status = "review"
             db.add(
                 ActionLogModel(
@@ -587,7 +987,17 @@ class PersistenceStage:
 
     @staticmethod
     def _to_step_record(step: dict) -> dict:
-        return {key: value for key, value in step.items() if key not in {"_candidate_screenshots", "_derived_screenshots"}}
+        record = {
+            key: value
+            for key, value in step.items()
+            if key not in {"_candidate_screenshots", "_derived_screenshots", "_transcript_artifact_id"}
+        }
+        record["source_transcript_artifact_id"] = step.get("_transcript_artifact_id")
+        return record
+
+    @staticmethod
+    def _to_note_record(note: dict) -> dict:
+        return {key: value for key, value in note.items() if key != "_transcript_artifact_id"}
 
 
 class FailureStage:

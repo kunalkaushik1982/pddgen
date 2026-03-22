@@ -101,6 +101,58 @@ def generate_draft_session(
         return map_draft_session(session)
 
 
+@router.post("/{session_id}/generate-screenshots", response_model=DraftSessionResponse, status_code=status.HTTP_202_ACCEPTED)
+def generate_session_screenshots(
+    session_id: str,
+    response: Response,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    dispatcher: Annotated[JobDispatcherService, Depends(get_job_dispatcher_service)],
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+) -> DraftSessionResponse:
+    """Queue background screenshot generation for the current canonical draft steps."""
+    with bind_log_context(session_id=session_id):
+        session = service.get_session(db, session_id, owner_id=current_user.username)
+        video_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "video"]
+        if not session.process_steps:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Generate the draft before requesting screenshots.",
+            )
+        if not video_artifacts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one video artifact is required before generating screenshots.",
+            )
+        if not dispatcher.acquire_screenshot_generation_lock(session_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Screenshot generation is already queued or running for this session.",
+            )
+
+        try:
+            action_log_service.record(
+                db,
+                session_id=session.id,
+                event_type="screenshot_generation_queued",
+                title="Screenshot generation queued",
+                detail="Video-based screenshot derivation queued for the current canonical steps.",
+                actor=current_user.username,
+            )
+            db.commit()
+            session = service.get_session(db, session_id, owner_id=current_user.username)
+            task_id = dispatcher.enqueue_screenshot_generation(session_id)
+            logger.info(
+                "Screenshot generation accepted",
+                extra={"event": "screenshot_generation.accepted", "task_id": task_id},
+            )
+            response.headers["X-Task-Id"] = task_id
+            return map_draft_session(session)
+        except Exception:
+            dispatcher.release_screenshot_generation_lock(session_id)
+            raise
+
+
 @router.get("/{session_id}", response_model=DraftSessionResponse)
 def get_draft_session(
     session_id: str,
@@ -125,7 +177,7 @@ def ask_session(
     """Answer a grounded question using this session's transcripts, steps, and notes."""
     session = service.get_session(db, session_id, owner_id=current_user.username)
     try:
-        answer = chat_service.ask(session=session, question=payload.question)
+        answer = chat_service.ask(session=session, question=payload.question, process_group_id=payload.process_group_id)
     except RuntimeError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
     return SessionAnswerResponse.model_validate(answer)
@@ -138,10 +190,11 @@ def get_diagram_model(
     service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     view: Literal["overview", "detailed"] = "overview",
+    process_group_id: str | None = None,
 ) -> DiagramModelResponse:
     """Return a frontend-friendly diagram model for preview rendering."""
     session = service.get_session(db, session_id, owner_id=current_user.username)
-    return DiagramModelResponse.model_validate(diagram_service.build_diagram_model(session, view))
+    return DiagramModelResponse.model_validate(diagram_service.build_diagram_model(session, view, process_group_id=process_group_id))
 
 
 @router.put("/{session_id}/diagram-model", response_model=DiagramModelResponse)
@@ -153,10 +206,17 @@ def save_diagram_model(
     diagram_mutation_service: Annotated[DraftSessionDiagramService, Depends(get_draft_session_diagram_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     view: Literal["overview", "detailed"] = "detailed",
+    process_group_id: str | None = None,
 ) -> DiagramModelResponse:
     """Persist an edited diagram graph for the requested view."""
     session = service.get_session(db, session_id, owner_id=current_user.username)
-    model_payload = diagram_mutation_service.save_diagram_model(db, session=session, payload=payload, view=view)
+    model_payload = diagram_mutation_service.save_diagram_model(
+        db,
+        session=session,
+        payload=payload,
+        view=view,
+        process_group_id=process_group_id,
+    )
     return DiagramModelResponse.model_validate(model_payload)
 
 
@@ -168,10 +228,16 @@ def get_diagram_layout(
     diagram_mutation_service: Annotated[DraftSessionDiagramService, Depends(get_draft_session_diagram_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     view: Literal["overview", "detailed"] = "detailed",
+    process_group_id: str | None = None,
 ) -> DiagramLayoutResponse:
     """Return the saved node positions for a session diagram view if available."""
     service.get_session(db, session_id, owner_id=current_user.username)
-    layout_payload = diagram_mutation_service.get_diagram_layout(db, session_id=session_id, view=view)
+    layout_payload = diagram_mutation_service.get_diagram_layout(
+        db,
+        session_id=session_id,
+        view=view,
+        process_group_id=process_group_id,
+    )
     return DiagramLayoutResponse(**layout_payload)
 
 
@@ -184,6 +250,7 @@ def save_diagram_layout(
     diagram_mutation_service: Annotated[DraftSessionDiagramService, Depends(get_draft_session_diagram_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     view: Literal["overview", "detailed"] = "detailed",
+    process_group_id: str | None = None,
 ) -> DiagramLayoutResponse:
     """Persist draggable node positions for one diagram view."""
     service.get_session(db, session_id, owner_id=current_user.username)
@@ -193,6 +260,7 @@ def save_diagram_layout(
         payload=payload,
         actor=current_user.username,
         view=view,
+        process_group_id=process_group_id,
     )
     return DiagramLayoutResponse(**layout_payload)
 

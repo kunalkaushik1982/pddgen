@@ -18,7 +18,15 @@ class DraftSessionDiagramService:
     def __init__(self, *, action_log_service: ActionLogService | None = None) -> None:
         self.action_log_service = action_log_service or ActionLogService()
 
-    def save_diagram_model(self, db: Session, *, session, payload, view: Literal["overview", "detailed"]) -> dict:  # type: ignore[no-untyped-def]
+    def save_diagram_model(
+        self,
+        db: Session,
+        *,
+        session,
+        payload,
+        view: Literal["overview", "detailed"],
+        process_group_id: str | None = None,
+    ) -> dict:  # type: ignore[no-untyped-def]
         model_payload = {
             "diagram_type": "flowchart",
             "view_type": view,
@@ -26,19 +34,33 @@ class DraftSessionDiagramService:
             "nodes": [node.model_dump() for node in payload.nodes],
             "edges": [edge.model_dump() for edge in payload.edges],
         }
+        target = session
+        if process_group_id:
+            target = next((group for group in getattr(session, "process_groups", []) if group.id == process_group_id), session)
         if view == "detailed":
-            session.detailed_diagram_json = json.dumps(model_payload)
+            target.detailed_diagram_json = json.dumps(model_payload)
         else:
-            session.overview_diagram_json = json.dumps(model_payload)
-        db.add(session)
+            target.overview_diagram_json = json.dumps(model_payload)
+        db.add(target)
         db.commit()
-        db.refresh(session)
+        db.refresh(target)
         return model_payload
 
-    def get_diagram_layout(self, db: Session, *, session_id: str, view: Literal["overview", "detailed"]) -> dict:
+    def get_diagram_layout(
+        self,
+        db: Session,
+        *,
+        session_id: str,
+        view: Literal["overview", "detailed"],
+        process_group_id: str | None = None,
+    ) -> dict:
         layout = (
             db.query(DiagramLayoutModel)
-            .filter(DiagramLayoutModel.session_id == session_id, DiagramLayoutModel.view_type == view)
+            .filter(
+                DiagramLayoutModel.session_id == session_id,
+                DiagramLayoutModel.view_type == view,
+                DiagramLayoutModel.process_group_id == process_group_id,
+            )
             .one_or_none()
         )
         nodes: list[dict] = []
@@ -63,6 +85,7 @@ class DraftSessionDiagramService:
                 nodes = []
         return {
             "session_id": session_id,
+            "process_group_id": process_group_id,
             "view_type": view,
             "nodes": nodes,
             "export_preset": export_preset,
@@ -77,14 +100,19 @@ class DraftSessionDiagramService:
         payload,
         actor: str,
         view: Literal["overview", "detailed"],
+        process_group_id: str | None = None,
     ) -> dict:  # type: ignore[no-untyped-def]
         layout = (
             db.query(DiagramLayoutModel)
-            .filter(DiagramLayoutModel.session_id == session_id, DiagramLayoutModel.view_type == view)
+            .filter(
+                DiagramLayoutModel.session_id == session_id,
+                DiagramLayoutModel.view_type == view,
+                DiagramLayoutModel.process_group_id == process_group_id,
+            )
             .one_or_none()
         )
         if layout is None:
-            layout = DiagramLayoutModel(session_id=session_id, view_type=view)
+            layout = DiagramLayoutModel(session_id=session_id, process_group_id=process_group_id, view_type=view)
             db.add(layout)
 
         previous_canvas_settings = {"theme": "dark", "show_grid": True, "grid_density": "medium"}
@@ -136,6 +164,7 @@ class DraftSessionDiagramService:
         parsed = json.loads(layout.layout_json) if layout.layout_json else {"nodes": [], "export_preset": "balanced"}
         return {
             "session_id": session_id,
+            "process_group_id": process_group_id,
             "view_type": view,
             "nodes": parsed.get("nodes", []),
             "export_preset": parsed.get("export_preset", "balanced") or "balanced",

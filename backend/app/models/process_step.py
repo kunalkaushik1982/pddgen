@@ -13,6 +13,8 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.draft_session import DraftSessionModel
+    from app.models.meeting import MeetingModel
+    from app.models.process_group import ProcessGroupModel
     from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
     from app.models.process_step_screenshot import ProcessStepScreenshotModel
 
@@ -24,6 +26,17 @@ class ProcessStepModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     session_id: Mapped[str] = mapped_column(ForeignKey("draft_sessions.id", ondelete="CASCADE"), index=True)
+    process_group_id: Mapped[str | None] = mapped_column(
+        ForeignKey("process_groups.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    meeting_id: Mapped[str | None] = mapped_column(
+        ForeignKey("meetings.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    source_transcript_artifact_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
     step_number: Mapped[int] = mapped_column(Integer, index=True)
     application_name: Mapped[str] = mapped_column(String(255), default="")
     action_text: Mapped[str] = mapped_column(Text())
@@ -38,6 +51,8 @@ class ProcessStepModel(Base):
     edited_by_ba: Mapped[bool] = mapped_column(Boolean, default=False)
 
     session: Mapped["DraftSessionModel"] = relationship(back_populates="process_steps")
+    process_group: Mapped["ProcessGroupModel"] = relationship(back_populates="process_steps")
+    meeting: Mapped["MeetingModel"] = relationship(back_populates="process_steps")
     step_screenshots: Mapped[list["ProcessStepScreenshotModel"]] = relationship(
         back_populates="step",
         cascade="all, delete-orphan",

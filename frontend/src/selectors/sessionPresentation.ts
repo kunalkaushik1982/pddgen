@@ -19,7 +19,7 @@ export function canExportSession(status: DraftSessionListItem["status"]): boolea
 }
 
 export function getProgressTone(session: DraftSessionListItem): SessionProgressTone {
-  if (session.status === "failed" || session.failureDetail) {
+  if (session.status === "failed") {
     return "failed";
   }
   if (session.status === "exported") {
@@ -27,7 +27,7 @@ export function getProgressTone(session: DraftSessionListItem): SessionProgressT
   }
 
   const normalizedTitle = session.latestStageTitle.trim().toLowerCase();
-  if (normalizedTitle === "ready for review" || session.status === "review") {
+  if (normalizedTitle === "screenshots ready") {
     return "ready";
   }
   if (normalizedTitle === "building diagram") {
@@ -39,8 +39,14 @@ export function getProgressTone(session: DraftSessionListItem): SessionProgressT
   if (normalizedTitle === "interpreting transcript") {
     return "transcript";
   }
-  if (normalizedTitle === "generation queued") {
+  if (normalizedTitle === "generation queued" || normalizedTitle === "draft generation queued") {
     return "queued";
+  }
+  if (normalizedTitle === "screenshot generation queued") {
+    return "screenshots";
+  }
+  if (normalizedTitle === "ready for review" || session.status === "review") {
+    return "ready";
   }
   return "draft";
 }
@@ -70,8 +76,12 @@ export function getSessionProgressLabel(
   session: DraftSessionListItem,
   tone: SessionProgressTone,
 ): string {
-  if (session.failureDetail) {
+  if (session.status === "failed" && session.failureDetail) {
     return "Run failed";
+  }
+
+  if (session.latestStageTitle.trim().toLowerCase() === "screenshots ready") {
+    return "Screenshots ready";
   }
 
   switch (tone) {
@@ -82,7 +92,7 @@ export function getSessionProgressLabel(
     case "transcript":
       return "Interpreting transcript";
     case "screenshots":
-      return "Extracting screenshots";
+      return session.latestStageTitle || "Extracting screenshots";
     case "diagram":
       return "Building diagram";
     case "ready":

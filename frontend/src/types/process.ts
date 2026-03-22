@@ -46,6 +46,8 @@ export type CandidateScreenshot = {
 
 export type ProcessStep = {
   id: string;
+  processGroupId?: string | null;
+  meetingId?: string | null;
   stepNumber: number;
   applicationName: string;
   actionText: string;
@@ -64,6 +66,8 @@ export type ProcessStep = {
 
 export type ProcessNote = {
   id: string;
+  processGroupId?: string | null;
+  meetingId?: string | null;
   text: string;
   relatedStepIds: string[];
   evidenceReferenceIds: string[];

@@ -6,6 +6,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\mappers
 import json
 
 from app.models.draft_session import DraftSessionModel
+from app.models.process_group import ProcessGroupModel
 from app.models.process_note import ProcessNoteModel
 from app.models.process_step import ProcessStepModel
 from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
@@ -17,6 +18,7 @@ from app.schemas.draft_session import (
     DraftSessionListItemResponse,
     DraftSessionResponse,
     ProcessNoteResponse,
+    ProcessGroupResponse,
     ProcessStepResponse,
     StepScreenshotResponse,
 )
@@ -51,6 +53,11 @@ def _latest_action_log_by_type(session: DraftSessionModel, event_type: str):
 
 
 def _latest_stage_info(session: DraftSessionModel) -> tuple[str, str]:
+    latest_action_log = next(
+        iter(sorted(session.action_logs, key=lambda action_log: action_log.created_at, reverse=True)),
+        None,
+    )
+
     if session.status == "failed":
         failure_log = _latest_action_log_by_type(session, "generation_failed")
         return "Run failed", failure_log.detail if failure_log is not None else "Generation failed."
@@ -72,6 +79,12 @@ def _latest_stage_info(session: DraftSessionModel) -> tuple[str, str]:
         return "Inputs uploaded", "Upload complete. Resume this draft to start generation."
 
     if session.status == "review":
+        if latest_action_log is not None and latest_action_log.event_type in {
+            "screenshot_generation_queued",
+            "generation_stage",
+            "screenshots_generated",
+        }:
+            return latest_action_log.title, latest_action_log.detail
         return "Ready for review", "Draft generation completed successfully."
 
     if session.status == "exported":
@@ -93,6 +106,8 @@ def map_process_step(step: ProcessStepModel) -> ProcessStepResponse:
     ]
     return ProcessStepResponse(
         id=step.id,
+        process_group_id=step.process_group_id,
+        meeting_id=step.meeting_id,
         step_number=step.step_number,
         application_name=step.application_name,
         action_text=step.action_text,
@@ -145,6 +160,8 @@ def map_process_note(note: ProcessNoteModel) -> ProcessNoteResponse:
     """Convert a persisted process note into an API response."""
     return ProcessNoteResponse(
         id=note.id,
+        process_group_id=note.process_group_id,
+        meeting_id=note.meeting_id,
         text=note.text,
         related_step_ids=_parse_json_list(note.related_step_ids),
         evidence_reference_ids=_parse_json_list(note.evidence_reference_ids),
@@ -158,6 +175,11 @@ def map_action_log(action_log) -> ActionLogResponse:
     return ActionLogResponse.model_validate(action_log)
 
 
+def map_process_group(process_group: ProcessGroupModel) -> ProcessGroupResponse:
+    """Convert one persisted process group into an API response."""
+    return ProcessGroupResponse.model_validate(process_group)
+
+
 def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
     """Convert a full persisted draft session into an API response."""
     return DraftSessionResponse(
@@ -168,6 +190,7 @@ def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
         diagram_type=session.diagram_type,
         created_at=session.created_at,
         updated_at=session.updated_at,
+        process_groups=[map_process_group(group) for group in sorted(session.process_groups, key=lambda item: item.display_order)],
         artifacts=session.artifacts,
         process_steps=[map_process_step(step) for step in sorted(session.process_steps, key=lambda item: item.step_number)],
         process_notes=[map_process_note(note) for note in session.process_notes],
@@ -180,6 +203,7 @@ def map_draft_session_list_item(session: DraftSessionModel) -> DraftSessionListI
     """Convert one draft session into a compact history-list item."""
     latest_stage_title, latest_stage_detail = _latest_stage_info(session)
     failure_log = _latest_action_log_by_type(session, "generation_failed")
+    failure_detail = failure_log.detail if session.status == "failed" and failure_log is not None else ""
     return DraftSessionListItemResponse(
         id=session.id,
         title=session.title,
@@ -190,7 +214,7 @@ def map_draft_session_list_item(session: DraftSessionModel) -> DraftSessionListI
         updated_at=session.updated_at,
         latest_stage_title=latest_stage_title,
         latest_stage_detail=latest_stage_detail,
-        failure_detail=failure_log.detail if failure_log is not None else "",
+        failure_detail=failure_detail,
         resume_ready=session.status == "draft" and _has_required_uploads(session),
         can_retry=session.status == "failed",
     )

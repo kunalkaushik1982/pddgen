@@ -38,7 +38,7 @@ class SessionChatService:
         """Return whether AI-backed session chat is configured."""
         return bool(self.settings.ai_enabled and self.settings.ai_api_key and self.settings.ai_base_url and self.settings.ai_model)
 
-    def ask(self, *, session: DraftSessionModel, question: str) -> dict[str, Any]:
+    def ask(self, *, session: DraftSessionModel, question: str, process_group_id: str | None = None) -> dict[str, Any]:
         """Return one grounded answer with citations for the provided session question."""
         if not self.is_enabled():
             raise RuntimeError("Ask this Session is unavailable because AI is not configured.")
@@ -47,7 +47,7 @@ class SessionChatService:
         if not cleaned_question:
             raise RuntimeError("A question is required.")
 
-        evidence_items = self._build_evidence_items(session)
+        evidence_items = self._build_evidence_items(session, process_group_id=process_group_id)
         if not evidence_items:
             raise RuntimeError("No grounded session evidence is available yet for this question.")
 
@@ -84,6 +84,7 @@ class SessionChatService:
                     "content": json.dumps(
                         {
                             "session_title": session.title,
+                            "process_group_id": process_group_id,
                             "question": cleaned_question,
                             "evidence": evidence_payload,
                         },
@@ -121,11 +122,25 @@ class SessionChatService:
             "citations": citations,
         }
 
-    def _build_evidence_items(self, session: DraftSessionModel) -> list[SessionEvidenceItem]:
+    def _build_evidence_items(self, session: DraftSessionModel, *, process_group_id: str | None = None) -> list[SessionEvidenceItem]:
         """Build a bounded set of evidence items for model grounding."""
         evidence_items: list[SessionEvidenceItem] = []
 
-        for step in sorted(session.process_steps, key=lambda item: item.step_number):
+        filtered_steps = [
+            step
+            for step in sorted(session.process_steps, key=lambda item: item.step_number)
+            if process_group_id is None or step.process_group_id == process_group_id
+        ]
+        filtered_notes = [
+            note
+            for note in session.process_notes
+            if process_group_id is None or note.process_group_id == process_group_id
+        ]
+        allowed_meeting_ids = {step.meeting_id for step in filtered_steps if step.meeting_id} | {
+            note.meeting_id for note in filtered_notes if note.meeting_id
+        }
+
+        for step in filtered_steps:
             step_body_parts = [
                 f"Application: {step.application_name}" if step.application_name else "",
                 f"Action: {step.action_text}" if step.action_text else "",
@@ -146,7 +161,7 @@ class SessionChatService:
                 )
             )
 
-        for index, note in enumerate(session.process_notes[:8], start=1):
+        for index, note in enumerate(filtered_notes[:8], start=1):
             note_body = note.text.strip()
             if not note_body:
                 continue
@@ -161,6 +176,10 @@ class SessionChatService:
             )
 
         transcript_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "transcript"]
+        if process_group_id is not None and allowed_meeting_ids:
+            transcript_artifacts = [
+                artifact for artifact in transcript_artifacts if getattr(artifact, "meeting_id", None) in allowed_meeting_ids
+            ]
         transcript_chunk_index = 1
         for artifact in transcript_artifacts[:3]:
             transcript_text = self.storage_service.read_text(artifact.storage_path).strip()

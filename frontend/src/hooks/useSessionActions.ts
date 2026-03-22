@@ -6,14 +6,31 @@ import { useToast } from "../providers/ToastProvider";
 import { exportService } from "../services/exportService";
 import { sessionService } from "../services/sessionService";
 import type { ProcessStep } from "../types/process";
+import type { DraftSessionListItem } from "../types/session";
 import { getErrorMessage } from "../utils/errors";
 
-export function useSessionActions(sessionId: string | null, processSteps: ProcessStep[] = []) {
+export function useSessionActions(
+  sessionId: string | null,
+  processSteps: ProcessStep[] = [],
+  sessionUpdatedAt: string | null = null,
+  latestActionLogTitle: string | null = null,
+) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = useState<"docx" | "pdf" | null>(null);
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
+  const [isGeneratingScreenshots, setIsGeneratingScreenshots] = useState(false);
+  const [screenshotRefreshAnchor, setScreenshotRefreshAnchor] = useState<string | null>(null);
+  const normalizedLatestActionTitle = (latestActionLogTitle ?? "").trim().toLowerCase();
+  const screenshotStageActive = ["screenshot generation queued", "extracting screenshots"].includes(
+    normalizedLatestActionTitle,
+  );
+  const draftStageActive = ["draft generation queued", "generation queued", "interpreting transcript", "building diagram"].includes(
+    normalizedLatestActionTitle,
+  );
+  const draftActionLabel = processSteps.length > 0 ? "Regenerate Draft" : "Generate Draft";
 
   useEffect(() => {
     if (processSteps.length === 0) {
@@ -24,6 +41,30 @@ export function useSessionActions(sessionId: string | null, processSteps: Proces
       current && processSteps.some((step) => step.id === current) ? current : processSteps[0]?.id ?? null,
     );
   }, [processSteps]);
+
+  useEffect(() => {
+    if (!screenshotRefreshAnchor || !sessionUpdatedAt) {
+      return;
+    }
+    if (sessionUpdatedAt !== screenshotRefreshAnchor) {
+      setScreenshotRefreshAnchor(null);
+      setIsGeneratingScreenshots(false);
+    }
+  }, [screenshotRefreshAnchor, sessionUpdatedAt]);
+
+  useEffect(() => {
+    if (screenshotStageActive) {
+      setIsGeneratingScreenshots(true);
+      return;
+    }
+    if (!screenshotRefreshAnchor) {
+      setIsGeneratingScreenshots(false);
+    }
+  }, [screenshotRefreshAnchor, screenshotStageActive]);
+
+  useEffect(() => {
+    setIsGeneratingDraft(draftStageActive);
+  }, [draftStageActive]);
 
   async function refreshSession(): Promise<void> {
     if (!sessionId) {
@@ -103,6 +144,83 @@ export function useSessionActions(sessionId: string | null, processSteps: Proces
     },
   });
 
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      if (!sessionId) {
+        return null;
+      }
+      return sessionService.generateDraftSession(sessionId);
+    },
+    onMutate: () => {
+      setIsGeneratingDraft(true);
+    },
+    onSuccess: async (session) => {
+      if (!sessionId || !session) {
+        return;
+      }
+      queryClient.setQueryData<DraftSessionListItem[] | undefined>(["draftSessions"], (current) =>
+        (current ?? []).map((item) =>
+          item.id === sessionId
+            ? {
+                ...item,
+                latestStageTitle: "Draft generation queued",
+                latestStageDetail: "Transcript interpretation and canonical draft regeneration queued for this session.",
+              }
+            : item,
+        ),
+      );
+      queryClient.setQueryData(["draftSession", sessionId], session);
+      await queryClient.invalidateQueries({ queryKey: ["draftSession", sessionId] });
+      await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
+      showToast("info", "Draft generation started for this session.");
+      navigate("/projects");
+    },
+    onError: (error) => showToast("error", getErrorMessage(error)),
+    onSettled: () => {
+      setIsGeneratingDraft(false);
+    },
+  });
+
+  const screenshotMutation = useMutation({
+    mutationFn: async () => {
+      if (!sessionId) {
+        return null;
+      }
+      return sessionService.generateSessionScreenshots(sessionId);
+    },
+    onMutate: () => {
+      setIsGeneratingScreenshots(true);
+    },
+    onSuccess: async (session) => {
+      if (!sessionId || !session) {
+        return;
+      }
+      setScreenshotRefreshAnchor(sessionUpdatedAt);
+      queryClient.setQueryData<DraftSessionListItem[] | undefined>(["draftSessions"], (current) =>
+        (current ?? []).map((item) =>
+          item.id === sessionId
+            ? {
+                ...item,
+                latestStageTitle: "Screenshot generation queued",
+                latestStageDetail: "Video-based screenshot derivation queued for the current canonical steps.",
+              }
+            : item,
+        ),
+      );
+      queryClient.setQueryData(["draftSession", sessionId], session);
+      await queryClient.invalidateQueries({ queryKey: ["draftSession", sessionId] });
+      await queryClient.invalidateQueries({ queryKey: ["draftSessions"] });
+      showToast("info", "Screenshot generation started for this session.");
+      navigate("/projects");
+    },
+    onError: (error) => showToast("error", getErrorMessage(error)),
+    onSettled: () => {
+      if (!screenshotRefreshAnchor) {
+        setIsGeneratingScreenshots(false);
+      }
+    },
+  });
+
   return {
     selectedStepId,
     setSelectedStepId,
@@ -111,9 +229,16 @@ export function useSessionActions(sessionId: string | null, processSteps: Proces
       updateStepMutation.isPending ||
       setPrimaryScreenshotMutation.isPending ||
       removeScreenshotMutation.isPending ||
-      selectCandidateMutation.isPending,
+      selectCandidateMutation.isPending ||
+      isGeneratingDraft ||
+      isGeneratingScreenshots,
+    generatingScreenshots: isGeneratingScreenshots,
+    generatingDraft: isGeneratingDraft,
+    draftActionLabel,
     backToWorkspace: () => navigate("/workspace"),
     refreshSession,
+    generateDraft: () => generateMutation.mutate(),
+    generateScreenshots: () => screenshotMutation.mutate(),
     exportDocx: () => exportMutation.mutate("docx"),
     exportPdf: () => exportMutation.mutate("pdf"),
     saveStep: async (stepId: string, payload: Partial<ProcessStep>) => {

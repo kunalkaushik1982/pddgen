@@ -29,6 +29,7 @@ const SessionChatPanel = lazy(async () => {
 
 type StepReviewPageProps = {
   session: DraftSession | null;
+  meetingSection?: React.ReactNode;
   selectedStepId: string | null;
   initialReviewMode?: ReviewMode;
   disabled?: boolean;
@@ -49,6 +50,7 @@ type StepReviewPageProps = {
 
 export function StepReviewPage({
   session,
+  meetingSection = null,
   selectedStepId,
   initialReviewMode = "view",
   disabled,
@@ -62,14 +64,6 @@ export function StepReviewPage({
   onRefreshSession,
   onSelectCandidateScreenshot,
 }: StepReviewPageProps): React.JSX.Element {
-  const selectedStep = session?.processSteps.find((step) => step.id === selectedStepId) ?? session?.processSteps[0] ?? null;
-  const askSession = useAskSession(session);
-  const stepEditor = useStepEditor(selectedStep);
-  const workspace = useReviewWorkspace({
-    initialReviewMode,
-    sessionId: session?.id ?? null,
-  });
-
   if (!session) {
     return (
       <section className="panel">
@@ -78,6 +72,56 @@ export function StepReviewPage({
       </section>
     );
   }
+
+  const workspace = useReviewWorkspace({
+    initialReviewMode,
+    sessionId: session?.id ?? null,
+  });
+  const stepCountByProcessGroup = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const step of session.processSteps) {
+      if (!step.processGroupId) {
+        continue;
+      }
+      counts.set(step.processGroupId, (counts.get(step.processGroupId) ?? 0) + 1);
+    }
+    return counts;
+  }, [session.processSteps]);
+  const availableProcessGroups = [...session.processGroups]
+    .sort((left, right) => left.displayOrder - right.displayOrder)
+    .filter((group) => {
+      const stepCount = stepCountByProcessGroup.get(group.id) ?? 0;
+      const normalizedTitle = group.title.trim().toLowerCase();
+      const isDefaultUnnamedGroup = /^process\s+\d+$/.test(normalizedTitle);
+      if (isDefaultUnnamedGroup && stepCount === 0) {
+        return false;
+      }
+      return true;
+    });
+  const fallbackProcessGroupId = availableProcessGroups[0]?.id ?? null;
+  const [selectedProcessGroupId, setSelectedProcessGroupId] = React.useState<string | null>(fallbackProcessGroupId);
+
+  React.useEffect(() => {
+    if (availableProcessGroups.length === 0) {
+      setSelectedProcessGroupId(null);
+      return;
+    }
+    if (!selectedProcessGroupId || availableProcessGroups.every((group) => group.id !== selectedProcessGroupId)) {
+      setSelectedProcessGroupId(availableProcessGroups[0]?.id ?? null);
+    }
+  }, [availableProcessGroups, selectedProcessGroupId]);
+
+  const activeProcessGroup =
+    availableProcessGroups.find((group) => group.id === selectedProcessGroupId) ?? availableProcessGroups[0] ?? null;
+  const filteredSteps = activeProcessGroup
+    ? session.processSteps.filter((step) => (step.processGroupId ?? null) === activeProcessGroup.id)
+    : session.processSteps;
+  const filteredNotes = activeProcessGroup
+    ? session.processNotes.filter((note) => (note.processGroupId ?? null) === activeProcessGroup.id)
+    : session.processNotes;
+  const selectedStep = filteredSteps.find((step) => step.id === selectedStepId) ?? filteredSteps[0] ?? null;
+  const askSession = useAskSession(session, activeProcessGroup?.id ?? null);
+  const stepEditor = useStepEditor(selectedStep);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,16 +132,16 @@ export function StepReviewPage({
   }
 
   const currentCandidate = stepEditor.currentCandidate;
-  const applications = Array.from(new Set(session.processSteps.map((step) => step.applicationName).filter(Boolean)));
-  const editedSteps = session.processSteps.filter((step) => step.editedByBa);
-  const screenshotCount = session.processSteps.reduce((total, step) => total + step.screenshots.length, 0);
-  const primaryScreenshotCount = session.processSteps.reduce(
+  const applications = Array.from(new Set(filteredSteps.map((step) => step.applicationName).filter(Boolean)));
+  const editedSteps = filteredSteps.filter((step) => step.editedByBa);
+  const screenshotCount = filteredSteps.reduce((total, step) => total + step.screenshots.length, 0);
+  const primaryScreenshotCount = filteredSteps.reduce(
     (total, step) => total + step.screenshots.filter((screenshot) => screenshot.isPrimary).length,
     0,
   );
-  const summaryHeading = session.processNotes[0]?.text || uiCopy.summaryHeadingFallback;
+  const summaryHeading = activeProcessGroup?.title || filteredNotes[0]?.text || uiCopy.summaryHeadingFallback;
   const summarySubheading = applications.length > 0 ? applications.join(" and ") : uiCopy.summarySubheadingFallback;
-  const summaryBullets = session.processSteps.slice(0, 12).map((step) => step.actionText);
+  const summaryBullets = filteredSteps.slice(0, 12).map((step) => step.actionText);
   const actionLogEntries = session.actionLogs;
 
   function renderLazyPanel(children: React.ReactNode, message: string) {
@@ -127,7 +171,7 @@ export function StepReviewPage({
         <div>
           <strong>{session.title}</strong>
           <div className="artifact-meta">
-            {session.processSteps.length} step(s) | status {session.status}
+            {filteredSteps.length} step(s) | status {session.status}
           </div>
         </div>
         <div className="review-header-actions">
@@ -164,6 +208,29 @@ export function StepReviewPage({
         <div className="empty-state">No steps have been generated yet.</div>
       ) : (
         <div className="review-subsection-stack">
+          {availableProcessGroups.length > 1 ? (
+            <div className="process-group-switcher panel">
+              <div className="process-group-switcher-header">
+                <strong>Detected Processes</strong>
+                <span className="artifact-meta">Switch the review surface between independent workflows in this session.</span>
+              </div>
+              <div className="process-group-pill-row" role="tablist" aria-label="Detected process groups">
+                {availableProcessGroups.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeProcessGroup?.id === group.id}
+                    className={`process-group-pill ${activeProcessGroup?.id === group.id ? "process-group-pill-active" : ""}`}
+                    onClick={() => setSelectedProcessGroupId(group.id)}
+                  >
+                    {group.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <ReviewWorkspaceTabs
             reviewMode={workspace.reviewMode}
             activeViewTab={workspace.activeViewTab}
@@ -178,15 +245,15 @@ export function StepReviewPage({
                 heading={summaryHeading}
                 subheading={summarySubheading}
                 summaryBullets={summaryBullets}
-                sessionTitle={session.title}
-                stepCount={session.processSteps.length}
+                sessionTitle={activeProcessGroup?.title ?? session.title}
+                stepCount={filteredSteps.length}
                 diagramType={session.diagramType}
                 applicationsLabel={applications.length > 0 ? applications.join(", ") : "Not detected"}
                 applicationCount={applications.length}
                 screenshotCount={screenshotCount}
                 primaryScreenshotCount={primaryScreenshotCount}
                 editedStepCount={editedSteps.length}
-                noteCount={session.processNotes.length}
+                noteCount={filteredNotes.length}
               />
             </section>
           ) : null}
@@ -196,10 +263,19 @@ export function StepReviewPage({
               panelId="review-view-panel-diagram"
               labelledBy="review-view-tab-diagram"
               title="Diagram"
-              subtitle="Read-only process diagram preview."
+              subtitle={
+                activeProcessGroup
+                  ? `Showing diagram for ${activeProcessGroup.title}.`
+                  : "Read-only process diagram preview."
+              }
             >
               {renderLazyPanel(
-                <FlowchartPreviewPanel session={session} allowEditing={false} onSessionRefresh={onRefreshSession} />,
+                <FlowchartPreviewPanel
+                  session={session}
+                  allowEditing={false}
+                  onSessionRefresh={onRefreshSession}
+                  processGroupId={activeProcessGroup?.id ?? null}
+                />,
                 "Loading diagram preview...",
               )}
             </SessionDiagramSection>
@@ -227,10 +303,19 @@ export function StepReviewPage({
               panelId="review-edit-panel-diagram"
               labelledBy="review-edit-tab-diagram"
               title="Diagram Editor"
-              subtitle="Edit the saved detailed process diagram used in review and export."
+              subtitle={
+                activeProcessGroup
+                  ? `Editing diagram for ${activeProcessGroup.title}. Layout positions remain session-level for now.`
+                  : "Edit the saved detailed process diagram used in review and export."
+              }
             >
               {renderLazyPanel(
-                <FlowchartPreviewPanel session={session} allowEditing onSessionRefresh={onRefreshSession} />,
+                <FlowchartPreviewPanel
+                  session={session}
+                  allowEditing
+                  onSessionRefresh={onRefreshSession}
+                  processGroupId={activeProcessGroup?.id ?? null}
+                />,
                 "Loading diagram editor...",
               )}
             </SessionDiagramSection>
@@ -245,7 +330,7 @@ export function StepReviewPage({
               mode="view"
               stepEditor={stepEditor}
               selectedStep={selectedStep}
-              steps={session.processSteps}
+              steps={filteredSteps}
               selectedStepId={selectedStep?.id ?? null}
               disabled={disabled}
               onSelectStep={onSelectStep}
@@ -265,7 +350,7 @@ export function StepReviewPage({
               mode="edit"
               stepEditor={stepEditor}
               selectedStep={selectedStep}
-              steps={session.processSteps}
+              steps={filteredSteps}
               selectedStepId={selectedStep?.id ?? null}
               disabled={disabled}
               onSelectStep={onSelectStep}
@@ -286,6 +371,14 @@ export function StepReviewPage({
                 await onSelectCandidateScreenshot(step.id, candidate.id, { isPrimary: makePrimary });
               }}
             />
+          ) : null}
+
+          {workspace.reviewMode === "edit" && workspace.activeEditTab === "meetings" ? (
+            <section role="tabpanel" id="review-edit-panel-meetings" aria-labelledby="review-edit-tab-meetings">
+              {meetingSection ?? (
+                <div className="empty-state">Meeting evidence controls are not available for this session.</div>
+              )}
+            </section>
           ) : null}
 
           {workspace.reviewMode === "view" && workspace.activeViewTab === "log" ? (

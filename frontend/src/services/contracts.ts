@@ -7,9 +7,11 @@ import type {
 import type { ProcessNote, ProcessStep } from "../types/process";
 import type { DraftSession, InputArtifact, SessionAnswer } from "../types/session";
 import type { AdminUserSummary } from "../types/admin";
+import type { Meeting } from "../types/meeting";
 
 export type BackendArtifact = {
   id: string;
+  meeting_id?: string | null;
   name: string;
   kind: InputArtifact["kind"];
   storage_path: string;
@@ -46,6 +48,8 @@ export type BackendCandidateScreenshot = {
 
 export type BackendProcessStep = {
   id: string;
+  process_group_id?: string | null;
+  meeting_id?: string | null;
   step_number: number;
   application_name: string;
   action_text: string;
@@ -64,6 +68,8 @@ export type BackendProcessStep = {
 
 export type BackendProcessNote = {
   id: string;
+  process_group_id?: string | null;
+  meeting_id?: string | null;
   text: string;
   related_step_ids: string[];
   evidence_reference_ids: string[];
@@ -76,6 +82,18 @@ export type BackendOutputDocument = {
   kind: string;
   storage_path: string;
   exported_at: string;
+};
+
+export type BackendProcessGroup = {
+  id: string;
+  session_id: string;
+  title: string;
+  canonical_slug: string;
+  status: string;
+  display_order: number;
+  summary_text: string;
+  overview_diagram_json: string;
+  detailed_diagram_json: string;
 };
 
 export type BackendActionLog = {
@@ -93,6 +111,7 @@ export type BackendDraftSession = {
   status: DraftSession["status"];
   owner_id: string;
   diagram_type: DraftSession["diagramType"];
+  process_groups: BackendProcessGroup[];
   artifacts: BackendArtifact[];
   process_steps: BackendProcessStep[];
   process_notes: BackendProcessNote[];
@@ -144,6 +163,15 @@ export type BackendAdminUserSummary = {
   active_jobs: number;
 };
 
+export type BackendMeeting = {
+  id: string;
+  session_id: string;
+  title: string;
+  meeting_date: string | null;
+  uploaded_at: string;
+  order_index: number | null;
+};
+
 export type BackendAuthResponse = {
   auth_status?: string;
   challenge_type?: string | null;
@@ -180,6 +208,7 @@ export type BackendDiagramModel = {
 
 export type BackendDiagramLayoutResponse = {
   session_id: string;
+  process_group_id?: string | null;
   view_type: DiagramModel["viewType"];
   export_preset: DiagramExportPreset;
   canvas_settings: {
@@ -218,3 +247,4 @@ export type StepUpdatePayload = Partial<{
 
 export type BackendMappedUser = User;
 export type BackendMappedAdminUserSummary = AdminUserSummary;
+export type BackendMappedMeeting = Meeting;

@@ -32,6 +32,7 @@ function createSession(): DraftSession {
     status: "review",
     ownerId: "kunal",
     diagramType: "flowchart",
+    processGroups: [],
     inputArtifacts: [],
     processSteps: [
       {

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
+from app.models.meeting_evidence_bundle import MeetingEvidenceBundleModel
 from app.storage.storage_service import StorageService
 from app.services.artifact_validation import ArtifactValidationService
 
@@ -41,6 +42,9 @@ class ArtifactIngestionService:
         upload: UploadFile,
         artifact_kind: str,
         owner_id: str,
+        meeting_id: str | None = None,
+        upload_batch_id: str | None = None,
+        upload_pair_index: int | None = None,
     ) -> ArtifactModel:
         """Validate, persist, and register a newly uploaded artifact."""
         session = db.get(DraftSessionModel, session_id)
@@ -56,6 +60,9 @@ class ArtifactIngestionService:
 
         artifact = ArtifactModel(
             session_id=session_id,
+            meeting_id=meeting_id,
+            upload_batch_id=upload_batch_id,
+            upload_pair_index=upload_pair_index,
             name=upload.filename or "artifact",
             kind=artifact_kind,
             storage_path=storage_path,
@@ -65,7 +72,52 @@ class ArtifactIngestionService:
         db.add(artifact)
         db.commit()
         db.refresh(artifact)
+        if upload_batch_id and meeting_id is not None:
+            self._upsert_evidence_bundle(
+                db,
+                session_id=session_id,
+                meeting_id=meeting_id,
+                artifact=artifact,
+                upload_batch_id=upload_batch_id,
+                upload_pair_index=upload_pair_index or 0,
+            )
         return artifact
+
+    @staticmethod
+    def _upsert_evidence_bundle(
+        db: Session,
+        *,
+        session_id: str,
+        meeting_id: str,
+        artifact: ArtifactModel,
+        upload_batch_id: str,
+        upload_pair_index: int,
+    ) -> None:
+        bundle = (
+            db.query(MeetingEvidenceBundleModel)
+            .filter(
+                MeetingEvidenceBundleModel.session_id == session_id,
+                MeetingEvidenceBundleModel.meeting_id == meeting_id,
+                MeetingEvidenceBundleModel.upload_batch_id == upload_batch_id,
+                MeetingEvidenceBundleModel.pair_index == upload_pair_index,
+            )
+            .one_or_none()
+        )
+        if bundle is None:
+            bundle = MeetingEvidenceBundleModel(
+                session_id=session_id,
+                meeting_id=meeting_id,
+                upload_batch_id=upload_batch_id,
+                pair_index=upload_pair_index,
+            )
+            db.add(bundle)
+
+        if artifact.kind == "transcript":
+            bundle.transcript_artifact_id = artifact.id
+        elif artifact.kind == "video":
+            bundle.video_artifact_id = artifact.id
+
+        db.commit()
 
     def save_diagram_artifact(
         self,

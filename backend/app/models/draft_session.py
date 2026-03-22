@@ -16,7 +16,10 @@ if TYPE_CHECKING:
     from app.models.action_log import ActionLogModel
     from app.models.artifact import ArtifactModel
     from app.models.diagram_layout import DiagramLayoutModel
+    from app.models.meeting import MeetingModel
+    from app.models.meeting_evidence_bundle import MeetingEvidenceBundleModel
     from app.models.output_document import OutputDocumentModel
+    from app.models.process_group import ProcessGroupModel
     from app.models.process_note import ProcessNoteModel
     from app.models.process_step import ProcessStepModel
 
@@ -37,6 +40,11 @@ class DraftSessionModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     artifacts: Mapped[list["ArtifactModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    meetings: Mapped[list["MeetingModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    meeting_evidence_bundles: Mapped[list["MeetingEvidenceBundleModel"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
+    )
+    process_groups: Mapped[list["ProcessGroupModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     action_logs: Mapped[list["ActionLogModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     diagram_layouts: Mapped[list["DiagramLayoutModel"]] = relationship(
         back_populates="session", cascade="all, delete-orphan"

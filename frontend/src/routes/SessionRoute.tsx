@@ -2,6 +2,7 @@ import React from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import { useSessionActions } from "../hooks/useSessionActions";
+import { MeetingsPanel } from "../components/session/MeetingsPanel";
 import { SessionDetailPage } from "../pages/SessionDetailPage";
 import { useDraftSession } from "../hooks/useDraftSessions";
 
@@ -10,16 +11,40 @@ export function SessionRoute(): React.JSX.Element {
   const [searchParams] = useSearchParams();
   const sessionQuery = useDraftSession(sessionId ?? null);
   const initialReviewMode = searchParams.get("mode") === "edit" ? "edit" : "view";
-  const actions = useSessionActions(sessionId ?? null, sessionQuery.data?.processSteps ?? []);
+  const latestActionLogTimestamp =
+    sessionQuery.data?.actionLogs.length ? sessionQuery.data.actionLogs[sessionQuery.data.actionLogs.length - 1]?.createdAt ?? null : null;
+  const latestActionLogTitle = sessionQuery.data?.actionLogs?.[0]?.title ?? null;
+  const actions = useSessionActions(
+    sessionId ?? null,
+    sessionQuery.data?.processSteps ?? [],
+    latestActionLogTimestamp,
+    latestActionLogTitle,
+  );
 
   return (
     <SessionDetailPage
       session={sessionQuery.data ?? null}
+      meetingSection={
+        sessionId ? (
+          <MeetingsPanel
+            sessionId={sessionId}
+            session={sessionQuery.data ?? null}
+            disabled={sessionQuery.isLoading || actions.disabled}
+            onUpdateDraft={actions.generateDraft}
+            updatingDraft={actions.generatingDraft}
+          />
+        ) : null
+      }
       selectedStepId={actions.selectedStepId}
       initialReviewMode={initialReviewMode}
       disabled={sessionQuery.isLoading || actions.disabled}
+      generatingDraft={actions.generatingDraft}
+      generatingScreenshots={actions.generatingScreenshots}
+      draftActionLabel={actions.draftActionLabel}
       exportingFormat={actions.exportingFormat}
       onBackToWorkspace={actions.backToWorkspace}
+      onGenerateDraft={actions.generateDraft}
+      onGenerateScreenshots={actions.generateScreenshots}
       onExportDocx={actions.exportDocx}
       onExportPdf={actions.exportPdf}
       onSelectStep={actions.setSelectedStepId}

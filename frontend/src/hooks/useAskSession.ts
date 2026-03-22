@@ -15,7 +15,7 @@ type EvidencePreview =
   | { kind: "note"; title: string; note: ProcessNote }
   | { kind: "transcript"; title: string; snippet: string };
 
-export function useAskSession(session: DraftSession | null) {
+export function useAskSession(session: DraftSession | null, processGroupId: string | null = null) {
   const [entries, setEntries] = useState<SessionChatEntry[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedEvidence, setSelectedEvidence] = useState<EvidencePreview | null>(null);
@@ -26,7 +26,7 @@ export function useAskSession(session: DraftSession | null) {
     setErrorMessage(null);
     setSelectedEvidence(null);
     setIsAsking(false);
-  }, [session?.id]);
+  }, [session?.id, processGroupId]);
 
   async function ask(question: string): Promise<void> {
     if (!session) {
@@ -36,7 +36,7 @@ export function useAskSession(session: DraftSession | null) {
     setErrorMessage(null);
     setIsAsking(true);
     try {
-      const answer = await sessionService.askSession(session.id, question);
+      const answer = await sessionService.askSession(session.id, question, processGroupId);
       setEntries((current) => [
         {
           id: `${Date.now()}_${current.length}`,
@@ -73,7 +73,10 @@ export function useAskSession(session: DraftSession | null) {
     if (citation.sourceType === "note") {
       const noteIndexMatch = citation.id.match(/^note-(\d+)$/);
       const noteIndex = noteIndexMatch ? Number(noteIndexMatch[1]) - 1 : -1;
-      const matchingNote = noteIndex >= 0 ? session?.processNotes[noteIndex] : undefined;
+      const scopedNotes = processGroupId
+        ? session?.processNotes.filter((note) => note.processGroupId === processGroupId)
+        : session?.processNotes;
+      const matchingNote = noteIndex >= 0 ? scopedNotes?.[noteIndex] : undefined;
       if (matchingNote) {
         setSelectedEvidence({
           kind: "note",

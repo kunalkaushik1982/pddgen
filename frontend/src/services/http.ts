@@ -36,6 +36,11 @@ export function buildSecurityHeaders(method: string | undefined, headers: Record
 
 export async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const payload = (await response.json()) as { detail?: string };
+      throw new Error(payload.detail || `Request failed with status ${response.status}`);
+    }
     const fallback = await response.text();
     throw new Error(fallback || `Request failed with status ${response.status}`);
   }
