@@ -32,7 +32,7 @@ export function AuthenticatedArtifactImage({
         src={imageUrl}
         alt={alt}
         loading="lazy"
-        style={loadState === "ready" ? undefined : { display: "none" }}
+        style={loadState === "ready" ? undefined : { visibility: "hidden" }}
         onLoad={() => {
           setLoadState("ready");
         }}
