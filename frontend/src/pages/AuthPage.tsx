@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { uiCopy } from "../constants/uiCopy";
 
 type AuthPageProps = {
   disabled?: boolean;
@@ -20,8 +21,8 @@ export function AuthPage({ disabled, message, onLogin, onRegister }: AuthPagePro
     <main className="auth-shell">
       <section className="panel stack auth-panel">
         <div>
-          <h1 className="app-title">BA Process Copilot</h1>
-          <p className="app-subtitle">Sign in to create new runs and reopen previous ones.</p>
+          <h1 className="app-title">{uiCopy.appTitle}</h1>
+          <p className="app-subtitle">Sign in to create new sessions and reopen previous work.</p>
         </div>
 
         {message ? <div className={`status-banner ${message.tone === "error" ? "error" : ""}`}>{message.text}</div> : null}

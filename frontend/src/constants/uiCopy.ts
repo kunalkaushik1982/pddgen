@@ -1,6 +1,6 @@
 export const uiCopy = {
-  appTitle: "BA Process Copilot",
-  appSubtitle: "Upload discovery evidence, review AI-drafted AS-IS steps, and export a DOCX PDD.",
+  appTitle: "FlowLens",
+  appSubtitle: "Turn recordings and transcripts into structured SOPs, PDDs, and BRDs.",
   workspaceLabel: "Workspace",
   projectsLabel: "My Projects",
   sessionDetailLabel: "Session Detail",

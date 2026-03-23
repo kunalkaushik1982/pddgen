@@ -22,7 +22,7 @@ export function AboutPage({ about }: AboutPageProps): React.JSX.Element {
           <dl className="about-metadata">
             <div>
               <dt>Product</dt>
-              <dd>BA Process Copilot</dd>
+              <dd>{uiCopy.appTitle}</dd>
             </div>
             <div>
               <dt>Release</dt>
