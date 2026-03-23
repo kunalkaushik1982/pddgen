@@ -154,9 +154,9 @@ export function UploadPage({
     <section className="panel stack">
       {showHeader ? (
         <div>
-          <h2>1. Create Draft Session</h2>
+          <h2>1. Set Up Your Session</h2>
           <p className="muted">
-            Upload the required evidence: one or more videos, one or more transcripts, and one DOCX template.
+            Add recordings, transcripts, and the PDD template to prepare this session for draft generation.
           </p>
         </div>
       ) : null}
@@ -189,7 +189,7 @@ export function UploadPage({
 
           <div className="upload-grid">
             <label className="field-group upload-field-card">
-              <span>Process videos</span>
+              <span>Recording videos</span>
               <input
                 ref={videoInputRef}
                 type="file"
@@ -211,7 +211,7 @@ export function UploadPage({
             </label>
 
             <label className="field-group upload-field-card">
-              <span>PDD template (.docx)</span>
+              <span>PDD Word template (.docx)</span>
               <input
                 ref={templateInputRef}
                 type="file"

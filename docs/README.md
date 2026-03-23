@@ -182,6 +182,7 @@ So the immediate blockers for the first full local run are:
 
 ## Documentation
 
+- current processing status: [docs/processing-status.md](C:\Users\work\Documents\PddGenerator\docs\processing-status.md)
 - multi-process session design: [docs/multi-process-session-design.md](C:\Users\work\Documents\PddGenerator\docs\multi-process-session-design.md)
 - architecture details: [docs/architecture.md](C:\Users\work\Documents\PddGenerator\docs\architecture.md)
 - product blueprint: [masterplan.md](C:\Users\work\Documents\PddGenerator\masterplan.md)

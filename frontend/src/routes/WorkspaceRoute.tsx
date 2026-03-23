@@ -37,8 +37,8 @@ export function WorkspaceRoute(): React.JSX.Element {
         <section className="collapsible-section">
           <div className="collapsible-header">
             <div>
-              <h2>1. Session Controls</h2>
-              <p className="muted">Upload evidence, generate the PDD draft, and export the DOCX from one compact panel.</p>
+              <h2>1. Set Up Your Session</h2>
+              <p className="muted">Add recordings, transcripts, and the PDD template to prepare this session for draft generation.</p>
             </div>
           </div>
           <UploadPage
@@ -93,8 +93,8 @@ export function WorkspaceRoute(): React.JSX.Element {
         <section className="panel stack">
           <div className="section-header-inline">
             <div>
-              <h2>Ready To Generate</h2>
-              <p className="muted">These sessions already have uploaded inputs. Continue one to start generation without uploading again.</p>
+              <h2>Resume Uploaded Sessions</h2>
+              <p className="muted">These sessions already have uploaded inputs. Continue one to generate the draft without uploading again.</p>
             </div>
           </div>
           <div className="history-list">

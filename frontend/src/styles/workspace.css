@@ -139,7 +139,7 @@
   border: 1px solid var(--accent-border);
   border-radius: 12px;
   background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
-  color: var(--button-text);
+  color: var(--button-primary-text);
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
@@ -327,15 +327,15 @@
 }
 
 .selected-evidence-progress-label-uploading {
-  color: #60a5fa;
+  color: var(--status-info-text);
 }
 
 .selected-evidence-progress-label-uploaded {
-  color: #4ade80;
+  color: var(--status-success-text);
 }
 
 .selected-evidence-progress-label-failed {
-  color: #f87171;
+  color: var(--status-error-text);
 }
 
 .upload-workspace {
@@ -504,18 +504,18 @@
 }
 
 .upload-progress-uploading {
-  background: rgba(37, 99, 235, 0.16);
-  color: #60a5fa;
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
 }
 
 .upload-progress-uploaded {
-  background: rgba(22, 163, 74, 0.16);
-  color: #4ade80;
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
 }
 
 .upload-progress-failed {
-  background: rgba(220, 38, 38, 0.16);
-  color: #f87171;
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
 }
 
 .upload-progress-fill.upload-progress-pending {

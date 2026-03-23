@@ -27,7 +27,7 @@
 
 .diagram-preset-field span {
   font-size: 0.8rem;
-  color: #cdbbff;
+  color: var(--app-muted);
 }
 
 .diagram-preview-shell {
@@ -52,27 +52,27 @@
 
 .diagram-preview-canvas {
   height: 420px;
-  border: 1px solid rgba(148, 119, 255, 0.22);
+  border: 1px solid var(--accent-border);
   border-radius: 18px;
   overflow: hidden;
-  background: rgba(15, 10, 28, 0.92);
+  background: var(--preview-bg-strong);
 }
 
 .diagram-preview-canvas-theme-dark {
-  background: rgba(15, 10, 28, 0.92);
+  background: var(--preview-bg-strong);
 }
 
 .diagram-preview-canvas-theme-light {
-  background: rgba(247, 243, 255, 0.98);
+  background: var(--surface-soft);
 }
 
 .diagram-preview-canvas-theme-blueprint {
   background:
-    linear-gradient(180deg, rgba(17, 52, 107, 0.98) 0%, rgba(11, 34, 74, 0.98) 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--button-primary-start) 28%, var(--preview-bg) 72%) 0%, var(--preview-bg) 100%);
 }
 
 .diagram-preview-canvas-theme-plain {
-  background: rgba(25, 20, 39, 0.98);
+  background: var(--surface-card);
 }
 
 .diagram-preview-canvas-detailed {
@@ -94,28 +94,29 @@
 }
 
 .diagram-inspector {
-  background: rgba(24, 17, 40, 0.92);
-  border: 1px solid rgba(148, 119, 255, 0.22);
+  background: var(--surface-card);
+  border: 1px solid var(--accent-border);
   border-radius: 18px;
   padding: 10px;
   min-height: 220px;
   width: 220px;
+  color: var(--app-text);
 }
 
 .diagram-inspector-theme-light {
-  background: rgba(255, 249, 255, 0.96);
-  border-color: rgba(167, 139, 250, 0.24);
-  color: #2f2551;
+  background: var(--surface-soft);
+  border-color: var(--accent-border);
+  color: var(--app-text);
 }
 
 .diagram-inspector-theme-blueprint {
-  background: rgba(15, 41, 88, 0.96);
-  border-color: rgba(158, 208, 255, 0.3);
+  background: color-mix(in srgb, var(--button-primary-end) 24%, var(--preview-bg) 76%);
+  border-color: var(--accent-border);
 }
 
 .diagram-inspector-theme-plain {
-  background: rgba(31, 24, 47, 0.96);
-  border-color: rgba(168, 150, 214, 0.24);
+  background: var(--surface-soft);
+  border-color: var(--accent-border);
 }
 
 .diagram-inspector-floating {
@@ -160,7 +161,7 @@
 .diagram-inspector-theme-light .diagram-inspector-toggle,
 .diagram-inspector-theme-light .artifact-meta,
 .diagram-inspector-theme-light .diagram-inspector-header strong {
-  color: #5f4a82;
+  color: var(--app-muted);
 }
 
 .diagram-inspector-field select {
@@ -180,13 +181,13 @@
 }
 
 .diagram-inspector-theme-light .diagram-inspector-field select {
-  background: rgba(243, 237, 252, 0.98);
-  color: #2f2551;
+  background: var(--surface-soft);
+  color: var(--app-text);
 }
 
 .diagram-inspector-theme-light .button-secondary {
-  background: #ece3fb;
-  color: #2f2551;
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
 }
 
 .diagram-inspector .button-row {
@@ -206,11 +207,11 @@
   top: 24px;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  border: 1px solid rgba(148, 119, 255, 0.28);
+  border: 1px solid var(--accent-border);
   border-right: 0;
   border-radius: 14px 0 0 14px;
-  background: rgba(31, 20, 56, 0.96);
-  color: #efe9ff;
+  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  color: var(--button-primary-text);
   padding: 12px 10px;
   min-height: 120px;
   font-weight: 700;
@@ -241,9 +242,9 @@
 .diagram-node-decision-card {
   width: 100%;
   min-height: 100%;
-  border: 1px solid rgba(148, 119, 255, 0.45);
-  background: rgba(35, 24, 60, 0.96);
-  color: #f4eeff;
+  border: 1px solid var(--accent-border);
+  background: color-mix(in srgb, var(--preview-bg-strong) 86%, var(--button-primary-start) 14%);
+  color: var(--app-text);
   font-size: 0.92rem;
   line-height: 1.35;
   text-align: center;
@@ -251,22 +252,22 @@
 }
 
 .diagram-node-theme-light {
-  border-color: rgba(126, 79, 220, 0.3);
-  background: rgba(255, 255, 255, 0.98);
-  color: #2f2551;
+  border-color: var(--accent-border);
+  background: var(--surface-soft);
+  color: var(--app-text);
   box-shadow: 0 16px 28px rgba(98, 74, 153, 0.12);
 }
 
 .diagram-node-theme-blueprint {
-  border-color: rgba(158, 208, 255, 0.42);
-  background: rgba(18, 64, 129, 0.94);
-  color: #eef6ff;
+  border-color: var(--accent-border);
+  background: color-mix(in srgb, var(--button-primary-end) 36%, var(--preview-bg) 64%);
+  color: var(--app-text);
 }
 
 .diagram-node-theme-plain {
-  border-color: rgba(176, 156, 219, 0.36);
-  background: rgba(44, 33, 69, 0.98);
-  color: #f4eeff;
+  border-color: var(--accent-border);
+  background: var(--surface-card);
+  color: var(--app-text);
 }
 
 .diagram-node-card {
@@ -342,25 +343,25 @@
 .diagram-node-range {
   margin-top: 6px;
   font-size: 0.74rem;
-  color: #cdbbff;
+  color: var(--app-muted);
 }
 
 .diagram-node-theme-light .diagram-node-range {
-  color: #7a61a6;
+  color: var(--app-muted);
 }
 
 .diagram-node-theme-light .diagram-node-input,
 .diagram-node-theme-light .diagram-node-title {
-  color: #2f2551;
+  color: var(--app-text);
 }
 
 .diagram-node-theme-blueprint .diagram-node-input,
 .diagram-node-theme-blueprint .diagram-node-title {
-  color: #eef6ff;
+  color: var(--app-text);
 }
 
 .diagram-preview-canvas .react-flow__edge-path {
-  stroke: #9d7dff;
+  stroke: var(--button-primary-start);
   stroke-width: 2px;
   fill: none;
 }
@@ -374,9 +375,9 @@
 .diagram-edge-badge {
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(140, 103, 243, 0.35);
-  color: #4b3a72;
+  background: var(--surface-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--app-text);
   font-size: 0.76rem;
   line-height: 1;
 }
@@ -392,8 +393,8 @@
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid rgba(255, 214, 102, 0.9);
-  background: rgba(20, 13, 36, 0.96);
-  color: #f4eeff;
+  background: var(--surface-card);
+  color: var(--app-text);
   font: inherit;
   font-size: 0.78rem;
   text-align: center;
@@ -401,20 +402,20 @@
 
 .diagram-preview-canvas .react-flow__controls,
 .diagram-preview-canvas .react-flow__minimap {
-  background: rgba(24, 17, 40, 0.92);
-  border: 1px solid rgba(148, 119, 255, 0.22);
+  background: var(--surface-soft);
+  border: 1px solid var(--accent-border);
 }
 
 .diagram-preview-canvas-theme-light .react-flow__controls,
 .diagram-preview-canvas-theme-light .react-flow__minimap {
-  background: rgba(255, 248, 255, 0.95);
-  border-color: rgba(167, 139, 250, 0.24);
+  background: var(--surface-soft);
+  border-color: var(--accent-border);
 }
 
 .diagram-preview-canvas-theme-blueprint .react-flow__controls,
 .diagram-preview-canvas-theme-blueprint .react-flow__minimap {
-  background: rgba(15, 41, 88, 0.94);
-  border-color: rgba(158, 208, 255, 0.24);
+  background: color-mix(in srgb, var(--button-primary-end) 24%, var(--preview-bg) 76%);
+  border-color: var(--accent-border);
 }
 
 .diagram-preview-canvas .react-flow__handle {
@@ -423,8 +424,8 @@
   min-width: 10px;
   min-height: 10px;
   opacity: 0;
-  border: 1px solid rgba(205, 187, 255, 0.55);
-  background: #2a1f43;
+  border: 1px solid var(--accent-border);
+  background: var(--button-secondary-bg);
   pointer-events: none;
 }
 
@@ -448,9 +449,9 @@
 .overview-edge-label {
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(140, 103, 243, 0.35);
-  color: #4b3a72;
+  background: var(--surface-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--app-text);
   font-size: 0.76rem;
   font-weight: 600;
 }

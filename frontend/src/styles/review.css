@@ -44,7 +44,7 @@
 
 .review-mode-tab-active {
   background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
-  color: #faf5ff;
+  color: var(--button-primary-text);
   box-shadow: 0 10px 24px var(--button-primary-shadow);
 }
 
@@ -86,7 +86,7 @@
 .process-group-pill-active {
   border-color: transparent;
   background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
-  color: #faf5ff;
+  color: var(--button-primary-text);
   box-shadow: 0 10px 24px var(--button-primary-shadow);
 }
 
@@ -112,7 +112,7 @@
 
 .review-workspace-tab-active {
   background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
-  color: #faf5ff;
+  color: var(--button-primary-text);
   box-shadow: 0 10px 24px var(--button-primary-shadow);
 }
 
@@ -311,18 +311,18 @@
 }
 
 .session-chat-confidence-high {
-  background: rgba(22, 163, 74, 0.14);
-  color: #4ade80;
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
 }
 
 .session-chat-confidence-medium {
-  background: rgba(217, 119, 6, 0.14);
-  color: #fbbf24;
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
 }
 
 .session-chat-confidence-low {
-  background: rgba(220, 38, 38, 0.14);
-  color: #f87171;
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
 }
 
 .session-chat-citations {
@@ -417,9 +417,9 @@
 }
 
 .review-step-button-active {
-  background: linear-gradient(135deg, #7c3aed, #4f46e5);
-  color: #faf5ff;
-  box-shadow: 0 10px 24px rgba(91, 33, 182, 0.24);
+  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  color: var(--button-primary-text);
+  box-shadow: 0 10px 24px var(--button-primary-shadow);
 }
 
 .step-list-editing {
@@ -438,19 +438,19 @@
 }
 
 .confidence-badge.high {
-  background: rgba(20, 83, 45, 0.65);
-  color: #c7f9d6;
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
 }
 
 .confidence-badge.medium {
-  background: rgba(133, 77, 14, 0.55);
-  color: #fde68a;
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
 }
 
 .confidence-badge.low,
 .confidence-badge.unknown {
-  background: rgba(127, 29, 29, 0.55);
-  color: #fecdd3;
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
 }
 
 .step-card-header {
@@ -719,8 +719,8 @@
   z-index: 1;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.92);
-  color: #faf5ff;
+  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  color: var(--button-primary-text);
   font-size: 0.8rem;
   font-weight: 600;
 }

@@ -27,6 +27,7 @@ import { diagramService } from "../../services/diagramService";
 import {
   DEFAULT_DIAGRAM_CANVAS_SETTINGS,
   type DiagramCanvasSettings,
+  type DiagramCanvasTheme,
   type DiagramLayoutNodePosition,
   type DiagramModel,
 } from "../../types/diagram";
@@ -48,6 +49,44 @@ type DiagramHistoryState = {
 };
 
 type InspectorMode = "pinned" | "floating" | "collapsed";
+
+function readCssVariable(name: string, fallback: string): string {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function getDiagramEdgeColor(): string {
+  return readCssVariable("--button-primary-start", "#7c3aed");
+}
+
+function getDiagramGridColor(theme: DiagramCanvasTheme): string {
+  if (theme === "light") {
+    return readCssVariable("--accent-border", "rgba(167, 139, 250, 0.28)");
+  }
+  if (theme === "blueprint") {
+    return readCssVariable("--button-primary-end", "#2563eb");
+  }
+  if (theme === "plain") {
+    return readCssVariable("--app-muted", "#7d6aa8");
+  }
+  return readCssVariable("--button-primary-end", "#6f59b3");
+}
+
+function getDiagramExportBackground(theme: DiagramCanvasTheme): string {
+  if (theme === "light") {
+    return readCssVariable("--surface-soft", "#f7f3ff");
+  }
+  if (theme === "blueprint") {
+    return readCssVariable("--preview-bg", "#11346b");
+  }
+  if (theme === "plain") {
+    return readCssVariable("--surface-card", "#191427");
+  }
+  return readCssVariable("--preview-bg-strong", "#140d24");
+}
 
 export function FlowchartPreviewPanel({
   session,
@@ -90,6 +129,7 @@ export function FlowchartPreviewPanel({
   }
 
   function attachEdgeEditing(nextEdges: Edge[], nextNodes: Node[] = nodes): Edge[] {
+    const edgeColor = getDiagramEdgeColor();
     return withAutoConnectionHandles(nextNodes, nextEdges).map((edge) => ({
       ...edge,
       type: "editable",
@@ -102,7 +142,7 @@ export function FlowchartPreviewPanel({
       },
       style: {
         ...(edge.style ?? {}),
-        stroke: edge.id === selectedEdgeId ? "#ffd666" : "#9d7dff",
+        stroke: edge.id === selectedEdgeId ? "#ffd666" : edgeColor,
         strokeWidth: edge.id === selectedEdgeId ? 3 : 2,
       },
     }));
@@ -447,10 +487,10 @@ export function FlowchartPreviewPanel({
             type: MarkerType.ArrowClosed,
             width: 18,
             height: 18,
-            color: "#9d7dff",
+            color: getDiagramEdgeColor(),
           },
           style: {
-            stroke: "#9d7dff",
+            stroke: getDiagramEdgeColor(),
             strokeWidth: 2,
           },
           pathOptions: {
@@ -495,10 +535,10 @@ export function FlowchartPreviewPanel({
             type: MarkerType.ArrowClosed,
             width: 18,
             height: 18,
-            color: "#9d7dff",
+            color: getDiagramEdgeColor(),
           },
           style: {
-            stroke: "#9d7dff",
+            stroke: getDiagramEdgeColor(),
             strokeWidth: 2,
           },
           pathOptions: {
@@ -643,13 +683,7 @@ export function FlowchartPreviewPanel({
         cacheBust: true,
         pixelRatio: 2.5,
         backgroundColor:
-          canvasSettings.theme === "light"
-            ? "#f7f3ff"
-            : canvasSettings.theme === "blueprint"
-              ? "#11346b"
-              : canvasSettings.theme === "plain"
-                ? "#191427"
-                : "#140d24",
+          getDiagramExportBackground(canvasSettings.theme),
       });
       await diagramService.saveDiagramArtifact(session.id, imageDataUrl);
       await onSessionRefresh?.();
@@ -660,14 +694,7 @@ export function FlowchartPreviewPanel({
     }
   }
 
-  const backgroundColor =
-    canvasSettings.theme === "light"
-      ? "#c7bedf"
-      : canvasSettings.theme === "blueprint"
-        ? "#9ed0ff"
-        : canvasSettings.theme === "plain"
-          ? "#7d6aa8"
-          : "#6f59b3";
+  const backgroundColor = getDiagramGridColor(canvasSettings.theme);
   const canvasClassName = `diagram-preview-canvas diagram-preview-canvas-detailed diagram-preview-canvas-theme-${canvasSettings.theme}`;
   const inspectorClassName = `diagram-inspector diagram-inspector-theme-${canvasSettings.theme} ${inspectorMode === "floating" ? "diagram-inspector-floating" : ""}`;
 

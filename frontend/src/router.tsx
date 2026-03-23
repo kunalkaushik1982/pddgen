@@ -41,7 +41,7 @@ const WorkspaceRoute = lazy(async () => {
 function RouteLoadingFallback(): React.JSX.Element {
   return (
     <section className="panel">
-      <div className="empty-state">Loading route...</div>
+      <div className="empty-state">Loading application...</div>
     </section>
   );
 }
