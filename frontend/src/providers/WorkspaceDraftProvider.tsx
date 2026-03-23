@@ -164,20 +164,39 @@ export function useWorkspaceDraft(): WorkspaceDraftContextValue {
 
 export function createArtifactQueue(uploads: ArtifactUploadState): ArtifactQueueItem[] {
   return [
-    ...uploads.videoFiles.map((file, index) => ({ key: buildArtifactQueueKey("video", file, index), artifactKind: "video" as const, file })),
+    ...uploads.videoFiles.map((file, index) => ({
+      key: buildArtifactQueueKey("video", file, index),
+      artifactKind: "video" as const,
+      file,
+      uploadPairIndex: index,
+    })),
     ...uploads.transcriptFiles.map((file, index) => ({
       key: buildArtifactQueueKey("transcript", file, index),
       artifactKind: "transcript" as const,
       file,
+      uploadPairIndex: index,
     })),
     ...(uploads.templateFile
-      ? [{ key: buildArtifactQueueKey("template", uploads.templateFile, 0), artifactKind: "template" as const, file: uploads.templateFile }]
+      ? [
+          {
+            key: buildArtifactQueueKey("template", uploads.templateFile, 0),
+            artifactKind: "template" as const,
+            file: uploads.templateFile,
+            uploadPairIndex: null,
+          },
+        ]
       : []),
-    ...uploads.optionalArtifacts.sopFiles.map((file, index) => ({ key: buildArtifactQueueKey("sop", file, index), artifactKind: "sop" as const, file })),
+    ...uploads.optionalArtifacts.sopFiles.map((file, index) => ({
+      key: buildArtifactQueueKey("sop", file, index),
+      artifactKind: "sop" as const,
+      file,
+      uploadPairIndex: null,
+    })),
     ...uploads.optionalArtifacts.diagramFiles.map((file, index) => ({
       key: buildArtifactQueueKey("diagram", file, index),
       artifactKind: "diagram" as const,
       file,
+      uploadPairIndex: null,
     })),
   ];
 }

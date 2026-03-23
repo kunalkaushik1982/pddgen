@@ -22,8 +22,20 @@ export function SessionArtifactsPanel({ artifacts }: SessionArtifactsPanelProps)
 
   const pairedArtifacts = React.useMemo(() => {
     const pairMap = new Map<string, ArtifactPair>();
+    const legacyVideos: InputArtifact[] = [];
+    const legacyTranscripts: InputArtifact[] = [];
 
     function ensurePair(artifact: InputArtifact, kind: "video" | "transcript") {
+      const hasExplicitPairing = artifact.uploadBatchId !== null || artifact.uploadPairIndex !== null;
+      if (!hasExplicitPairing) {
+        if (kind === "video") {
+          legacyVideos.push(artifact);
+        } else {
+          legacyTranscripts.push(artifact);
+        }
+        return;
+      }
+
       const batchPart = artifact.uploadBatchId ?? artifact.meetingId ?? "session";
       const pairPart = artifact.uploadPairIndex ?? 0;
       const key = `${batchPart}:${pairPart}`;
@@ -50,6 +62,24 @@ export function SessionArtifactsPanel({ artifacts }: SessionArtifactsPanelProps)
     }
     for (const artifact of transcriptArtifacts) {
       ensurePair(artifact, "transcript");
+    }
+
+    const legacySortedVideos = [...legacyVideos].sort((left, right) => (left.createdAt ?? "").localeCompare(right.createdAt ?? ""));
+    const legacySortedTranscripts = [...legacyTranscripts].sort((left, right) =>
+      (left.createdAt ?? "").localeCompare(right.createdAt ?? ""),
+    );
+    const legacyPairCount = Math.max(legacySortedVideos.length, legacySortedTranscripts.length);
+    for (let index = 0; index < legacyPairCount; index += 1) {
+      const video = legacySortedVideos[index] ?? null;
+      const transcript = legacySortedTranscripts[index] ?? null;
+      const sortCreatedAt = video?.createdAt ?? transcript?.createdAt ?? null;
+      pairMap.set(`legacy:${index}`, {
+        key: `legacy:${index}`,
+        video,
+        transcript,
+        meetingId: video?.meetingId ?? transcript?.meetingId ?? null,
+        sortCreatedAt,
+      });
     }
 
     return [...pairMap.values()].sort((left, right) => {

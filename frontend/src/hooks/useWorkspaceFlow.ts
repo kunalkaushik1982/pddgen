@@ -60,6 +60,7 @@ export function useWorkspaceFlow() {
 
       const session = await sessionService.createDraftSession({ title, ownerId, diagramType });
       const queue = createArtifactQueue(uploads);
+      const uploadBatchId = crypto.randomUUID();
       setUploadItems(createInitialUploadItems(uploads));
 
       for (const item of queue) {
@@ -76,22 +77,30 @@ export function useWorkspaceFlow() {
           ),
         );
         try {
-          const uploadedArtifact = await uploadService.uploadArtifactWithProgress(session.id, item.artifactKind, item.file, {
-            onProgress: (progress) => {
-              setUploadItems((current) =>
-                current.map((entry) =>
-                  entry.key === item.key
-                    ? {
-                        ...entry,
-                        status: "uploading",
-                        progress,
-                        error: null,
-                      }
-                    : entry,
-                ),
-              );
+          const uploadedArtifact = await uploadService.uploadArtifactWithProgress(
+            session.id,
+            item.artifactKind,
+            item.file,
+            {
+              onProgress: (progress) => {
+                setUploadItems((current) =>
+                  current.map((entry) =>
+                    entry.key === item.key
+                      ? {
+                          ...entry,
+                          status: "uploading",
+                          progress,
+                          error: null,
+                        }
+                      : entry,
+                  ),
+                );
+              },
             },
-          });
+            undefined,
+            uploadBatchId,
+            item.uploadPairIndex ?? undefined,
+          );
           setUploadItems((current) =>
             current.map((entry) =>
               entry.key === item.key

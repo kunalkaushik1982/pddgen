@@ -5,7 +5,6 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\process
 
 from __future__ import annotations
 
-from fastapi import HTTPException, status
 from sqlalchemy import delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -73,21 +72,3 @@ class ProcessGroupService:
         db.commit()
         db.refresh(process_group)
         return process_group
-
-    def list_process_groups(self, db: Session, *, session_id: str, owner_id: str) -> list[ProcessGroupModel]:
-        """Return process groups for one session, ensuring a default group exists."""
-        session = self._get_session(db, session_id=session_id, owner_id=owner_id)
-        self.ensure_default_process_group(db, session=session)
-        statement = (
-            select(ProcessGroupModel)
-            .where(ProcessGroupModel.session_id == session_id)
-            .order_by(ProcessGroupModel.display_order.asc(), ProcessGroupModel.id.asc())
-        )
-        return list(db.execute(statement).scalars().all())
-
-    @staticmethod
-    def _get_session(db: Session, *, session_id: str, owner_id: str) -> DraftSessionModel:
-        session = db.get(DraftSessionModel, session_id)
-        if session is None or session.owner_id != owner_id:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft session not found.")
-        return session

@@ -34,6 +34,7 @@ export type ArtifactQueueItem = {
   key: string;
   artifactKind: InputArtifact["kind"];
   file: File;
+  uploadPairIndex?: number | null;
 };
 
 export type ArtifactUploadProgressStatus = "pending" | "uploading" | "uploaded" | "failed";
