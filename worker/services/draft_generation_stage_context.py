@@ -9,6 +9,7 @@ from typing import Any
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_step import ProcessStepModel
+from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
 
 
 @dataclass(slots=True)
@@ -17,8 +18,12 @@ class DraftGenerationContext:
 
     session_id: str
     session: DraftSessionModel
+    document_type: str = "pdd"
     transcript_artifacts: list[ArtifactModel] = field(default_factory=list)
     video_artifacts: list[ArtifactModel] = field(default_factory=list)
+    normalized_transcripts: dict[str, str] = field(default_factory=dict)
+    evidence_segments: list[EvidenceSegment] = field(default_factory=list)
+    workflow_boundary_decisions: list[WorkflowBoundaryDecision] = field(default_factory=list)
     default_process_group_id: str | None = None
     process_groups: list[Any] = field(default_factory=list)
     all_steps: list[dict] = field(default_factory=list)

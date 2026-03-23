@@ -5,6 +5,8 @@
 
 import type { ProcessNote, ProcessStep } from "./process";
 
+export type DocumentType = "pdd" | "sop" | "brd";
+
 export type ProcessGroup = {
   id: string;
   sessionId: string;
@@ -42,6 +44,7 @@ export type ActionLogEntry = {
   eventType: string;
   title: string;
   detail: string;
+  metadata: Record<string, unknown>;
   actor: string;
   createdAt: string;
 };
@@ -64,6 +67,7 @@ export type DraftSession = {
   status: "draft" | "processing" | "review" | "exported" | "failed";
   ownerId: string;
   diagramType: "flowchart" | "sequence";
+  documentType: DocumentType;
   hasUnprocessedEvidence: boolean;
   pendingEvidenceBundles: PendingEvidenceBundle[];
   processGroups: ProcessGroup[];
@@ -80,6 +84,7 @@ export type DraftSessionListItem = {
   status: DraftSession["status"];
   ownerId: string;
   diagramType: DraftSession["diagramType"];
+  documentType: DraftSession["documentType"];
   createdAt: string;
   updatedAt: string;
   latestStageTitle: string;

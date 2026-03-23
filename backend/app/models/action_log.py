@@ -26,6 +26,7 @@ class ActionLogModel(Base):
     event_type: Mapped[str] = mapped_column(String(100), default="session_event")
     title: Mapped[str] = mapped_column(String(255))
     detail: Mapped[str] = mapped_column(Text(), default="")
+    metadata_json: Mapped[str] = mapped_column(Text(), default="")
     actor: Mapped[str] = mapped_column(String(255), default="system")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)
 

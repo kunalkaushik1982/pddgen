@@ -4,6 +4,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\draft_genera
 """
 
 import json
+from collections import Counter
 from pathlib import Path
 from uuid import uuid4
 
@@ -25,6 +26,12 @@ from worker.bootstrap import get_backend_settings
 from worker.services.canonical_process_merge import CanonicalProcessMergeService
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
 from worker.services.draft_generation_stage_context import DraftGenerationContext
+from worker.services.evidence_segmentation_service import (
+    EvidenceSegmentationService,
+    HeuristicSemanticEnrichmentStrategy,
+    HeuristicWorkflowBoundaryStrategy,
+    ParagraphTranscriptSegmentationStrategy,
+)
 from worker.services.draft_generation_support import (
     ACTION_OFFSET_WINDOWS,
     SCREENSHOT_ROLE_LOCAL_OFFSETS,
@@ -38,6 +45,7 @@ from worker.services.draft_generation_support import (
 from worker.services.process_grouping_service import ProcessGroupingService
 from worker.services.transcript_normalizer import TranscriptNormalizer
 from worker.services.video_frame_extractor import ExtractedFrameCandidate, VideoFrameExtractor
+from worker.services.workflow_strategy_registry import WorkflowIntelligenceStrategyRegistry
 
 logger = get_logger(__name__)
 
@@ -79,6 +87,7 @@ class SessionPreparationStage:
             return DraftGenerationContext(
                 session_id=session.id,
                 session=session,
+                document_type=getattr(session, "document_type", "pdd"),
                 transcript_artifacts=transcript_artifacts,
                 video_artifacts=video_artifacts,
             )
@@ -115,7 +124,10 @@ class TranscriptInterpretationStage:
             db.commit()
 
             for transcript in context.transcript_artifacts:
-                normalized_text = self.transcript_normalizer.normalize(transcript.storage_path, transcript.name)
+                normalized_text = context.normalized_transcripts.get(transcript.id)
+                if normalized_text is None:
+                    normalized_text = self.transcript_normalizer.normalize(transcript.storage_path, transcript.name)
+                    context.normalized_transcripts[transcript.id] = normalized_text
                 interpretation = self.ai_transcript_interpreter.interpret(
                     transcript_artifact_id=transcript.id,
                     transcript_text=normalized_text,
@@ -189,6 +201,162 @@ class TranscriptInterpretationStage:
                 step["end_timestamp"] = step["start_timestamp"]
 
 
+class EvidenceSegmentationStage:
+    """Build non-persistent evidence segments and first-pass boundary decisions."""
+
+    def __init__(
+        self,
+        *,
+        transcript_normalizer: TranscriptNormalizer | None = None,
+        segmentation_service: EvidenceSegmentationService | None = None,
+        action_log_service: ActionLogService | None = None,
+    ) -> None:
+        self.transcript_normalizer = transcript_normalizer or TranscriptNormalizer()
+        self.segmentation_service = segmentation_service or self._build_default_segmentation_service()
+        self.action_log_service = action_log_service or ActionLogService()
+
+    def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
+        with bind_log_context(stage="evidence_segmentation"):
+            action_log = self.action_log_service.record(
+                db,
+                session_id=context.session_id,
+                event_type="generation_stage",
+                title="Segmenting evidence",
+                detail=f"Building evidence segments for {len(context.transcript_artifacts)} transcript artifact(s).",
+                actor="system",
+            )
+            db.commit()
+
+            all_segments = []
+            for transcript in context.transcript_artifacts:
+                normalized_text = self.transcript_normalizer.normalize(transcript.storage_path, transcript.name)
+                context.normalized_transcripts[transcript.id] = normalized_text
+                all_segments.extend(
+                    self.segmentation_service.segment_transcript(
+                        transcript_artifact_id=transcript.id,
+                        meeting_id=getattr(transcript, "meeting_id", None),
+                        transcript_text=normalized_text,
+                    )
+                )
+
+            context.evidence_segments = all_segments
+            context.workflow_boundary_decisions = self.segmentation_service.infer_boundary_decisions(all_segments)
+            action_log.metadata_json = json.dumps(self._build_segmentation_metadata(context))
+            logger.info(
+                "Evidence segmentation completed",
+                extra={
+                    "event": "draft_generation.stage_completed",
+                    "segment_count": len(context.evidence_segments),
+                    "boundary_decision_count": len(context.workflow_boundary_decisions),
+                    "segmentation_strategy": self.segmentation_service.segmenter.strategy_key,
+                    "enrichment_strategy": self.segmentation_service.enricher.strategy_key,
+                    "boundary_strategy": self.segmentation_service.boundary_detector.strategy_key,
+                },
+            )
+
+    @staticmethod
+    def _build_default_segmentation_service() -> EvidenceSegmentationService:
+        registry = WorkflowIntelligenceStrategyRegistry()
+        registry.register_segmenter(ParagraphTranscriptSegmentationStrategy.strategy_key, ParagraphTranscriptSegmentationStrategy)
+        registry.register_enricher(HeuristicSemanticEnrichmentStrategy.strategy_key, HeuristicSemanticEnrichmentStrategy)
+        registry.register_boundary_detector(HeuristicWorkflowBoundaryStrategy.strategy_key, HeuristicWorkflowBoundaryStrategy)
+        return EvidenceSegmentationService(
+            strategy_set=registry.create_strategy_set(
+                segmenter_key=ParagraphTranscriptSegmentationStrategy.strategy_key,
+                enricher_key=HeuristicSemanticEnrichmentStrategy.strategy_key,
+                boundary_detector_key=HeuristicWorkflowBoundaryStrategy.strategy_key,
+            )
+        )
+
+    def _build_segmentation_metadata(self, context: DraftGenerationContext) -> dict:
+        segment_method_counts = Counter(segment.segmentation_method for segment in context.evidence_segments)
+        enrichment_confidence_counts = Counter(
+            segment.enrichment.confidence for segment in context.evidence_segments if segment.enrichment is not None
+        )
+        boundary_decision_counts = Counter(decision.decision for decision in context.workflow_boundary_decisions)
+        boundary_confidence_counts = Counter(decision.confidence for decision in context.workflow_boundary_decisions)
+        transcript_summaries: dict[str, dict[str, object]] = {}
+        transcript_names = {artifact.id: artifact.name for artifact in context.transcript_artifacts}
+        for segment in context.evidence_segments:
+            summary = transcript_summaries.setdefault(
+                segment.transcript_artifact_id,
+                {
+                    "transcript_name": transcript_names.get(segment.transcript_artifact_id, segment.transcript_artifact_id),
+                    "top_actors": Counter(),
+                    "top_objects": Counter(),
+                    "top_systems": Counter(),
+                    "top_goals": Counter(),
+                    "top_rules": Counter(),
+                },
+            )
+            if segment.enrichment is None:
+                continue
+            if segment.enrichment.actor:
+                summary["top_actors"][segment.enrichment.actor] += 1
+            if segment.enrichment.business_object:
+                summary["top_objects"][segment.enrichment.business_object] += 1
+            if segment.enrichment.system_name:
+                summary["top_systems"][segment.enrichment.system_name] += 1
+            if segment.enrichment.workflow_goal:
+                summary["top_goals"][segment.enrichment.workflow_goal] += 1
+            for rule_hint in segment.enrichment.rule_hints:
+                summary["top_rules"][rule_hint] += 1
+        sample_segments = []
+        for segment in context.evidence_segments[:5]:
+            sample_segments.append(
+                {
+                    "segment_id": segment.id,
+                    "transcript_artifact_id": segment.transcript_artifact_id,
+                    "segment_order": segment.segment_order,
+                    "start_timestamp": segment.start_timestamp,
+                    "end_timestamp": segment.end_timestamp,
+                    "segmentation_method": segment.segmentation_method,
+                    "confidence": segment.confidence,
+                    "actor": segment.enrichment.actor if segment.enrichment is not None else None,
+                    "actor_role": segment.enrichment.actor_role if segment.enrichment is not None else None,
+                    "system_name": segment.enrichment.system_name if segment.enrichment is not None else None,
+                    "action_verb": segment.enrichment.action_verb if segment.enrichment is not None else None,
+                    "action_type": segment.enrichment.action_type if segment.enrichment is not None else None,
+                    "business_object": segment.enrichment.business_object if segment.enrichment is not None else None,
+                    "workflow_goal": segment.enrichment.workflow_goal if segment.enrichment is not None else None,
+                    "rule_hints": segment.enrichment.rule_hints if segment.enrichment is not None else [],
+                }
+            )
+        return {
+            "conclusion": (
+                f"Built {len(context.evidence_segments)} evidence segment(s) across {len(context.transcript_artifacts)} transcript(s). "
+                f"Boundary classifier produced {len(context.workflow_boundary_decisions)} adjacent decision(s)."
+            ),
+            "document_type": context.document_type,
+            "strategy_keys": {
+                "segmenter": self.segmentation_service.segmenter.strategy_key,
+                "enricher": self.segmentation_service.enricher.strategy_key,
+                "boundary_detector": self.segmentation_service.boundary_detector.strategy_key,
+            },
+            "counts": {
+                "transcript_artifacts": len(context.transcript_artifacts),
+                "segments": len(context.evidence_segments),
+                "boundary_decisions": len(context.workflow_boundary_decisions),
+            },
+            "segment_methods": dict(segment_method_counts),
+            "enrichment_confidence": dict(enrichment_confidence_counts),
+            "boundary_decisions": dict(boundary_decision_counts),
+            "boundary_confidence": dict(boundary_confidence_counts),
+            "transcript_summaries": [
+                {
+                    "transcript_name": summary["transcript_name"],
+                    "top_actors": [value for value, _ in summary["top_actors"].most_common(2)],
+                    "top_objects": [value for value, _ in summary["top_objects"].most_common(2)],
+                    "top_systems": [value for value, _ in summary["top_systems"].most_common(2)],
+                    "top_goals": [value for value, _ in summary["top_goals"].most_common(2)],
+                    "top_rules": [value for value, _ in summary["top_rules"].most_common(2)],
+                }
+                for summary in transcript_summaries.values()
+            ],
+            "sample_segments": sample_segments,
+        }
+
+
 class CanonicalMergeStage:
     """Merge meeting-specific outputs into one current canonical process."""
 
@@ -248,7 +416,7 @@ class ProcessGroupingStage:
 
     def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
         with bind_log_context(stage="process_grouping"):
-            self.action_log_service.record(
+            action_log = self.action_log_service.record(
                 db,
                 session_id=context.session_id,
                 event_type="generation_stage",
@@ -264,13 +432,43 @@ class ProcessGroupingStage:
                 transcript_artifacts=context.transcript_artifacts,
                 steps_by_transcript=context.steps_by_transcript,
                 notes_by_transcript=context.notes_by_transcript,
+                evidence_segments=context.evidence_segments,
+                workflow_boundary_decisions=context.workflow_boundary_decisions,
             )
             context.process_groups = grouping_result.process_groups
+            ambiguous_assignments = [
+                assignment
+                for assignment in grouping_result.assignment_details
+                if bool(assignment.get("is_ambiguous"))
+            ]
+            action_log.metadata_json = json.dumps(
+                {
+                    "conclusion": (
+                        f"Created {len(grouping_result.process_groups)} process group(s) from "
+                        f"{len(context.transcript_artifacts)} transcript artifact(s). "
+                        f"{len(ambiguous_assignments)} assignment(s) were marked ambiguous for later review."
+                    ),
+                    "document_type": context.document_type,
+                    "counts": {
+                        "transcript_artifacts": len(context.transcript_artifacts),
+                        "segmented_transcripts": len({segment.transcript_artifact_id for segment in context.evidence_segments}),
+                        "process_groups": len(grouping_result.process_groups),
+                        "ambiguous_assignments": len(ambiguous_assignments),
+                    },
+                    "transcript_assignments": grouping_result.transcript_group_ids,
+                    "ambiguity_summary": {
+                        "ambiguous_assignment_count": len(ambiguous_assignments),
+                        "has_ambiguity": bool(ambiguous_assignments),
+                    },
+                    "assignments": grouping_result.assignment_details,
+                }
+            )
             logger.info(
                 "Process grouping completed",
                 extra={
                     "event": "draft_generation.stage_completed",
                     "process_group_count": len(grouping_result.process_groups),
+                    "segmented_transcript_count": len({segment.transcript_artifact_id for segment in context.evidence_segments}),
                 },
             )
 

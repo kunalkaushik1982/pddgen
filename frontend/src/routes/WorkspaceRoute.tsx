@@ -38,13 +38,14 @@ export function WorkspaceRoute(): React.JSX.Element {
           <div className="collapsible-header">
             <div>
               <h2>1. Set Up Your Session</h2>
-              <p className="muted">Add recordings, transcripts, and the PDD template to prepare this session for draft generation.</p>
+              <p className="muted">Add recordings, transcripts, and a Word template to prepare this session for draft generation.</p>
             </div>
           </div>
           <UploadPage
             title={flow.title}
             ownerId={flow.ownerId}
             diagramType={flow.diagramType}
+            documentType={flow.documentType}
             uploads={flow.uploads}
             uploadItems={flow.uploadItems}
             uploadReady={flow.canGenerateDraft}
@@ -77,6 +78,7 @@ export function WorkspaceRoute(): React.JSX.Element {
             onTitleChange={flow.setTitle}
             onOwnerIdChange={flow.setOwnerId}
             onDiagramTypeChange={flow.setDiagramType}
+            onDocumentTypeChange={flow.setDocumentType}
             onFilesChange={flow.updateFiles}
             onRemoveSelectedFile={(field, index) => {
               if (field === "optionalArtifacts") {

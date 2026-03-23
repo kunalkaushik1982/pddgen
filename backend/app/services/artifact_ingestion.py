@@ -26,9 +26,9 @@ class ArtifactIngestionService:
         self.storage_service = storage_service or StorageService()
         self.validation_service = validation_service or ArtifactValidationService()
 
-    def create_session(self, db: Session, *, title: str, owner_id: str, diagram_type: str) -> DraftSessionModel:
+    def create_session(self, db: Session, *, title: str, owner_id: str, diagram_type: str, document_type: str) -> DraftSessionModel:
         """Create and persist a new draft session."""
-        session = DraftSessionModel(title=title, owner_id=owner_id, diagram_type=diagram_type)
+        session = DraftSessionModel(title=title, owner_id=owner_id, diagram_type=diagram_type, document_type=document_type)
         db.add(session)
         db.commit()
         db.refresh(session)

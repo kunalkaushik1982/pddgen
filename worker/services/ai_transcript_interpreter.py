@@ -43,6 +43,17 @@ class ProcessGroupInterpretation:
     matched_existing_title: str | None
 
 
+@dataclass
+class AmbiguousProcessGroupResolution:
+    """Structured AI tie-break result for ambiguous process-group resolution."""
+
+    matched_existing_title: str | None
+    recommended_title: str
+    recommended_slug: str
+    confidence: str
+    rationale: str
+
+
 class AITranscriptInterpreter:
     """Interpret raw transcripts into structured process steps and business rules."""
 
@@ -279,6 +290,87 @@ class AITranscriptInterpreter:
             process_title=process_title,
             canonical_slug=canonical_slug,
             matched_existing_title=matched_existing_title,
+        )
+
+    def resolve_ambiguous_process_group(
+        self,
+        *,
+        transcript_name: str,
+        inferred_title: str,
+        candidate_matches: list[dict[str, Any]],
+        steps: list[dict[str, Any]],
+        notes: list[dict[str, Any]],
+    ) -> AmbiguousProcessGroupResolution | None:
+        """Use AI only for low-confidence process-group tie-break cases."""
+        if not self.is_enabled():
+            return None
+
+        payload = {
+            "model": self.settings.ai_model,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You resolve ambiguous workflow-group assignments for transcript-derived evidence. "
+                        "Return strict JSON with keys: matched_existing_title, recommended_title, recommended_slug, confidence, rationale. "
+                        "matched_existing_title must be either one exact title from candidate_titles or an empty string if a new workflow should be created. "
+                        "recommended_title must be the workflow title that should be used. "
+                        "recommended_slug must be lowercase kebab-case. "
+                        "confidence must be one of high, medium, low, unknown. "
+                        "Prefer matching an existing workflow only if the evidence clearly supports the same business workflow. "
+                        "If the evidence is materially different, return an empty matched_existing_title and recommend a new workflow title."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "transcript_name": transcript_name,
+                            "inferred_title": inferred_title,
+                            "candidate_titles": [item.get("group_title", "") for item in candidate_matches],
+                            "candidate_matches": candidate_matches,
+                            "steps": [
+                                {
+                                    "application_name": step.get("application_name", ""),
+                                    "action_text": step.get("action_text", ""),
+                                    "supporting_transcript_text": step.get("supporting_transcript_text", ""),
+                                }
+                                for step in steps[:12]
+                            ],
+                            "notes": [
+                                {
+                                    "text": note.get("text", ""),
+                                    "inference_type": note.get("inference_type", ""),
+                                }
+                                for note in notes[:6]
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.settings.ai_api_key}",
+            "Content-Type": "application/json",
+        }
+        endpoint = f"{self.settings.ai_base_url.rstrip('/')}/chat/completions"
+        body = self._post_chat_completion(endpoint=endpoint, headers=headers, payload=payload, context="ambiguous process-group resolution")
+        content = self._extract_content(body)
+        parsed = self._parse_json_object(content)
+        recommended_title = str(parsed.get("recommended_title", "") or "").strip() or inferred_title
+        recommended_slug = str(parsed.get("recommended_slug", "") or "").strip().lower()
+        matched_existing_title = str(parsed.get("matched_existing_title", "") or "").strip() or None
+        rationale = str(parsed.get("rationale", "") or "").strip()
+        return AmbiguousProcessGroupResolution(
+            matched_existing_title=matched_existing_title,
+            recommended_title=recommended_title,
+            recommended_slug=recommended_slug,
+            confidence=self._normalize_confidence(parsed.get("confidence")),
+            rationale=rationale,
         )
 
     @staticmethod

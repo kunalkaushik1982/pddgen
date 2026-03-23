@@ -106,6 +106,7 @@ export type BackendActionLog = {
   event_type: string;
   title: string;
   detail: string;
+  metadata?: Record<string, unknown>;
   actor: string;
   created_at: string;
 };
@@ -128,6 +129,7 @@ export type BackendDraftSession = {
   status: DraftSession["status"];
   owner_id: string;
   diagram_type: DraftSession["diagramType"];
+  document_type: DraftSession["documentType"];
   has_unprocessed_evidence: boolean;
   pending_evidence_bundles: BackendPendingEvidenceBundle[];
   process_groups: BackendProcessGroup[];
@@ -144,6 +146,7 @@ export type BackendDraftSessionListItem = {
   status: DraftSession["status"];
   owner_id: string;
   diagram_type: DraftSession["diagramType"];
+  document_type: DraftSession["documentType"];
   created_at: string;
   updated_at: string;
   latest_stage_title: string;
@@ -249,6 +252,7 @@ export type CreateSessionPayload = {
   title: string;
   ownerId: string;
   diagramType: DraftSession["diagramType"];
+  documentType?: DraftSession["documentType"];
 };
 
 export type StepUpdatePayload = Partial<{

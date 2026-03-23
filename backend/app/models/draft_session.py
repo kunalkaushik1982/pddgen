@@ -33,6 +33,7 @@ class DraftSessionModel(Base):
     title: Mapped[str] = mapped_column(String(255), default="Untitled PDD Session")
     owner_id: Mapped[str] = mapped_column(String(255), default="pilot-user")
     diagram_type: Mapped[str] = mapped_column(String(50), default="flowchart")
+    document_type: Mapped[str] = mapped_column(String(50), default="pdd")
     overview_diagram_json: Mapped[str] = mapped_column(Text, default="")
     detailed_diagram_json: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(50), default="draft", index=True)

@@ -11,6 +11,7 @@ from worker.bootstrap import get_db_session
 from worker.services.draft_generation_stage_services import (
     CanonicalMergeStage,
     DiagramAssemblyStage,
+    EvidenceSegmentationStage,
     FailureStage,
     PersistenceStage,
     ProcessGroupingStage,
@@ -30,6 +31,7 @@ class DraftGenerationWorker:
     def __init__(self, task_id: str | None = None) -> None:
         self.task_id = task_id
         self.session_preparation_stage = SessionPreparationStage()
+        self.evidence_segmentation_stage = EvidenceSegmentationStage()
         self.transcript_stage = TranscriptInterpretationStage()
         self.process_grouping_stage = ProcessGroupingStage()
         self.canonical_merge_stage = CanonicalMergeStage()
@@ -45,6 +47,7 @@ class DraftGenerationWorker:
                 session = self._load_session(db, session_id)
                 logger.info("Loaded draft session for background generation", extra={"event": "draft_generation.session_loaded"})
                 context = self.session_preparation_stage.load_and_prepare(db, session)
+                self.evidence_segmentation_stage.run(db, context)
                 self.transcript_stage.run(db, context)
                 self.process_grouping_stage.run(db, context)
                 self.canonical_merge_stage.run(db, context)

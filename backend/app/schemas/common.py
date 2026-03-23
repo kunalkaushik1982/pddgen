@@ -10,6 +10,8 @@ from pydantic import BaseModel
 
 ConfidenceLevel = Literal["high", "medium", "low", "unknown"]
 ArtifactKind = Literal["video", "transcript", "template", "sop", "diagram", "screenshot"]
+WorkflowDocumentType = Literal["pdd", "sop", "brd"]
+ResolutionStatus = Literal["auto_resolved", "pending_review", "user_confirmed"]
 
 
 class EvidenceReference(BaseModel):

@@ -6,7 +6,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\documen
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,12 +19,13 @@ from app.core.config import get_settings
 from app.models.artifact import ArtifactModel
 from app.models.diagram_layout import DiagramLayoutModel
 from app.models.draft_session import DraftSessionModel
+from app.services.document_context_builder_interfaces import DocumentContextBuilder
 from app.services.process_diagram_service import ProcessDiagramService
 from app.storage.storage_service import StorageService
 
 
-class DocumentExportContextBuilder:
-    """Build the render context for document exports."""
+class SharedWorkflowExportContextBuilder:
+    """Build shared workflow/export primitives independent of a final document type."""
 
     def __init__(
         self,
@@ -33,7 +34,7 @@ class DocumentExportContextBuilder:
         self.settings = get_settings()
         self.process_diagram_service = process_diagram_service or ProcessDiagramService()
 
-    def build(
+    def build_shared_context(
         self,
         db: Session,
         draft_session: DraftSessionModel,
@@ -79,7 +80,7 @@ class DocumentExportContextBuilder:
         )
         to_be_recommendations = self.process_diagram_service.build_to_be_suggestions(draft_session)
         process_summary = self._build_process_summary(draft_session, process_steps, process_notes)
-        generated_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         rendered_diagram_path = (
             process_sections[0]["diagram_path"]
             if len(process_sections) == 1
@@ -94,40 +95,15 @@ class DocumentExportContextBuilder:
         return {
             "session_title": draft_session.title,
             "owner_id": draft_session.owner_id,
+            "document_type": getattr(draft_session, "document_type", "pdd"),
+            "generated_at": generated_at,
             "process_steps": process_steps,
             "process_notes": process_notes,
             "process_sections": process_sections,
-            "pdd": {
-                "title": draft_session.title,
-                "owner_id": draft_session.owner_id,
-                "session_id": draft_session.id,
-                "status": draft_session.status,
-                "diagram_type": draft_session.diagram_type,
-                "generated_at": generated_at,
-                "step_count": len(process_steps),
-                "note_count": len(process_notes),
-                "step_bullets": [step["bullet_entry"] for step in process_steps],
-                "overview": {
-                    "process_name": draft_session.title,
-                    "document_owner": draft_session.owner_id,
-                    "document_status": draft_session.status,
-                    "generated_at": generated_at,
-                    "process_summary": process_summary,
-                },
-                "process_sections": process_sections,
-                "as_is_steps": process_steps,
-                "to_be_recommendations": to_be_recommendations,
-                "process_flow": {
-                    "mermaid_source": diagram_source,
-                    "diagram_source": diagram_source,
-                    "diagram_path": rendered_diagram_path,
-                    "diagram_image": self._build_process_diagram_image(template_document, rendered_diagram_path),
-                    "detailed_path": rendered_diagram_path,
-                    "detailed_image": self._build_process_diagram_image(template_document, rendered_diagram_path),
-                    "rendered": bool(rendered_diagram_path),
-                },
-                "business_rules": process_notes,
-            },
+            "process_summary": process_summary,
+            "to_be_recommendations": to_be_recommendations,
+            "diagram_source": diagram_source,
+            "rendered_diagram_path": rendered_diagram_path,
         }
 
     def _build_process_sections(
@@ -275,7 +251,7 @@ class DocumentExportContextBuilder:
                 if not group_steps and not group_notes:
                     continue
                 grouped_sections.append(
-                    DocumentExportContextBuilder._build_single_process_summary(
+                    SharedWorkflowExportContextBuilder._build_single_process_summary(
                         process_name=process_group.title or draft_session.title,
                         process_steps=group_steps,
                         process_notes=group_notes,
@@ -284,7 +260,7 @@ class DocumentExportContextBuilder:
             if grouped_sections:
                 return " ".join(grouped_sections)
 
-        return DocumentExportContextBuilder._build_single_process_summary(
+        return SharedWorkflowExportContextBuilder._build_single_process_summary(
             process_name=draft_session.title,
             process_steps=process_steps,
             process_notes=process_notes,
@@ -536,3 +512,511 @@ class DocumentExportContextBuilder:
             )
         except Exception:
             return ""
+
+
+class PddDocumentExportContextBuilder(SharedWorkflowExportContextBuilder, DocumentContextBuilder):
+    """Build the PDD-specific render context from shared workflow primitives."""
+
+    document_type = "pdd"
+
+    def build(
+        self,
+        db: Session,
+        draft_session: DraftSessionModel,
+        template_document: DocxTemplate,
+        *,
+        asset_root: Path,
+        storage_service: StorageService,
+    ) -> dict[str, Any]:
+        shared_context = self.build_shared_context(
+            db,
+            draft_session,
+            template_document,
+            asset_root=asset_root,
+            storage_service=storage_service,
+        )
+
+        return {
+            "session_title": draft_session.title,
+            "owner_id": draft_session.owner_id,
+            "process_steps": shared_context["process_steps"],
+            "process_notes": shared_context["process_notes"],
+            "process_sections": shared_context["process_sections"],
+            "pdd": {
+                "title": draft_session.title,
+                "owner_id": draft_session.owner_id,
+                "session_id": draft_session.id,
+                "status": draft_session.status,
+                "diagram_type": draft_session.diagram_type,
+                "generated_at": shared_context["generated_at"],
+                "step_count": len(shared_context["process_steps"]),
+                "note_count": len(shared_context["process_notes"]),
+                "step_bullets": [step["bullet_entry"] for step in shared_context["process_steps"]],
+                "overview": {
+                    "process_name": draft_session.title,
+                    "document_owner": draft_session.owner_id,
+                    "document_status": draft_session.status,
+                    "generated_at": shared_context["generated_at"],
+                    "process_summary": shared_context["process_summary"],
+                },
+                "process_sections": shared_context["process_sections"],
+                "as_is_steps": shared_context["process_steps"],
+                "to_be_recommendations": shared_context["to_be_recommendations"],
+                "process_flow": {
+                    "mermaid_source": shared_context["diagram_source"],
+                    "diagram_source": shared_context["diagram_source"],
+                    "diagram_path": shared_context["rendered_diagram_path"],
+                    "diagram_image": self._build_process_diagram_image(template_document, shared_context["rendered_diagram_path"]),
+                    "detailed_path": shared_context["rendered_diagram_path"],
+                    "detailed_image": self._build_process_diagram_image(template_document, shared_context["rendered_diagram_path"]),
+                    "rendered": bool(shared_context["rendered_diagram_path"]),
+                },
+                "business_rules": shared_context["process_notes"],
+            },
+        }
+
+
+class SopDocumentExportContextBuilder(SharedWorkflowExportContextBuilder, DocumentContextBuilder):
+    """Build the SOP-specific render context from shared workflow primitives."""
+
+    document_type = "sop"
+
+    def build(
+        self,
+        db: Session,
+        draft_session: DraftSessionModel,
+        template_document: DocxTemplate,
+        *,
+        asset_root: Path,
+        storage_service: StorageService,
+    ) -> dict[str, Any]:
+        shared_context = self.build_shared_context(
+            db,
+            draft_session,
+            template_document,
+            asset_root=asset_root,
+            storage_service=storage_service,
+        )
+        process_steps = shared_context["process_steps"]
+        process_notes = shared_context["process_notes"]
+        process_sections = shared_context["process_sections"]
+        applications = self._collect_unique_values(process_steps, "application_name")
+        responsibilities = self._build_sop_responsibilities(draft_session, applications)
+        prerequisites = self._build_sop_prerequisites(applications, process_notes)
+        controls = self._build_sop_controls(process_notes)
+        expected_outcomes = self._build_sop_expected_outcomes(process_sections, process_notes)
+        procedure_sections = [
+            self._build_sop_procedure_section(section)
+            for section in process_sections
+        ]
+        evidence_summary = self._build_sop_evidence_summary(
+            process_steps=process_steps,
+            process_notes=process_notes,
+            process_sections=process_sections,
+        )
+
+        return {
+            "session_title": draft_session.title,
+            "owner_id": draft_session.owner_id,
+            "process_steps": process_steps,
+            "process_notes": process_notes,
+            "process_sections": process_sections,
+            "sop": {
+                "title": draft_session.title,
+                "owner_id": draft_session.owner_id,
+                "session_id": draft_session.id,
+                "status": draft_session.status,
+                "diagram_type": draft_session.diagram_type,
+                "generated_at": shared_context["generated_at"],
+                "purpose": (
+                    f"This SOP defines the observed operating procedure for {draft_session.title} "
+                    "using the reviewed walkthrough evidence as the source of truth."
+                ),
+                "scope": self._build_sop_scope(draft_session.title, process_sections, process_steps),
+                "applications": applications,
+                "prerequisites": prerequisites,
+                "responsibilities": responsibilities,
+                "controls": controls,
+                "expected_outcomes": expected_outcomes,
+                "procedure_sections": procedure_sections,
+                "supporting_notes": process_notes,
+                "evidence_summary": evidence_summary,
+                "procedure_step_count": len(process_steps),
+                "procedure_section_count": len(procedure_sections),
+                "supporting_note_count": len(process_notes),
+            },
+        }
+
+    @staticmethod
+    def _collect_unique_values(process_steps: list[dict[str, Any]], key: str) -> list[str]:
+        return [
+            item
+            for item in dict.fromkeys(
+                str(step.get(key, "") or "").strip()
+                for step in process_steps
+            )
+            if item
+        ]
+
+    @staticmethod
+    def _build_sop_scope(
+        process_name: str,
+        process_sections: list[dict[str, Any]],
+        process_steps: list[dict[str, Any]],
+    ) -> str:
+        if process_sections:
+            section_names = ", ".join(section["title"] for section in process_sections[:3] if section.get("title"))
+            if len(process_sections) > 3:
+                section_names += ", and related supporting sections"
+            return (
+                f"This SOP applies to the current-state execution of {process_name} across "
+                f"{len(process_sections)} workflow section(s) and {len(process_steps)} documented step(s), "
+                f"including areas such as {section_names}."
+            )
+        return (
+            f"This SOP applies to the current-state execution of {process_name} and covers "
+            f"{len(process_steps)} documented step(s) captured from the reviewed evidence."
+        )
+
+    @staticmethod
+    def _build_sop_responsibilities(
+        draft_session: DraftSessionModel,
+        applications: list[str],
+    ) -> list[dict[str, str]]:
+        primary_owner = draft_session.owner_id or "Assigned operator"
+        responsibilities = [
+            {
+                "role": "Process operator",
+                "responsibility": (
+                    "Execute the documented procedure in sequence, maintain data accuracy, "
+                    "and complete required validations before final submission."
+                ),
+            },
+            {
+                "role": "Process owner",
+                "responsibility": (
+                    f"{primary_owner} remains accountable for document review, exception handling, "
+                    "and approval of future updates to this SOP."
+                ),
+            },
+        ]
+        if applications:
+            responsibilities.append(
+                {
+                    "role": "System/application support",
+                    "responsibility": (
+                        "Maintain application access, availability, and configuration for "
+                        + ", ".join(applications)
+                        + "."
+                    ),
+                }
+            )
+        return responsibilities
+
+    @staticmethod
+    def _build_sop_prerequisites(
+        applications: list[str],
+        process_notes: list[dict[str, Any]],
+    ) -> list[str]:
+        prerequisites = [
+            f"Confirm user access to {application}."
+            for application in applications
+        ]
+        if not prerequisites:
+            prerequisites.append("Confirm access to the required source systems and records.")
+        prerequisites.append("Review the latest source data or transaction inputs before starting the procedure.")
+        if process_notes:
+            prerequisites.append("Review documented notes, controls, and business constraints before execution.")
+        return prerequisites
+
+    @staticmethod
+    def _build_sop_controls(process_notes: list[dict[str, Any]]) -> list[str]:
+        controls = [
+            str(note.get("text", "") or "").strip()
+            for note in process_notes
+            if str(note.get("text", "") or "").strip()
+        ]
+        if controls:
+            return controls[:5]
+        return [
+            "Validate source data before performing the transaction.",
+            "Review each major transition point before submission or save.",
+        ]
+
+    @staticmethod
+    def _build_sop_expected_outcomes(
+        process_sections: list[dict[str, Any]],
+        process_notes: list[dict[str, Any]],
+    ) -> list[str]:
+        outcomes = [
+            f"Each documented workflow section completes successfully: {section['title']}."
+            for section in process_sections
+            if section.get("title")
+        ]
+        if process_notes:
+            outcomes.append("Supporting business constraints and notes are satisfied during execution.")
+        if not outcomes:
+            outcomes.append("The documented procedure completes successfully with the expected business result.")
+        return outcomes[:5]
+
+    def _build_sop_procedure_section(self, section: dict[str, Any]) -> dict[str, Any]:
+        steps = section.get("steps", [])
+        notes = section.get("notes", [])
+        return {
+            "title": section["title"],
+            "summary": section["summary"],
+            "objective": self._build_sop_section_objective(section["title"], steps),
+            "steps": [
+                {
+                    "step_number": step["step_number"],
+                    "instruction": step["action_text"],
+                    "system": step.get("application_name", ""),
+                    "source_data_note": step.get("source_data_note", ""),
+                    "evidence_window": self._format_evidence_window(step),
+                    "primary_screenshot_image": step.get("primary_screenshot_image", ""),
+                    "has_primary_screenshot": step.get("has_primary_screenshot", False),
+                }
+                for step in steps
+            ],
+            "controls": [
+                str(note.get("text", "") or "").strip()
+                for note in notes
+                if str(note.get("text", "") or "").strip()
+            ],
+            "diagram_image": section["diagram_image"],
+            "diagram_rendered": section["diagram_rendered"],
+        }
+
+    @staticmethod
+    def _build_sop_section_objective(title: str, steps: list[dict[str, Any]]) -> str:
+        if steps:
+            first_action = str(steps[0].get("action_text", "") or "").strip().rstrip(".")
+            return f"Complete {title} by following the documented sequence beginning with {first_action}."
+        return f"Complete the documented procedure for {title}."
+
+    @staticmethod
+    def _format_evidence_window(step: dict[str, Any]) -> str:
+        start_timestamp = str(step.get("start_timestamp", "") or "").strip()
+        end_timestamp = str(step.get("end_timestamp", "") or "").strip()
+        timestamp = str(step.get("timestamp", "") or "").strip()
+        if start_timestamp and end_timestamp:
+            return f"{start_timestamp} to {end_timestamp}"
+        return timestamp
+
+    @staticmethod
+    def _build_sop_evidence_summary(
+        *,
+        process_steps: list[dict[str, Any]],
+        process_notes: list[dict[str, Any]],
+        process_sections: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        screenshot_count = sum(
+            1
+            for step in process_steps
+            if step.get("has_primary_screenshot")
+        )
+        return {
+            "workflow_sections": len(process_sections),
+            "procedural_steps": len(process_steps),
+            "supporting_notes": len(process_notes),
+            "primary_screenshots": screenshot_count,
+        }
+
+
+class BrdDocumentExportContextBuilder(SharedWorkflowExportContextBuilder, DocumentContextBuilder):
+    """Build the BRD-specific render context from shared workflow primitives."""
+
+    document_type = "brd"
+
+    def build(
+        self,
+        db: Session,
+        draft_session: DraftSessionModel,
+        template_document: DocxTemplate,
+        *,
+        asset_root: Path,
+        storage_service: StorageService,
+    ) -> dict[str, Any]:
+        shared_context = self.build_shared_context(
+            db,
+            draft_session,
+            template_document,
+            asset_root=asset_root,
+            storage_service=storage_service,
+        )
+        process_steps = shared_context["process_steps"]
+        process_notes = shared_context["process_notes"]
+        process_sections = shared_context["process_sections"]
+        applications = SopDocumentExportContextBuilder._collect_unique_values(process_steps, "application_name")
+        stakeholders = self._build_brd_stakeholders(draft_session, applications)
+        requirements = self._build_brd_requirements(process_steps, process_notes, applications)
+        business_rules = self._build_brd_business_rules(process_notes)
+        assumptions = self._build_brd_assumptions(applications, process_sections)
+        risks = self._build_brd_risks(process_notes)
+        evidence_summary = self._build_brd_evidence_summary(process_steps, process_notes, process_sections)
+
+        return {
+            "session_title": draft_session.title,
+            "owner_id": draft_session.owner_id,
+            "process_steps": process_steps,
+            "process_notes": process_notes,
+            "process_sections": process_sections,
+            "brd": {
+                "title": draft_session.title,
+                "owner_id": draft_session.owner_id,
+                "session_id": draft_session.id,
+                "status": draft_session.status,
+                "generated_at": shared_context["generated_at"],
+                "business_objective": (
+                    f"Document the business requirements for {draft_session.title} "
+                    "using the reviewed walkthrough evidence as the current-state baseline."
+                ),
+                "scope": SopDocumentExportContextBuilder._build_sop_scope(
+                    draft_session.title,
+                    process_sections,
+                    process_steps,
+                ),
+                "current_state_summary": shared_context["process_summary"],
+                "stakeholders": stakeholders,
+                "applications": applications,
+                "requirements": requirements,
+                "business_rules": business_rules,
+                "assumptions": assumptions,
+                "risks_and_exceptions": risks,
+                "workflow_sections": [
+                    {
+                        "title": section["title"],
+                        "summary": section["summary"],
+                        "step_count": len(section.get("steps", [])),
+                        "steps": section.get("steps", []),
+                        "notes": section.get("notes", []),
+                    }
+                    for section in process_sections
+                ],
+                "evidence_summary": evidence_summary,
+            },
+        }
+
+    @staticmethod
+    def _build_brd_stakeholders(
+        draft_session: DraftSessionModel,
+        applications: list[str],
+    ) -> list[dict[str, str]]:
+        stakeholders = [
+            {
+                "name": draft_session.owner_id or "Process owner",
+                "role": "Process owner",
+                "interest": "Approves the documented requirements and current-state interpretation.",
+            },
+            {
+                "name": "Operational user",
+                "role": "Business user",
+                "interest": "Executes the workflow and relies on accurate procedural and system requirements.",
+            },
+        ]
+        if applications:
+            stakeholders.append(
+                {
+                    "name": ", ".join(applications),
+                    "role": "System landscape",
+                    "interest": "Provides the application context and integration boundaries for the business process.",
+                }
+            )
+        return stakeholders
+
+    @staticmethod
+    def _build_brd_requirements(
+        process_steps: list[dict[str, Any]],
+        process_notes: list[dict[str, Any]],
+        applications: list[str],
+    ) -> list[dict[str, str]]:
+        requirements: list[dict[str, str]] = []
+        for index, step in enumerate(process_steps[:8], start=1):
+            requirement_id = f"BR-{index:03d}"
+            requirement_text = str(step.get("action_text", "") or "").strip()
+            if not requirement_text:
+                continue
+            requirements.append(
+                {
+                    "id": requirement_id,
+                    "category": "Functional",
+                    "statement": f"The solution must support users to {requirement_text.lower().rstrip('.')}.",
+                    "rationale": (
+                        str(step.get("source_data_note", "") or "").strip()
+                        or "Derived from the observed walkthrough step."
+                    ),
+                }
+            )
+        if applications:
+            requirements.append(
+                {
+                    "id": f"BR-{len(requirements) + 1:03d}",
+                    "category": "System",
+                    "statement": "The solution must preserve access to the required application landscape.",
+                    "rationale": "Observed process execution depends on " + ", ".join(applications) + ".",
+                }
+            )
+        if process_notes:
+            requirements.append(
+                {
+                    "id": f"BR-{len(requirements) + 1:03d}",
+                    "category": "Control",
+                    "statement": "The solution must enforce the documented business controls and validation steps.",
+                    "rationale": "Derived from the supporting business rules and notes captured during review.",
+                }
+            )
+        return requirements
+
+    @staticmethod
+    def _build_brd_business_rules(process_notes: list[dict[str, Any]]) -> list[str]:
+        rules = [
+            str(note.get("text", "") or "").strip()
+            for note in process_notes
+            if str(note.get("text", "") or "").strip()
+        ]
+        if rules:
+            return rules[:8]
+        return ["Business rules were not explicitly captured; validate rules with the process owner during review."]
+
+    @staticmethod
+    def _build_brd_assumptions(
+        applications: list[str],
+        process_sections: list[dict[str, Any]],
+    ) -> list[str]:
+        assumptions = [
+            "The reviewed walkthrough reflects the intended current-state operating model.",
+            "Required users have access to the necessary systems and source records.",
+        ]
+        if applications:
+            assumptions.append("The documented process continues to rely on " + ", ".join(applications) + ".")
+        if len(process_sections) > 1:
+            assumptions.append("Workflow sections are reviewed independently but still form part of one business scenario.")
+        return assumptions
+
+    @staticmethod
+    def _build_brd_risks(process_notes: list[dict[str, Any]]) -> list[str]:
+        if process_notes:
+            return [
+                "Incomplete adherence to documented controls may cause data quality or compliance issues.",
+                "Implicit business rules in the walkthrough should be validated before implementation decisions are finalized.",
+            ]
+        return [
+            "Uncaptured exceptions or business rules may require follow-up validation with stakeholders.",
+        ]
+
+    @staticmethod
+    def _build_brd_evidence_summary(
+        process_steps: list[dict[str, Any]],
+        process_notes: list[dict[str, Any]],
+        process_sections: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        return {
+            "workflow_sections": len(process_sections),
+            "observed_steps": len(process_steps),
+            "captured_notes": len(process_notes),
+        }
+
+
+class DocumentExportContextBuilder(PddDocumentExportContextBuilder):
+    """Backward-compatible alias for the current default PDD export builder."""
+    pass

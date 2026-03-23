@@ -29,6 +29,7 @@ export const sessionService = {
         title: payload.title,
         owner_id: payload.ownerId,
         diagram_type: payload.diagramType,
+        document_type: payload.documentType ?? "pdd",
       }),
     });
     return mapDraftSession(session);
