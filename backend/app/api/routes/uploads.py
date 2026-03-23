@@ -117,7 +117,7 @@ def get_artifact_content(
     db: Annotated[Session, Depends(get_db_session)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     storage_service: Annotated[StorageService, Depends(get_storage_service)],
-) -> Response | StreamingResponse:
+) -> Response:
     """Serve one stored artifact file for frontend preview."""
     artifact = db.get(ArtifactModel, artifact_id)
     if artifact is None or artifact.session.owner_id != current_user.username:
