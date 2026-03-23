@@ -13,45 +13,33 @@ export function AuthenticatedArtifactImage({
   alt,
   className,
 }: AuthenticatedArtifactImageProps): React.JSX.Element {
-  const [objectUrl, setObjectUrl] = useState<string>("");
-  const [error, setError] = useState(false);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const imageUrl = artifactService.getArtifactContentUrl(artifactId);
 
   useEffect(() => {
-    let isMounted = true;
-    let nextObjectUrl = "";
-
-    void artifactService
-      .fetchArtifactBlob(artifactId)
-      .then((blob) => {
-        if (!isMounted) {
-          return;
-        }
-        nextObjectUrl = window.URL.createObjectURL(blob);
-        setObjectUrl(nextObjectUrl);
-        setError(false);
-      })
-      .catch(() => {
-        if (!isMounted) {
-          return;
-        }
-        setError(true);
-      });
-
-    return () => {
-      isMounted = false;
-      if (nextObjectUrl) {
-        window.URL.revokeObjectURL(nextObjectUrl);
-      }
-    };
+    setLoadState("loading");
   }, [artifactId]);
 
-  if (error) {
+  if (loadState === "error") {
     return <span className="muted">Image unavailable.</span>;
   }
 
-  if (!objectUrl) {
-    return <span className="muted">Loading image…</span>;
-  }
-
-  return <img className={className} src={objectUrl} alt={alt} />;
+  return (
+    <>
+      {loadState !== "ready" ? <span className="muted">Loading image...</span> : null}
+      <img
+        className={className}
+        src={imageUrl}
+        alt={alt}
+        loading="lazy"
+        style={loadState === "ready" ? undefined : { display: "none" }}
+        onLoad={() => {
+          setLoadState("ready");
+        }}
+        onError={() => {
+          setLoadState("error");
+        }}
+      />
+    </>
+  );
 }

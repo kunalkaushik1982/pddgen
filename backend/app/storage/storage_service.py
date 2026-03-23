@@ -216,6 +216,20 @@ class StorageService:
         """Delete one stored object if it exists."""
         self.backend.delete(storage_path)
 
+    def build_internal_artifact_path(self, storage_path: str) -> str | None:
+        """Return an nginx-internal local artifact path when available."""
+        if self.settings.storage_backend.lower() != "local":
+            return None
+
+        try:
+            root = self.settings.local_storage_root.resolve()
+            candidate = Path(storage_path).resolve()
+            relative_path = candidate.relative_to(root)
+        except Exception:
+            return None
+
+        return f"/_protected-artifacts/{relative_path.as_posix()}"
+
     def _build_backend(self) -> StorageBackend:
         backend_name = self.settings.storage_backend.lower()
         if backend_name == "local":

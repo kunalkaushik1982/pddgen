@@ -15,6 +15,14 @@ This is the deferred frontend work after the current refactor batch. The fronten
 
 ## Medium priority
 
+- [ ] Future artifact-delivery hardening:
+  - [ ] object storage + signed URLs for cloud deployments
+  - [ ] cache headers for immutable screenshots
+  - [ ] artifact access audit logs if required
+  - [ ] thumbnail support for large screenshot sets
+  - [ ] lazy loading / intersection observer for screenshot-heavy views
+  - [ ] short-lived signed URL expiry policy
+  - [ ] ensure raw storage paths are never exposed publicly
 - [ ] Run a full accessibility pass across all screens:
   - [ ] keyboard-only navigation
   - [ ] screen-reader labels and announcements

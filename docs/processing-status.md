@@ -283,3 +283,21 @@ Continue improving:
 - progress clarity
 
 The architecture is now strong enough that UX polish is worth the effort.
+
+### 5. Upgrade Artifact Delivery For Production-Grade Screenshot Performance
+
+Near-term target for current VPS/local-storage deployments:
+
+- backend-authorized artifact access
+- nginx-served local screenshot delivery
+- direct image URL rendering instead of blob-fetch rendering
+
+Future hardening scope:
+
+- object storage + signed URLs
+- immutable cache headers
+- artifact access audit logging where needed
+- thumbnail support for large screenshot sets
+- lazy loading in screenshot-heavy review surfaces
+- short-lived URL expiry
+- no public exposure of raw storage paths

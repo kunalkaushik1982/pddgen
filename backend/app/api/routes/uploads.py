@@ -117,12 +117,16 @@ def get_artifact_content(
     db: Annotated[Session, Depends(get_db_session)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     storage_service: Annotated[StorageService, Depends(get_storage_service)],
-) -> StreamingResponse:
+) -> Response | StreamingResponse:
     """Serve one stored artifact file for frontend preview."""
     artifact = db.get(ArtifactModel, artifact_id)
     if artifact is None or artifact.session.owner_id != current_user.username:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found.")
     headers = {"Content-Disposition": f'inline; filename="{quote(artifact.name)}"'}
+    internal_path = storage_service.build_internal_artifact_path(artifact.storage_path)
+    if internal_path is not None:
+        headers["X-Accel-Redirect"] = internal_path
+        return Response(status_code=status.HTTP_200_OK, media_type=artifact.content_type, headers=headers)
     return StreamingResponse(iter([storage_service.read_bytes(artifact.storage_path)]), media_type=artifact.content_type, headers=headers)
 
 
