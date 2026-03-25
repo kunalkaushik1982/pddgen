@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from uuid import uuid4
 
+from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
 from worker.services.draft_generation_support import ACTION_VERB_PATTERNS, TIMESTAMP_PATTERN, classify_action_type
 from worker.services.workflow_strategy_interfaces import WorkflowIntelligenceStrategySet
 from worker.services.workflow_intelligence import EvidenceSegment, SemanticEnrichment, WorkflowBoundaryDecision
@@ -219,6 +220,7 @@ class HeuristicWorkflowBoundaryStrategy:
                 decision="uncertain",
                 confidence="low",
                 reason="One or both segments did not contain enrichment signals.",
+                decision_source="heuristic",
             )
 
         overlap_score = 0.0
@@ -279,6 +281,7 @@ class HeuristicWorkflowBoundaryStrategy:
             decision=decision,
             confidence=confidence,
             reason=reason,
+            decision_source="heuristic",
         )
 
     @staticmethod
@@ -300,6 +303,73 @@ class HeuristicWorkflowBoundaryStrategy:
         if not left.end_timestamp or not right.start_timestamp:
             return False
         return left.end_timestamp == right.start_timestamp
+
+
+class AIWorkflowBoundaryStrategy:
+    """AI-first adjacent-segment continuity strategy with deterministic fallback."""
+
+    strategy_key = "ai_plus_heuristic_v1"
+
+    def __init__(
+        self,
+        *,
+        ai_transcript_interpreter: AITranscriptInterpreter | None = None,
+        fallback_strategy: HeuristicWorkflowBoundaryStrategy | None = None,
+    ) -> None:
+        self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
+        self.fallback_strategy = fallback_strategy or HeuristicWorkflowBoundaryStrategy()
+
+    def decide(self, left: EvidenceSegment, right: EvidenceSegment) -> WorkflowBoundaryDecision:
+        fallback_decision = self.fallback_strategy.decide(left, right)
+        ai_result = self.ai_transcript_interpreter.classify_workflow_boundary(
+            left_segment=self._serialize_segment(left),
+            right_segment=self._serialize_segment(right),
+        )
+        if ai_result is None:
+            return fallback_decision
+
+        ai_confidence = ai_result.confidence
+        if ai_confidence not in {"high", "medium"}:
+            fallback_decision.decision_source = "heuristic_fallback"
+            return fallback_decision
+
+        reason = ai_result.rationale.strip() or fallback_decision.reason
+        if ai_confidence == "medium" and fallback_decision.confidence == "high" and fallback_decision.decision != ai_result.decision:
+            fallback_decision.decision_source = "heuristic_fallback"
+            return fallback_decision
+
+        return WorkflowBoundaryDecision(
+            left_segment_id=left.id,
+            right_segment_id=right.id,
+            decision=ai_result.decision,
+            confidence=ai_confidence,
+            reason=reason,
+            decision_source="ai",
+        )
+
+    @staticmethod
+    def _serialize_segment(segment: EvidenceSegment) -> dict[str, object]:
+        enrichment = segment.enrichment
+        return {
+            "transcript_artifact_id": segment.transcript_artifact_id,
+            "segment_order": segment.segment_order,
+            "text": segment.text,
+            "start_timestamp": segment.start_timestamp,
+            "end_timestamp": segment.end_timestamp,
+            "segmentation_method": segment.segmentation_method,
+            "enrichment": {
+                "actor": enrichment.actor if enrichment else None,
+                "actor_role": enrichment.actor_role if enrichment else None,
+                "system_name": enrichment.system_name if enrichment else None,
+                "action_verb": enrichment.action_verb if enrichment else None,
+                "action_type": enrichment.action_type if enrichment else None,
+                "business_object": enrichment.business_object if enrichment else None,
+                "workflow_goal": enrichment.workflow_goal if enrichment else None,
+                "rule_hints": enrichment.rule_hints if enrichment else [],
+                "domain_terms": enrichment.domain_terms if enrichment else [],
+                "confidence": enrichment.confidence if enrichment else "unknown",
+            },
+        }
 
 
 class EvidenceSegmentationService:

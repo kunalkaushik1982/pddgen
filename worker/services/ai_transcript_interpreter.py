@@ -54,6 +54,36 @@ class AmbiguousProcessGroupResolution:
     rationale: str
 
 
+@dataclass
+class WorkflowTitleInterpretation:
+    """Structured AI workflow-title resolution output."""
+
+    workflow_title: str
+    canonical_slug: str
+    confidence: str
+    rationale: str
+
+
+@dataclass
+class WorkflowBoundaryInterpretation:
+    """Structured AI workflow-boundary classification output."""
+
+    decision: str
+    confidence: str
+    rationale: str
+
+
+@dataclass
+class WorkflowGroupMatchInterpretation:
+    """Structured AI workflow-group matching output."""
+
+    matched_existing_title: str | None
+    recommended_title: str
+    recommended_slug: str
+    confidence: str
+    rationale: str
+
+
 class AITranscriptInterpreter:
     """Interpret raw transcripts into structured process steps and business rules."""
 
@@ -366,6 +396,186 @@ class AITranscriptInterpreter:
         matched_existing_title = str(parsed.get("matched_existing_title", "") or "").strip() or None
         rationale = str(parsed.get("rationale", "") or "").strip()
         return AmbiguousProcessGroupResolution(
+            matched_existing_title=matched_existing_title,
+            recommended_title=recommended_title,
+            recommended_slug=recommended_slug,
+            confidence=self._normalize_confidence(parsed.get("confidence")),
+            rationale=rationale,
+        )
+
+    def resolve_workflow_title(
+        self,
+        *,
+        transcript_name: str,
+        workflow_summary: dict[str, Any],
+    ) -> WorkflowTitleInterpretation | None:
+        """Resolve a stable business workflow title from workflow signals."""
+        if not self.is_enabled():
+            return None
+
+        payload = {
+            "model": self.settings.ai_model,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You normalize workflow evidence into a concise business workflow title. "
+                        "Return strict JSON with keys: workflow_title, canonical_slug, confidence, rationale. "
+                        "workflow_title must be a concise business noun phrase such as Sales Order Creation. "
+                        "Avoid UI action labels like Open, Go To, Click, Navigate, Select, or Enter as the leading verb. "
+                        "canonical_slug must be lowercase kebab-case. "
+                        "confidence must be one of high, medium, low, unknown."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "transcript_name": transcript_name,
+                            "workflow_summary": workflow_summary,
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.settings.ai_api_key}",
+            "Content-Type": "application/json",
+        }
+        endpoint = f"{self.settings.ai_base_url.rstrip('/')}/chat/completions"
+        body = self._post_chat_completion(endpoint=endpoint, headers=headers, payload=payload, context="workflow title resolution")
+        content = self._extract_content(body)
+        parsed = self._parse_json_object(content)
+        workflow_title = str(parsed.get("workflow_title", "") or "").strip()
+        if not workflow_title:
+            return None
+        canonical_slug = str(parsed.get("canonical_slug", "") or "").strip().lower()
+        rationale = str(parsed.get("rationale", "") or "").strip()
+        return WorkflowTitleInterpretation(
+            workflow_title=workflow_title,
+            canonical_slug=canonical_slug,
+            confidence=self._normalize_confidence(parsed.get("confidence")),
+            rationale=rationale,
+        )
+
+    def classify_workflow_boundary(
+        self,
+        *,
+        left_segment: dict[str, Any],
+        right_segment: dict[str, Any],
+    ) -> WorkflowBoundaryInterpretation | None:
+        """Classify whether adjacent evidence belongs to the same workflow."""
+        if not self.is_enabled():
+            return None
+
+        payload = {
+            "model": self.settings.ai_model,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You classify whether two adjacent evidence segments belong to the same business workflow. "
+                        "Return strict JSON with keys: decision, confidence, rationale. "
+                        "decision must be one of same_workflow, new_workflow, uncertain. "
+                        "confidence must be one of high, medium, low, unknown. "
+                        "Use the workflow goal, business object, actor, system, action type, and transcript wording."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "left_segment": left_segment,
+                            "right_segment": right_segment,
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.settings.ai_api_key}",
+            "Content-Type": "application/json",
+        }
+        endpoint = f"{self.settings.ai_base_url.rstrip('/')}/chat/completions"
+        body = self._post_chat_completion(endpoint=endpoint, headers=headers, payload=payload, context="workflow boundary classification")
+        content = self._extract_content(body)
+        parsed = self._parse_json_object(content)
+        decision = str(parsed.get("decision", "") or "").strip().lower()
+        if decision not in {"same_workflow", "new_workflow", "uncertain"}:
+            return None
+        rationale = str(parsed.get("rationale", "") or "").strip()
+        return WorkflowBoundaryInterpretation(
+            decision=decision,
+            confidence=self._normalize_confidence(parsed.get("confidence")),
+            rationale=rationale,
+        )
+
+    def match_existing_workflow_group(
+        self,
+        *,
+        transcript_name: str,
+        workflow_summary: dict[str, Any],
+        existing_groups: list[dict[str, Any]],
+    ) -> WorkflowGroupMatchInterpretation | None:
+        """Match workflow evidence against existing workflow groups before heuristic fallback."""
+        if not self.is_enabled():
+            return None
+
+        payload = {
+            "model": self.settings.ai_model,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You decide whether new transcript-derived workflow evidence matches an existing workflow group. "
+                        "Return strict JSON with keys: matched_existing_title, recommended_title, recommended_slug, confidence, rationale. "
+                        "matched_existing_title must be either one exact title from existing_group_titles or an empty string. "
+                        "recommended_title must be the workflow title that should be used. "
+                        "recommended_slug must be lowercase kebab-case. "
+                        "confidence must be one of high, medium, low, unknown. "
+                        "Only choose an existing workflow when the business workflow is materially the same."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "transcript_name": transcript_name,
+                            "workflow_summary": workflow_summary,
+                            "existing_group_titles": [group.get("title", "") for group in existing_groups],
+                            "existing_groups": existing_groups,
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.settings.ai_api_key}",
+            "Content-Type": "application/json",
+        }
+        endpoint = f"{self.settings.ai_base_url.rstrip('/')}/chat/completions"
+        body = self._post_chat_completion(endpoint=endpoint, headers=headers, payload=payload, context="workflow group matching")
+        content = self._extract_content(body)
+        parsed = self._parse_json_object(content)
+        recommended_title = str(parsed.get("recommended_title", "") or "").strip()
+        if not recommended_title:
+            return None
+        recommended_slug = str(parsed.get("recommended_slug", "") or "").strip().lower()
+        matched_existing_title = str(parsed.get("matched_existing_title", "") or "").strip() or None
+        rationale = str(parsed.get("rationale", "") or "").strip()
+        return WorkflowGroupMatchInterpretation(
             matched_existing_title=matched_existing_title,
             recommended_title=recommended_title,
             recommended_slug=recommended_slug,

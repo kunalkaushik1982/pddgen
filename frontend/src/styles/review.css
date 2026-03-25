@@ -160,6 +160,22 @@
   color: var(--summary-card-subtle);
 }
 
+.review-link-button {
+  margin-top: 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.review-link-button:hover,
+.review-link-button:focus-visible {
+  text-decoration: underline;
+}
+
 .summary-meta-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

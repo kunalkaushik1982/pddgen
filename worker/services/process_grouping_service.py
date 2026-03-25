@@ -15,7 +15,7 @@ from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_group import ProcessGroupModel
 from app.services.process_group_service import ProcessGroupService
-from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
+from worker.services.ai_transcript_interpreter import AITranscriptInterpreter, WorkflowGroupMatchInterpretation, WorkflowTitleInterpretation
 from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
 
 logger = get_logger(__name__)
@@ -52,6 +52,7 @@ class GroupResolutionDecision:
     matched_group: ProcessGroupModel | None
     decision: str
     confidence: str
+    decision_source: str
     is_ambiguous: bool
     rationale: str
     candidate_matches: list[dict[str, object]]
@@ -61,6 +62,34 @@ class GroupResolutionDecision:
 class ProcessGroupingService:
     """Cluster transcript outputs into same-process vs different-process groups."""
 
+    _WORKFLOW_SUFFIX_BY_ACTION = {
+        "create": "Creation",
+        "submit": "Creation",
+        "save": "Creation",
+        "update": "Maintenance",
+        "edit": "Maintenance",
+        "change": "Maintenance",
+        "maintain": "Maintenance",
+        "review": "Review",
+        "approve": "Approval",
+        "validate": "Validation",
+        "check": "Validation",
+        "reconcile": "Reconciliation",
+        "post": "Posting",
+    }
+    _NON_BUSINESS_ACTIONS = {
+        "open",
+        "go",
+        "go to",
+        "goto",
+        "navigate",
+        "launch",
+        "login",
+        "log in",
+        "select",
+        "click",
+        "enter",
+    }
     _STOPWORDS = {
         "a",
         "an",
@@ -180,6 +209,7 @@ class ProcessGroupingService:
                     "assigned_group_title": matched_group.title,
                     "decision": resolution.decision,
                     "decision_confidence": resolution.confidence,
+                    "decision_source": resolution.decision_source,
                     "is_ambiguous": resolution.is_ambiguous,
                     "rationale": resolution.rationale,
                     "candidate_matches": resolution.candidate_matches,
@@ -225,6 +255,7 @@ class ProcessGroupingService:
                 matched_group=previous_group,
                 decision="continued_previous_group",
                 confidence=previous_workflow_profile.boundary_to_next_confidence or "medium",
+                decision_source="heuristic",
                 is_ambiguous=False,
                 rationale=(
                     "Reused the previous workflow group because adjacent transcript continuity was classified as "
@@ -238,7 +269,24 @@ class ProcessGroupingService:
             )
 
         title = self._fallback_title(transcript=transcript, steps=steps, workflow_profile=workflow_profile)
-        slug = self._slugify(title)
+        title_resolution = self._resolve_title_with_ai(
+            transcript=transcript,
+            steps=steps,
+            workflow_profile=workflow_profile,
+            fallback_title=title,
+        )
+        title = title_resolution.workflow_title
+        slug = title_resolution.canonical_slug
+        ai_group_match = self._match_existing_group_with_ai(
+            transcript=transcript,
+            title_resolution=title_resolution,
+            workflow_profile=workflow_profile,
+            steps=steps,
+            notes=notes,
+            existing_groups=existing_groups,
+        )
+        if ai_group_match is not None:
+            return ai_group_match
         match_result = self._match_existing_group(
             slug=slug,
             title=title,
@@ -249,6 +297,7 @@ class ProcessGroupingService:
         matched_group = match_result["matched_group"]
         ambiguity = match_result["ambiguity"]
         candidate_matches = match_result["candidate_matches"]
+        title_supporting_signals = ["ai_title_resolution"] if title_resolution.rationale else []
         if ambiguity:
             ai_resolution = self._resolve_ambiguity_with_ai(
                 transcript=transcript,
@@ -267,6 +316,7 @@ class ProcessGroupingService:
                 matched_group=matched_group,
                 decision="matched_existing_group" if not ambiguity else "ambiguously_matched_existing_group",
                 confidence="high" if match_result["best_score"] >= 0.9 else "medium",
+                decision_source="heuristic",
                 is_ambiguous=ambiguity,
                 rationale=(
                     f"Matched to existing workflow '{matched_group.title}' using title and profile overlap."
@@ -274,7 +324,7 @@ class ProcessGroupingService:
                     else f"Matched to existing workflow '{matched_group.title}', but another plausible workflow also scored closely."
                 ),
                 candidate_matches=candidate_matches,
-                supporting_signals=match_result["supporting_signals"],
+                supporting_signals=[*title_supporting_signals, *match_result["supporting_signals"]],
             )
         return GroupResolutionDecision(
             inferred_title=title,
@@ -282,6 +332,7 @@ class ProcessGroupingService:
             matched_group=None,
             decision="created_new_group" if not ambiguity else "ambiguously_created_new_group",
             confidence="medium" if ambiguity else "high",
+            decision_source="heuristic",
             is_ambiguous=ambiguity,
             rationale=(
                 f"No strong existing workflow match was found for inferred workflow '{title}'."
@@ -289,7 +340,140 @@ class ProcessGroupingService:
                 else f"No confident workflow match was found for inferred workflow '{title}', so a new group was created conservatively."
             ),
             candidate_matches=candidate_matches,
-            supporting_signals=match_result["supporting_signals"],
+            supporting_signals=[*title_supporting_signals, *match_result["supporting_signals"]],
+        )
+
+    def _resolve_title_with_ai(
+        self,
+        *,
+        transcript: ArtifactModel,
+        steps: list[dict],
+        workflow_profile: TranscriptWorkflowProfile,
+        fallback_title: str,
+    ) -> WorkflowTitleInterpretation:
+        workflow_summary = self._build_workflow_summary(
+            title=fallback_title,
+            workflow_profile=workflow_profile,
+            steps=steps,
+            notes=[],
+        )
+        ai_resolution = self.ai_transcript_interpreter.resolve_workflow_title(
+            transcript_name=transcript.name,
+            workflow_summary=workflow_summary,
+        )
+        if ai_resolution is None or ai_resolution.confidence not in {"high", "medium"}:
+            return WorkflowTitleInterpretation(
+                workflow_title=fallback_title,
+                canonical_slug=self._slugify(fallback_title),
+                confidence="medium",
+                rationale="",
+            )
+        return WorkflowTitleInterpretation(
+            workflow_title=ai_resolution.workflow_title.strip() or fallback_title,
+            canonical_slug=self._slugify(ai_resolution.canonical_slug or ai_resolution.workflow_title or fallback_title),
+            confidence=ai_resolution.confidence,
+            rationale=ai_resolution.rationale,
+        )
+
+    def _match_existing_group_with_ai(
+        self,
+        *,
+        transcript: ArtifactModel,
+        title_resolution: WorkflowTitleInterpretation,
+        workflow_profile: TranscriptWorkflowProfile,
+        steps: list[dict],
+        notes: list[dict],
+        existing_groups: list[ProcessGroupModel],
+    ) -> GroupResolutionDecision | None:
+        if not existing_groups:
+            return None
+
+        workflow_summary = self._build_workflow_summary(
+            title=title_resolution.workflow_title,
+            workflow_profile=workflow_profile,
+            steps=steps,
+            notes=notes,
+        )
+        ai_match = self.ai_transcript_interpreter.match_existing_workflow_group(
+            transcript_name=transcript.name,
+            workflow_summary=workflow_summary,
+            existing_groups=[
+                {
+                    "title": group.title,
+                    "canonical_slug": group.canonical_slug,
+                    "summary_text": getattr(group, "summary_text", "") or "",
+                }
+                for group in existing_groups
+            ],
+        )
+        if ai_match is None:
+            return None
+        if ai_match.confidence == "high":
+            return self._build_ai_group_match_decision(
+                ai_match=ai_match,
+                fallback_title=title_resolution.workflow_title,
+                existing_groups=existing_groups,
+            )
+        if ai_match.confidence == "medium":
+            heuristic_match = self._match_existing_group(
+                slug=title_resolution.canonical_slug,
+                title=title_resolution.workflow_title,
+                steps=steps,
+                workflow_profile=workflow_profile,
+                existing_groups=existing_groups,
+            )
+            heuristic_title = heuristic_match["matched_group"].title if heuristic_match["matched_group"] is not None else None
+            if heuristic_title == ai_match.matched_existing_title:
+                return self._build_ai_group_match_decision(
+                    ai_match=ai_match,
+                    fallback_title=title_resolution.workflow_title,
+                    existing_groups=existing_groups,
+                )
+            if heuristic_match["matched_group"] is None and ai_match.matched_existing_title is None:
+                return self._build_ai_group_match_decision(
+                    ai_match=ai_match,
+                    fallback_title=title_resolution.workflow_title,
+                    existing_groups=existing_groups,
+                )
+        return None
+
+    def _build_ai_group_match_decision(
+        self,
+        *,
+        ai_match: WorkflowGroupMatchInterpretation,
+        fallback_title: str,
+        existing_groups: list[ProcessGroupModel],
+    ) -> GroupResolutionDecision:
+        matched_group = next(
+            (group for group in existing_groups if group.title == ai_match.matched_existing_title),
+            None,
+        )
+        resolved_title = ai_match.recommended_title.strip() or fallback_title
+        resolved_slug = self._slugify(ai_match.recommended_slug or resolved_title)
+        if matched_group is not None:
+            return GroupResolutionDecision(
+                inferred_title=resolved_title,
+                inferred_slug=resolved_slug,
+                matched_group=matched_group,
+                decision="ai_matched_existing_group",
+                confidence=ai_match.confidence,
+                decision_source="ai",
+                is_ambiguous=False,
+                rationale=ai_match.rationale or f"AI matched this transcript to existing workflow '{matched_group.title}'.",
+                candidate_matches=[{"group_title": matched_group.title, "score": ai_match.confidence}],
+                supporting_signals=["ai_group_matcher"],
+            )
+        return GroupResolutionDecision(
+            inferred_title=resolved_title,
+            inferred_slug=resolved_slug,
+            matched_group=None,
+            decision="ai_created_new_group",
+            confidence=ai_match.confidence,
+            decision_source="ai",
+            is_ambiguous=False,
+            rationale=ai_match.rationale or f"AI determined this transcript should create workflow '{resolved_title}'.",
+            candidate_matches=[],
+            supporting_signals=["ai_group_matcher"],
         )
 
     def _resolve_ambiguity_with_ai(
@@ -325,6 +509,7 @@ class ProcessGroupingService:
                 matched_group=matched_group,
                 decision="ai_resolved_ambiguous_match",
                 confidence=ai_resolution.confidence,
+                decision_source="ai_tiebreak",
                 is_ambiguous=False,
                 rationale=ai_resolution.rationale or f"AI resolved the ambiguity in favor of existing workflow '{matched_group.title}'.",
                 candidate_matches=candidate_matches,
@@ -336,6 +521,7 @@ class ProcessGroupingService:
             matched_group=None,
             decision="ai_resolved_ambiguous_new_group",
             confidence=ai_resolution.confidence,
+            decision_source="ai_tiebreak",
             is_ambiguous=False,
             rationale=ai_resolution.rationale or f"AI resolved the ambiguity in favor of creating a new workflow '{resolved_title}'.",
             candidate_matches=candidate_matches,
@@ -418,13 +604,23 @@ class ProcessGroupingService:
 
     def _fallback_title(self, *, transcript: ArtifactModel, steps: list[dict], workflow_profile: TranscriptWorkflowProfile) -> str:
         if workflow_profile.top_goals:
-            return workflow_profile.top_goals[0]
+            normalized_goal_title = self._normalize_workflow_title(
+                base_title=workflow_profile.top_goals[0],
+                steps=steps,
+                workflow_profile=workflow_profile,
+            )
+            if normalized_goal_title:
+                return normalized_goal_title
         if workflow_profile.top_objects:
             object_name = workflow_profile.top_objects[0]
             action_name = workflow_profile.top_actions[0] if workflow_profile.top_actions else None
-            if action_name:
-                return f"{object_name} {action_name}".strip().title()
-            return object_name.title()
+            normalized_object_title = self._normalize_workflow_title(
+                base_title=f"{object_name} {action_name}".strip() if action_name else object_name,
+                steps=steps,
+                workflow_profile=workflow_profile,
+            )
+            if normalized_object_title:
+                return normalized_object_title
 
         combined = " ".join(
             [
@@ -444,14 +640,81 @@ class ProcessGroupingService:
         for pattern in explicit_patterns:
             match = re.search(pattern, normalized)
             if match:
-                return match.group(1).title()
+                return self._normalize_workflow_title(
+                    base_title=match.group(1).title(),
+                    steps=steps,
+                    workflow_profile=workflow_profile,
+                )
 
         signature = list(self._signature_tokens(steps))
         if signature:
             phrase = " ".join(signature[:3]).strip()
             if phrase:
-                return phrase.title()
-        return transcript.name.rsplit(".", 1)[0].strip() or "Process"
+                normalized_signature_title = self._normalize_workflow_title(
+                    base_title=phrase.title(),
+                    steps=steps,
+                    workflow_profile=workflow_profile,
+                )
+                if normalized_signature_title:
+                    return normalized_signature_title
+        transcript_title = transcript.name.rsplit(".", 1)[0].strip() or "Process"
+        return self._normalize_workflow_title(
+            base_title=transcript_title,
+            steps=steps,
+            workflow_profile=workflow_profile,
+        )
+
+    def _normalize_workflow_title(
+        self,
+        *,
+        base_title: str,
+        steps: list[dict],
+        workflow_profile: TranscriptWorkflowProfile,
+    ) -> str:
+        normalized_title = re.sub(r"\s+", " ", (base_title or "").strip()).title()
+        object_name = workflow_profile.top_objects[0].title() if workflow_profile.top_objects else ""
+        preferred_suffix = self._preferred_workflow_suffix(steps=steps, workflow_profile=workflow_profile)
+
+        if object_name:
+            if preferred_suffix and not normalized_title.endswith(preferred_suffix):
+                if self._starts_with_non_business_action(normalized_title):
+                    return f"{object_name} {preferred_suffix}".strip()
+                if object_name.lower() in normalized_title.lower():
+                    return f"{object_name} {preferred_suffix}".strip()
+            if self._starts_with_non_business_action(normalized_title):
+                return f"{object_name} {preferred_suffix or 'Process'}".strip()
+
+        if preferred_suffix and normalized_title and not normalized_title.endswith(preferred_suffix):
+            if self._starts_with_non_business_action(normalized_title):
+                return f"{normalized_title.split()[-1].title()} {preferred_suffix}".strip()
+
+        return normalized_title or "Process"
+
+    def _preferred_workflow_suffix(self, *, steps: list[dict], workflow_profile: TranscriptWorkflowProfile) -> str:
+        action_candidates = [*workflow_profile.top_actions]
+        action_candidates.extend(
+            self._extract_leading_action_verb(str(step.get("action_text", "") or ""))
+            for step in steps[:8]
+        )
+        for action in action_candidates:
+            if not action:
+                continue
+            normalized_action = action.lower().strip()
+            if normalized_action in self._NON_BUSINESS_ACTIONS:
+                continue
+            suffix = self._WORKFLOW_SUFFIX_BY_ACTION.get(normalized_action)
+            if suffix:
+                return suffix
+        return "Creation" if workflow_profile.top_objects else "Process"
+
+    def _starts_with_non_business_action(self, title: str) -> bool:
+        lowered = title.lower().strip()
+        return any(lowered.startswith(f"{action} ") or lowered == action for action in self._NON_BUSINESS_ACTIONS)
+
+    @staticmethod
+    def _extract_leading_action_verb(action_text: str) -> str:
+        match = re.match(r"^\s*([a-z]+(?:\s+[a-z]+)?)", action_text.lower())
+        return match.group(1).strip() if match else ""
 
     def _group_summary_seed(
         self,
@@ -470,6 +733,32 @@ class ProcessGroupingService:
         parts.extend(str(step.get("action_text", "") or "") for step in steps[:6])
         parts.extend(str(note.get("text", "") or "") for note in notes[:3])
         return " ".join(part for part in parts if part).strip()
+
+    def _build_workflow_summary(
+        self,
+        *,
+        title: str,
+        workflow_profile: TranscriptWorkflowProfile,
+        steps: list[dict],
+        notes: list[dict],
+    ) -> dict[str, object]:
+        return {
+            "suggested_title": title,
+            "top_actors": workflow_profile.top_actors,
+            "top_objects": workflow_profile.top_objects,
+            "top_systems": workflow_profile.top_systems,
+            "top_actions": workflow_profile.top_actions,
+            "top_goals": workflow_profile.top_goals,
+            "top_rules": workflow_profile.top_rules,
+            "step_samples": [
+                {
+                    "action_text": str(step.get("action_text", "") or ""),
+                    "supporting_transcript_text": str(step.get("supporting_transcript_text", "") or ""),
+                }
+                for step in steps[:8]
+            ],
+            "note_samples": [str(note.get("text", "") or "") for note in notes[:4]],
+        }
 
     def _signature_tokens(self, steps: list[dict]) -> set[str]:
         text = " ".join(str(step.get("action_text", "") or "") for step in steps[:12])

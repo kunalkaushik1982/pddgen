@@ -27,9 +27,9 @@ from worker.services.canonical_process_merge import CanonicalProcessMergeService
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
 from worker.services.draft_generation_stage_context import DraftGenerationContext
 from worker.services.evidence_segmentation_service import (
+    AIWorkflowBoundaryStrategy,
     EvidenceSegmentationService,
     HeuristicSemanticEnrichmentStrategy,
-    HeuristicWorkflowBoundaryStrategy,
     ParagraphTranscriptSegmentationStrategy,
 )
 from worker.services.draft_generation_support import (
@@ -259,12 +259,12 @@ class EvidenceSegmentationStage:
         registry = WorkflowIntelligenceStrategyRegistry()
         registry.register_segmenter(ParagraphTranscriptSegmentationStrategy.strategy_key, ParagraphTranscriptSegmentationStrategy)
         registry.register_enricher(HeuristicSemanticEnrichmentStrategy.strategy_key, HeuristicSemanticEnrichmentStrategy)
-        registry.register_boundary_detector(HeuristicWorkflowBoundaryStrategy.strategy_key, HeuristicWorkflowBoundaryStrategy)
+        registry.register_boundary_detector(AIWorkflowBoundaryStrategy.strategy_key, AIWorkflowBoundaryStrategy)
         return EvidenceSegmentationService(
             strategy_set=registry.create_strategy_set(
                 segmenter_key=ParagraphTranscriptSegmentationStrategy.strategy_key,
                 enricher_key=HeuristicSemanticEnrichmentStrategy.strategy_key,
-                boundary_detector_key=HeuristicWorkflowBoundaryStrategy.strategy_key,
+                boundary_detector_key=AIWorkflowBoundaryStrategy.strategy_key,
             )
         )
 
@@ -275,6 +275,7 @@ class EvidenceSegmentationStage:
         )
         boundary_decision_counts = Counter(decision.decision for decision in context.workflow_boundary_decisions)
         boundary_confidence_counts = Counter(decision.confidence for decision in context.workflow_boundary_decisions)
+        boundary_source_counts = Counter(decision.decision_source for decision in context.workflow_boundary_decisions)
         transcript_summaries: dict[str, dict[str, object]] = {}
         transcript_names = {artifact.id: artifact.name for artifact in context.transcript_artifacts}
         for segment in context.evidence_segments:
@@ -342,6 +343,7 @@ class EvidenceSegmentationStage:
             "enrichment_confidence": dict(enrichment_confidence_counts),
             "boundary_decisions": dict(boundary_decision_counts),
             "boundary_confidence": dict(boundary_confidence_counts),
+            "decision_sources": dict(boundary_source_counts),
             "transcript_summaries": [
                 {
                     "transcript_name": summary["transcript_name"],

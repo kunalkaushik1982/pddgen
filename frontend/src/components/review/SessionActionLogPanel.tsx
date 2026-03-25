@@ -76,6 +76,7 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
   const enrichmentConfidence = getRecord(metadata.enrichment_confidence);
   const boundaryDecisions = getRecord(metadata.boundary_decisions);
   const boundaryConfidence = getRecord(metadata.boundary_confidence);
+  const decisionSources = getRecord(metadata.decision_sources);
   const ambiguitySummary = getRecord(metadata.ambiguity_summary);
   const transcriptAssignments = getRecord(metadata.transcript_assignments);
   const transcriptSummaries = Array.isArray(metadata.transcript_summaries) ? metadata.transcript_summaries.slice(0, 5) : [];
@@ -89,6 +90,7 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
     Object.keys(enrichmentConfidence).length > 0 ||
     Object.keys(boundaryDecisions).length > 0 ||
     Object.keys(boundaryConfidence).length > 0 ||
+    Object.keys(decisionSources).length > 0 ||
     Object.keys(ambiguitySummary).length > 0 ||
     transcriptSummaries.length > 0 ||
     assignments.length > 0 ||
@@ -141,6 +143,7 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
           {renderKeyValueSection("Enrichment confidence", enrichmentConfidence)}
           {renderKeyValueSection("Boundary decisions", boundaryDecisions)}
           {renderKeyValueSection("Boundary confidence", boundaryConfidence)}
+          {renderKeyValueSection("Decision sources", decisionSources)}
           {renderKeyValueSection("Ambiguity summary", ambiguitySummary)}
           {assignments.length > 0 ? (
             <div className="action-log-metadata-section">
@@ -157,6 +160,7 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
                   const candidateMatches = Array.isArray(record.candidate_matches) ? record.candidate_matches.slice(0, 3) : [];
                   const isAmbiguous = Boolean(record.is_ambiguous);
                   const decisionValue = String(record.decision ?? "unknown");
+                  const decisionSource = String(record.decision_source ?? inferDecisionSource(decisionValue, isAmbiguous));
                   const resolutionLabel = getResolutionLabel(decisionValue, isAmbiguous);
                   return (
                     <li key={`${String(record.transcript_name ?? index)}:${String(record.assigned_group_title ?? index)}`} className="action-log-insight-item">
@@ -166,6 +170,7 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
                       <div className="action-log-document-detail">
                         Inferred workflow: {String(record.inferred_workflow ?? "Unknown")} | Decision: {formatMetadataKey(decisionValue)} | Confidence: {String(record.decision_confidence ?? "unknown")}
                       </div>
+                      <div className="action-log-document-detail">Decision source: {formatDecisionSource(decisionSource)}</div>
                       <div className="action-log-document-detail">{String(record.rationale ?? "")}</div>
                       <div className="action-log-chip-row">
                         <span className="action-log-chip">{resolutionLabel}</span>
@@ -320,6 +325,34 @@ function getResolutionLabel(decision: string, isAmbiguous: boolean): string {
     return "Heuristic fallback";
   }
   return "Heuristic decision";
+}
+
+function inferDecisionSource(decision: string, isAmbiguous: boolean): string {
+  if (decision.startsWith("ai_resolved_")) {
+    return "ai_tiebreak";
+  }
+  if (decision.startsWith("ai_")) {
+    return "ai";
+  }
+  if (isAmbiguous) {
+    return "heuristic_fallback";
+  }
+  return "heuristic";
+}
+
+function formatDecisionSource(value: string): string {
+  switch (value) {
+    case "ai":
+      return "AI";
+    case "ai_tiebreak":
+      return "AI tie-break";
+    case "heuristic_fallback":
+      return "Heuristic fallback";
+    case "heuristic":
+      return "Heuristic";
+    default:
+      return toSentenceCase(formatMetadataKey(value));
+  }
 }
 
 type DecisionRow = {
@@ -486,6 +519,7 @@ function buildMetadataClipboardText(metadata: Record<string, unknown>): string {
   appendRecordLines(lines, "Counts", getRecord(metadata.counts));
   appendRecordLines(lines, "Strategies", getRecord(metadata.strategy_keys));
   appendRecordLines(lines, "Boundary decisions", getRecord(metadata.boundary_decisions));
+  appendRecordLines(lines, "Decision sources", getRecord(metadata.decision_sources));
   appendRecordLines(lines, "Ambiguity summary", getRecord(metadata.ambiguity_summary));
 
   const assignments = Array.isArray(metadata.assignments) ? metadata.assignments.slice(0, 8) : [];
@@ -493,8 +527,9 @@ function buildMetadataClipboardText(metadata: Record<string, unknown>): string {
     lines.push("Grouping decisions:");
     for (const assignment of assignments) {
       const record = getRecord(assignment);
+      const decisionSource = String(record.decision_source ?? inferDecisionSource(String(record.decision ?? "unknown"), Boolean(record.is_ambiguous)));
       lines.push(
-        `- ${String(record.transcript_name ?? "Transcript")} -> ${String(record.assigned_group_title ?? "Workflow")} | ${String(record.decision ?? "unknown")} | confidence=${String(record.decision_confidence ?? "unknown")}`
+        `- ${String(record.transcript_name ?? "Transcript")} -> ${String(record.assigned_group_title ?? "Workflow")} | ${String(record.decision ?? "unknown")} | confidence=${String(record.decision_confidence ?? "unknown")} | source=${formatDecisionSource(decisionSource)}`
       );
       const rationale = String(record.rationale ?? "").trim();
       if (rationale) {

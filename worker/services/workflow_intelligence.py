@@ -48,4 +48,5 @@ class WorkflowBoundaryDecision:
     decision: str
     confidence: str = "unknown"
     reason: str = ""
+    decision_source: str = "heuristic"
     resolution_status: str = "auto_resolved"

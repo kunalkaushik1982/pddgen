@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import Mock
 
 from worker.services.evidence_segmentation_service import (
+    AIWorkflowBoundaryStrategy,
     HeuristicSemanticEnrichmentStrategy,
     HeuristicWorkflowBoundaryStrategy,
 )
-from worker.services.workflow_intelligence import EvidenceSegment
+from worker.services.ai_transcript_interpreter import WorkflowBoundaryInterpretation
+from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
 
 
 class EvidenceSegmentationServiceTests(unittest.TestCase):
@@ -85,6 +88,84 @@ class EvidenceSegmentationServiceTests(unittest.TestCase):
 
         self.assertEqual(decision.decision, "same_workflow")
         self.assertIn("shared object", decision.reason)
+
+    def test_ai_boundary_strategy_uses_ai_when_confident(self) -> None:
+        fallback_strategy = Mock()
+        fallback_strategy.decide.return_value = WorkflowBoundaryDecision(
+            left_segment_id="left",
+            right_segment_id="right",
+            decision="new_workflow",
+            confidence="medium",
+            reason="fallback",
+        )
+        ai_interpreter = Mock()
+        ai_interpreter.classify_workflow_boundary.return_value = WorkflowBoundaryInterpretation(
+            decision="same_workflow",
+            confidence="high",
+            rationale="AI found strong workflow continuity.",
+        )
+        strategy = AIWorkflowBoundaryStrategy(
+            ai_transcript_interpreter=ai_interpreter,
+            fallback_strategy=fallback_strategy,
+        )
+        enricher = HeuristicSemanticEnrichmentStrategy()
+        left = EvidenceSegment(
+            id="left",
+            transcript_artifact_id="transcript-1",
+            meeting_id=None,
+            segment_order=1,
+            text="Create the purchase order header in SAP.",
+        )
+        right = EvidenceSegment(
+            id="right",
+            transcript_artifact_id="transcript-1",
+            meeting_id=None,
+            segment_order=2,
+            text="Update the purchase order line item in SAP.",
+        )
+        left.enrichment = enricher.enrich(left)
+        right.enrichment = enricher.enrich(right)
+
+        decision = strategy.decide(left, right)
+
+        self.assertEqual(decision.decision, "same_workflow")
+        self.assertEqual(decision.confidence, "high")
+        self.assertIn("AI found strong workflow continuity", decision.reason)
+
+    def test_ai_boundary_strategy_falls_back_when_ai_is_low_confidence(self) -> None:
+        fallback_strategy = HeuristicWorkflowBoundaryStrategy()
+        ai_interpreter = Mock()
+        ai_interpreter.classify_workflow_boundary.return_value = WorkflowBoundaryInterpretation(
+            decision="same_workflow",
+            confidence="low",
+            rationale="AI is not sure.",
+        )
+        strategy = AIWorkflowBoundaryStrategy(
+            ai_transcript_interpreter=ai_interpreter,
+            fallback_strategy=fallback_strategy,
+        )
+        enricher = HeuristicSemanticEnrichmentStrategy()
+        left = EvidenceSegment(
+            id="left",
+            transcript_artifact_id="transcript-1",
+            meeting_id=None,
+            segment_order=1,
+            text="Create the purchase order in SAP.",
+        )
+        right = EvidenceSegment(
+            id="right",
+            transcript_artifact_id="transcript-2",
+            meeting_id=None,
+            segment_order=2,
+            text="Now we will create the sales order in SAP.",
+        )
+        left.enrichment = enricher.enrich(left)
+        right.enrichment = enricher.enrich(right)
+
+        decision = strategy.decide(left, right)
+
+        self.assertEqual(decision.decision, "new_workflow")
+        self.assertIn("different business objects", decision.reason)
 
 
 if __name__ == "__main__":

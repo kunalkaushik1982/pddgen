@@ -140,7 +140,25 @@ export function StepReviewPage({
   );
   const summaryHeading = activeProcessGroup?.title || filteredNotes[0]?.text || uiCopy.summaryHeadingFallback;
   const summarySubheading = applications.length > 0 ? applications.join(" and ") : uiCopy.summarySubheadingFallback;
-  const summaryBullets = filteredSteps.slice(0, 12).map((step) => step.actionText);
+  const summaryBullets = filteredSteps.map((step) => step.actionText);
+  const sessionSummarySteps = buildSessionSummarySteps(session.processSteps, availableProcessGroups);
+  const sessionSummaryNotes = session.processNotes;
+  const sessionSummaryApplications = Array.from(
+    new Set(sessionSummarySteps.map((step) => step.applicationName).filter(Boolean)),
+  );
+  const sessionEditedSteps = sessionSummarySteps.filter((step) => step.editedByBa);
+  const sessionScreenshotCount = sessionSummarySteps.reduce((total, step) => total + step.screenshots.length, 0);
+  const sessionPrimaryScreenshotCount = sessionSummarySteps.reduce(
+    (total, step) => total + step.screenshots.filter((screenshot) => screenshot.isPrimary).length,
+    0,
+  );
+  const sessionSummaryHeading =
+    availableProcessGroups.length > 1
+      ? session.title
+      : activeProcessGroup?.title || sessionSummaryNotes[0]?.text || uiCopy.summaryHeadingFallback;
+  const sessionSummarySubheading =
+    sessionSummaryApplications.length > 0 ? sessionSummaryApplications.join(" and ") : uiCopy.summarySubheadingFallback;
+  const sessionSummaryBullets = sessionSummarySteps.map((step) => step.actionText);
   const actionLogEntries = session.actionLogs;
 
   function renderLazyPanel(children: React.ReactNode, message: string) {
@@ -258,18 +276,18 @@ export function StepReviewPage({
           {workspace.reviewMode === "view" && workspace.activeViewTab === "summary" ? (
             <section role="tabpanel" id="review-view-panel-summary" aria-labelledby="review-view-tab-summary">
               <SessionSummaryPanel
-                heading={summaryHeading}
-                subheading={summarySubheading}
-                summaryBullets={summaryBullets}
-                sessionTitle={activeProcessGroup?.title ?? session.title}
-                stepCount={filteredSteps.length}
+                heading={sessionSummaryHeading}
+                subheading={sessionSummarySubheading}
+                summaryBullets={sessionSummaryBullets}
+                sessionTitle={session.title}
+                stepCount={sessionSummarySteps.length}
                 diagramType={session.diagramType}
-                applicationsLabel={applications.length > 0 ? applications.join(", ") : "Not detected"}
-                applicationCount={applications.length}
-                screenshotCount={screenshotCount}
-                primaryScreenshotCount={primaryScreenshotCount}
-                editedStepCount={editedSteps.length}
-                noteCount={filteredNotes.length}
+                applicationsLabel={sessionSummaryApplications.length > 0 ? sessionSummaryApplications.join(", ") : "Not detected"}
+                applicationCount={sessionSummaryApplications.length}
+                screenshotCount={sessionScreenshotCount}
+                primaryScreenshotCount={sessionPrimaryScreenshotCount}
+                editedStepCount={sessionEditedSteps.length}
+                noteCount={sessionSummaryNotes.length}
               />
             </section>
           ) : null}
@@ -398,4 +416,46 @@ export function StepReviewPage({
       ) : null}
     </section>
   );
+}
+
+function buildSessionSummarySteps(steps: ProcessStep[], processGroups: DraftSession["processGroups"]): ProcessStep[] {
+  if (steps.length <= 1 || processGroups.length <= 1) {
+    return steps;
+  }
+
+  const orderedGroups = processGroups
+    .slice()
+    .sort((left, right) => left.displayOrder - right.displayOrder)
+    .map((group) => group.id);
+  const stepsByGroup = new Map<string, ProcessStep[]>();
+  for (const step of steps) {
+    const groupId = step.processGroupId ?? "__ungrouped__";
+    const existing = stepsByGroup.get(groupId);
+    if (existing) {
+      existing.push(step);
+      continue;
+    }
+    stepsByGroup.set(groupId, [step]);
+  }
+
+  const summarySteps: ProcessStep[] = [];
+  const seenStepIds = new Set<string>();
+  const orderedGroupIds = [...orderedGroups, ...Array.from(stepsByGroup.keys()).filter((groupId) => !orderedGroups.includes(groupId))];
+
+  let addedInRound = true;
+  while (addedInRound) {
+    addedInRound = false;
+    for (const groupId of orderedGroupIds) {
+      const groupSteps = stepsByGroup.get(groupId) ?? [];
+      const nextStep = groupSteps.find((step) => !seenStepIds.has(step.id));
+      if (!nextStep) {
+        continue;
+      }
+      summarySteps.push(nextStep);
+      seenStepIds.add(nextStep.id);
+      addedInRound = true;
+    }
+  }
+
+  return summarySteps.length > 0 ? summarySteps : steps;
 }

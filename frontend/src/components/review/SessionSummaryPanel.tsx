@@ -29,6 +29,10 @@ export function SessionSummaryPanel({
   editedStepCount,
   noteCount,
 }: SessionSummaryPanelProps): React.JSX.Element {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const visibleBullets = isExpanded ? summaryBullets : summaryBullets.slice(0, 12);
+  const hasMoreBullets = summaryBullets.length > 12;
+
   return (
     <section className="review-subsection panel stack" role="tabpanel" aria-label="Summary">
       <div>
@@ -42,10 +46,19 @@ export function SessionSummaryPanel({
           <h4 className="summary-document-title">{heading}</h4>
           <div className="summary-document-subtitle">{subheading}</div>
           <ul className="summary-document-list">
-            {summaryBullets.map((bullet, index) => (
+            {visibleBullets.map((bullet, index) => (
               <li key={`${index}_${bullet}`}>{bullet}</li>
             ))}
           </ul>
+          {hasMoreBullets ? (
+            <button
+              type="button"
+              className="review-link-button"
+              onClick={() => setIsExpanded((current) => !current)}
+            >
+              {isExpanded ? "See less" : `See more (${summaryBullets.length - visibleBullets.length} more)`}
+            </button>
+          ) : null}
         </div>
       </div>
 
