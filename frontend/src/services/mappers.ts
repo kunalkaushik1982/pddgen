@@ -175,6 +175,7 @@ export function mapProcessGroup(processGroup: BackendProcessGroup): ProcessGroup
     status: processGroup.status,
     displayOrder: processGroup.display_order,
     summaryText: processGroup.summary_text,
+    capabilityTags: processGroup.capability_tags ?? [],
     overviewDiagramJson: processGroup.overview_diagram_json,
     detailedDiagramJson: processGroup.detailed_diagram_json,
   };

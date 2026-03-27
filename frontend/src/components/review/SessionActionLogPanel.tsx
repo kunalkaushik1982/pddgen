@@ -74,12 +74,16 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
   const counts = getRecord(metadata.counts);
   const segmentMethods = getRecord(metadata.segment_methods);
   const enrichmentConfidence = getRecord(metadata.enrichment_confidence);
+  const enrichmentSources = getRecord(metadata.enrichment_sources);
   const boundaryDecisions = getRecord(metadata.boundary_decisions);
   const boundaryConfidence = getRecord(metadata.boundary_confidence);
+  const boundaryConflicts = getRecord(metadata.boundary_conflicts);
+  const groupingConflicts = getRecord(metadata.grouping_conflicts);
   const decisionSources = getRecord(metadata.decision_sources);
   const ambiguitySummary = getRecord(metadata.ambiguity_summary);
   const transcriptAssignments = getRecord(metadata.transcript_assignments);
   const transcriptSummaries = Array.isArray(metadata.transcript_summaries) ? metadata.transcript_summaries.slice(0, 5) : [];
+  const processGroupSummaries = Array.isArray(metadata.process_group_summaries) ? metadata.process_group_summaries.slice(0, 8) : [];
   const assignments = Array.isArray(metadata.assignments) ? metadata.assignments.slice(0, 8) : [];
   const sampleSegments = Array.isArray(metadata.sample_segments) ? metadata.sample_segments.slice(0, 3) : [];
   const hasContent =
@@ -88,10 +92,14 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
     Object.keys(counts).length > 0 ||
     Object.keys(segmentMethods).length > 0 ||
     Object.keys(enrichmentConfidence).length > 0 ||
+    Object.keys(enrichmentSources).length > 0 ||
     Object.keys(boundaryDecisions).length > 0 ||
     Object.keys(boundaryConfidence).length > 0 ||
+    Object.keys(boundaryConflicts).length > 0 ||
+    Object.keys(groupingConflicts).length > 0 ||
     Object.keys(decisionSources).length > 0 ||
     Object.keys(ambiguitySummary).length > 0 ||
+    processGroupSummaries.length > 0 ||
     transcriptSummaries.length > 0 ||
     assignments.length > 0 ||
     Object.keys(transcriptAssignments).length > 0 ||
@@ -102,6 +110,7 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
   }
 
   const decisionRows = buildDecisionRows(entry.title, metadata);
+  const detailedExplanation = buildDetailedExplanation(entry.title, metadata);
 
   return (
     <div className="action-log-metadata">
@@ -135,16 +144,57 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
       <details className="action-log-details-toggle">
         <summary>Show technical reasoning</summary>
         <div className="action-log-details-body">
+          {detailedExplanation.length > 0 ? (
+            <div className="action-log-metadata-section">
+              <div className="action-log-metadata-label">Detailed explanation</div>
+              <div className="action-log-explanation-list">
+                {detailedExplanation.map((item, index) => (
+                  <div key={`${item.title}:${index}`} className="action-log-explanation-item">
+                    <strong>{item.title}</strong>
+                    {item.lines.map((line, lineIndex) => (
+                      <div key={`${item.title}:${lineIndex}`} className="action-log-document-detail">
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {conclusion ? <div className="action-log-conclusion">{conclusion}</div> : null}
           {renderMetadataSection("Document type", metadata.document_type)}
           {renderKeyValueSection("Strategies", strategyKeys)}
           {renderKeyValueSection("Counts", counts)}
           {renderKeyValueSection("Segment methods", segmentMethods)}
           {renderKeyValueSection("Enrichment confidence", enrichmentConfidence)}
+          {renderKeyValueSection("Enrichment sources", enrichmentSources)}
           {renderKeyValueSection("Boundary decisions", boundaryDecisions)}
           {renderKeyValueSection("Boundary confidence", boundaryConfidence)}
+          {renderKeyValueSection("Boundary conflicts", boundaryConflicts)}
+          {renderKeyValueSection("Grouping conflicts", groupingConflicts)}
           {renderKeyValueSection("Decision sources", decisionSources)}
           {renderKeyValueSection("Ambiguity summary", ambiguitySummary)}
+          {processGroupSummaries.length > 0 ? (
+            <div className="action-log-metadata-section">
+              <div className="action-log-metadata-label">Resolved workflows</div>
+              <ul className="action-log-insight-list">
+                {processGroupSummaries.map((summary, index) => {
+                  const record = getRecord(summary);
+                  return (
+                    <li key={`${String(record.title ?? index)}:${index}`} className="action-log-insight-item">
+                      <div className="action-log-insight-title">{String(record.title ?? "Workflow")}</div>
+                      <div className="action-log-document-detail">{String(record.summary_text ?? "")}</div>
+                      <div className="action-log-chip-row">
+                        {getStringArray(record.capability_tags).map((value) => (
+                          <span key={`capability:${value}`} className="action-log-chip">Capability: {value}</span>
+                        ))}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
           {assignments.length > 0 ? (
             <div className="action-log-metadata-section">
               <div className="action-log-metadata-label">Grouping decisions</div>
@@ -154,6 +204,7 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
                   const goals = getStringArray(record.top_goals);
                   const objects = getStringArray(record.top_objects);
                   const systems = getStringArray(record.top_systems);
+                  const applications = getStringArray(record.top_applications);
                   const actors = getStringArray(record.top_actors);
                   const rules = getStringArray(record.top_rules);
                   const supportingSignals = getStringArray(record.supporting_signals);
@@ -162,6 +213,11 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
                   const decisionValue = String(record.decision ?? "unknown");
                   const decisionSource = String(record.decision_source ?? inferDecisionSource(decisionValue, isAmbiguous));
                   const resolutionLabel = getResolutionLabel(decisionValue, isAmbiguous);
+                  const heuristicDecision = String(record.heuristic_decision ?? "").trim();
+                  const heuristicConfidence = String(record.heuristic_confidence ?? "").trim();
+                  const aiDecision = String(record.ai_decision ?? "").trim();
+                  const aiConfidence = String(record.ai_confidence ?? "").trim();
+                  const conflictDetected = Boolean(record.conflict_detected);
                   return (
                     <li key={`${String(record.transcript_name ?? index)}:${String(record.assigned_group_title ?? index)}`} className="action-log-insight-item">
                       <div className="action-log-insight-title">
@@ -171,10 +227,24 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
                         Inferred workflow: {String(record.inferred_workflow ?? "Unknown")} | Decision: {formatMetadataKey(decisionValue)} | Confidence: {String(record.decision_confidence ?? "unknown")}
                       </div>
                       <div className="action-log-document-detail">Decision source: {formatDecisionSource(decisionSource)}</div>
+                      {heuristicDecision ? (
+                        <div className="action-log-document-detail">
+                          Heuristic view: {formatMetadataKey(heuristicDecision)}
+                          {heuristicConfidence ? ` (${heuristicConfidence})` : ""}
+                        </div>
+                      ) : null}
+                      {aiDecision ? (
+                        <div className="action-log-document-detail">
+                          AI view: {formatMetadataKey(aiDecision)}
+                          {aiConfidence ? ` (${aiConfidence})` : ""}
+                        </div>
+                      ) : null}
+                      {conflictDetected ? <div className="action-log-document-detail">Conflict detected between AI and heuristic grouping.</div> : null}
                       <div className="action-log-document-detail">{String(record.rationale ?? "")}</div>
                       <div className="action-log-chip-row">
                         <span className="action-log-chip">{resolutionLabel}</span>
                         {isAmbiguous ? <span className="action-log-chip">Ambiguous</span> : null}
+                        {conflictDetected ? <span className="action-log-chip">Conflict detected</span> : null}
                         {goals.map((value) => (
                           <span key={`goal:${value}`} className="action-log-chip">Goal: {value}</span>
                         ))}
@@ -183,6 +253,9 @@ function WorkflowIntelligenceMetadata({ entry }: { entry: ActionLogEntry }): Rea
                         ))}
                         {systems.map((value) => (
                           <span key={`system:${value}`} className="action-log-chip">System: {value}</span>
+                        ))}
+                        {applications.map((value) => (
+                          <span key={`application:${value}`} className="action-log-chip">Application: {value}</span>
                         ))}
                         {actors.map((value) => (
                           <span key={`actor:${value}`} className="action-log-chip">Actor: {value}</span>
@@ -344,8 +417,12 @@ function formatDecisionSource(value: string): string {
   switch (value) {
     case "ai":
       return "AI";
+    case "ai_conflict_override":
+      return "AI conflict override";
     case "ai_tiebreak":
       return "AI tie-break";
+    case "conflict_unresolved":
+      return "Conflict unresolved";
     case "heuristic_fallback":
       return "Heuristic fallback";
     case "heuristic":
@@ -360,6 +437,11 @@ type DecisionRow = {
   decision: string;
   confidence: string;
   why: string;
+};
+
+type DetailedExplanationSection = {
+  title: string;
+  lines: string[];
 };
 
 function buildDecisionRows(entryTitle: string, metadata: Record<string, unknown>): DecisionRow[] {
@@ -409,6 +491,114 @@ function buildDecisionRows(entryTitle: string, metadata: Record<string, unknown>
         why: toLaymanReason(String(record.rationale ?? "No rationale available."), inferredWorkflow, assignedWorkflow),
       };
     });
+  }
+
+  return [];
+}
+
+function buildDetailedExplanation(entryTitle: string, metadata: Record<string, unknown>): DetailedExplanationSection[] {
+  if (entryTitle === "Segmenting evidence") {
+    const counts = getRecord(metadata.counts);
+    const boundaryDecisions = getRecord(metadata.boundary_decisions);
+    const decisionSources = getRecord(metadata.decision_sources);
+    const boundaryConflicts = getRecord(metadata.boundary_conflicts);
+    const transcriptSummaries = Array.isArray(metadata.transcript_summaries) ? metadata.transcript_summaries : [];
+    const transcriptCount = String(counts.transcript_artifacts ?? "0");
+    const segmentCount = String(counts.segments ?? "0");
+    const decisionEntries = Object.entries(boundaryDecisions).map(([key, value]) => `${formatMetadataKey(key)}: ${String(value)}`);
+    const sourceEntries = Object.entries(decisionSources).map(([key, value]) => `${formatDecisionSource(key)}: ${String(value)}`);
+    const conflictEntries = Object.entries(boundaryConflicts).map(([key, value]) => `${formatMetadataKey(key)}: ${String(value)}`);
+
+    return [
+      {
+        title: "High-level meaning",
+        lines: [
+          `System looked at ${transcriptCount} transcript(s) and concluded there were ${segmentCount} evidence block(s) to compare.`,
+          decisionEntries.length > 0
+            ? `It then classified the adjacent workflow transition(s) as: ${decisionEntries.join(", ")}.`
+            : "It then classified the adjacent workflow transitions using the current boundary engine.",
+          "This stage is local workflow continuity checking. It does not yet decide final process-group membership.",
+        ],
+      },
+      {
+        title: "Technical meaning",
+        lines: [
+          `Boundary decision sources: ${sourceEntries.length > 0 ? sourceEntries.join(", ") : "not recorded"}.`,
+          `Boundary conflicts: ${conflictEntries.length > 0 ? conflictEntries.join(", ") : "not recorded"}.`,
+          transcriptSummaries.length > 0
+            ? `Transcript summaries were built from the top actors, objects, systems, goals, and rules seen in each transcript block before comparison.`
+            : "Transcript summaries were not available for this boundary comparison.",
+        ],
+      },
+      {
+        title: "Interpretation",
+        lines: [
+          "Boundary stage asks whether adjacent transcript blocks appear to continue the same immediate workflow or start a different one.",
+          "This stage is intentionally narrower than grouping. A 'new workflow' result here does not automatically mean the transcript must become a brand new process group later.",
+        ],
+      },
+    ];
+  }
+
+  if (entryTitle === "Grouping processes") {
+    const assignments = Array.isArray(metadata.assignments) ? metadata.assignments : [];
+    const processGroupSummaries = Array.isArray(metadata.process_group_summaries) ? metadata.process_group_summaries : [];
+    const groupingConflicts = getRecord(metadata.grouping_conflicts);
+    const decisionSources = getRecord(metadata.decision_sources);
+    const sections: DetailedExplanationSection[] = [
+      {
+        title: "High-level meaning",
+        lines: [
+          `System looked at ${assignments.length} transcript assignment(s) and resolved them into ${processGroupSummaries.length || getRecord(metadata.counts).process_groups || 0} process group(s).`,
+          "Grouping stage is broader than boundary stage. It decides whether a transcript should attach to an existing operational workflow or create a new one.",
+          "With the latest strategy, workflow identity should be driven by operational sameness, while broader business capability is preserved as secondary metadata.",
+          `Decision sources: ${Object.entries(decisionSources).length > 0 ? Object.entries(decisionSources).map(([key, value]) => `${formatDecisionSource(key)} (${String(value)})`).join(", ") : "not recorded"}.`,
+          `Grouping conflicts: ${Object.entries(groupingConflicts).length > 0 ? Object.entries(groupingConflicts).map(([key, value]) => `${formatMetadataKey(key)} (${String(value)})`).join(", ") : "not recorded"}.`,
+        ],
+      },
+    ];
+
+    assignments.forEach((assignment) => {
+      const record = getRecord(assignment);
+      const transcriptName = String(record.transcript_name ?? "Transcript");
+      const assignedTitle = String(record.assigned_group_title ?? "Workflow");
+      const inferredTitle = String(record.inferred_workflow ?? assignedTitle);
+      const capabilities = getStringArray(record.capability_tags);
+      const heuristicDecision = String(record.heuristic_decision ?? "").trim();
+      const heuristicConfidence = String(record.heuristic_confidence ?? "").trim();
+      const aiDecision = String(record.ai_decision ?? "").trim();
+      const aiConfidence = String(record.ai_confidence ?? "").trim();
+      const conflictDetected = Boolean(record.conflict_detected);
+      sections.push({
+        title: transcriptName,
+        lines: [
+          `Decision: ${describeGroupingDecision(String(record.decision ?? "unknown"), Boolean(record.is_ambiguous), assignedTitle, inferredTitle)}`,
+          `Why: ${toLaymanReason(String(record.rationale ?? "No rationale available."), inferredTitle, assignedTitle)}`,
+          heuristicDecision || aiDecision
+            ? `Technical comparison: heuristic=${heuristicDecision || "not recorded"}${heuristicConfidence ? ` (${heuristicConfidence})` : ""}; AI=${aiDecision || "not recorded"}${aiConfidence ? ` (${aiConfidence})` : ""}.`
+            : "Technical comparison between heuristic and AI was not recorded for this assignment.",
+          conflictDetected
+            ? "AI and heuristic grouping disagreed on this transcript, so the final assignment reflects the explicit conflict-handling policy."
+            : "AI and heuristic grouping did not produce a material conflict for this transcript.",
+          capabilities.length > 0
+            ? `Secondary business capability tags: ${capabilities.join(", ")}.`
+            : "No secondary capability tags were persisted for this workflow.",
+        ],
+      });
+    });
+
+    if (assignments.length > 0) {
+      sections.push({
+        title: "Why boundary and grouping can differ",
+        lines: [
+          "Boundary asks whether adjacent transcript blocks look like the same immediate workflow transition.",
+          "Grouping asks whether the transcript should attach to an existing resolved workflow cluster or create a new one.",
+          "These are related but not identical decisions, so they can diverge when the evidence suggests local separation but broader clustering overlap.",
+        ],
+      });
+    }
+
+    return sections;
   }
 
   return [];
@@ -518,7 +708,10 @@ function buildMetadataClipboardText(metadata: Record<string, unknown>): string {
 
   appendRecordLines(lines, "Counts", getRecord(metadata.counts));
   appendRecordLines(lines, "Strategies", getRecord(metadata.strategy_keys));
+  appendRecordLines(lines, "Enrichment sources", getRecord(metadata.enrichment_sources));
   appendRecordLines(lines, "Boundary decisions", getRecord(metadata.boundary_decisions));
+  appendRecordLines(lines, "Boundary conflicts", getRecord(metadata.boundary_conflicts));
+  appendRecordLines(lines, "Grouping conflicts", getRecord(metadata.grouping_conflicts));
   appendRecordLines(lines, "Decision sources", getRecord(metadata.decision_sources));
   appendRecordLines(lines, "Ambiguity summary", getRecord(metadata.ambiguity_summary));
 
@@ -534,6 +727,18 @@ function buildMetadataClipboardText(metadata: Record<string, unknown>): string {
       const rationale = String(record.rationale ?? "").trim();
       if (rationale) {
         lines.push(`  rationale: ${rationale}`);
+      }
+      const heuristicDecision = String(record.heuristic_decision ?? "").trim();
+      const heuristicConfidence = String(record.heuristic_confidence ?? "").trim();
+      const aiDecision = String(record.ai_decision ?? "").trim();
+      const aiConfidence = String(record.ai_confidence ?? "").trim();
+      if (heuristicDecision || aiDecision) {
+        lines.push(
+          `  comparison: heuristic=${heuristicDecision || "not recorded"}${heuristicConfidence ? ` (${heuristicConfidence})` : ""}; ai=${aiDecision || "not recorded"}${aiConfidence ? ` (${aiConfidence})` : ""}`
+        );
+      }
+      if (Boolean(record.conflict_detected)) {
+        lines.push("  conflict: true");
       }
     }
   }

@@ -103,6 +103,78 @@ That means:
 - add or replace segmentation and classification strategies without breaking orchestration
 - keep infrastructure concerns separate from workflow intelligence concerns
 
+## Workflow Grouping Principle
+
+Workflow grouping must be based primarily on:
+
+- operational workflow identity
+
+not primarily on:
+
+- broad business capability similarity
+
+### Operational workflow identity
+
+This should drive:
+
+- process-group creation
+- step assignment
+- screenshot derivation context
+- diagram scope
+- PDD / SOP / BRD workflow sections
+
+Signals that should weigh heavily:
+
+- application or tool context
+- interaction pattern
+- sequence shape
+- business object continuity
+- workflow goal continuity
+- operational entry and exit pattern
+
+### Business capability classification
+
+This should be emitted as secondary metadata only.
+
+Examples:
+
+- Legal Document Analysis
+- Contract Review
+- Procurement
+- Sales Operations
+
+This should support:
+
+- tagging
+- analytics
+- filtering
+- future domain dashboards
+
+It should not, by itself, cause two operationally different workflows to be merged.
+
+### Product rule
+
+Two workflows may share:
+
+- domain
+- professional function
+- business capability
+
+and still remain separate process groups if they differ materially in:
+
+- tool
+- sequence
+- operational behavior
+
+### Architectural implication
+
+The workflow engine should explicitly separate:
+
+- workflow identity resolution
+- business capability classification
+
+These should be independent strategy concerns, even if they share some common evidence inputs.
+
 ## Engineering Constraints
 
 The roadmap should be implemented using:

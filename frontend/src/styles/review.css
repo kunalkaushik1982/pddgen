@@ -152,6 +152,12 @@
   color: var(--summary-card-subtle);
 }
 
+.summary-document-paragraph {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--summary-card-subtle);
+}
+
 .summary-document-list {
   margin: 0;
   padding-left: 18px;
@@ -313,6 +319,16 @@
 
 .action-log-document-detail {
   color: var(--summary-card-subtle);
+}
+
+.action-log-explanation-list {
+  display: grid;
+  gap: 12px;
+}
+
+.action-log-explanation-item {
+  display: grid;
+  gap: 4px;
 }
 
 .action-log-metadata {

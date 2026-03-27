@@ -15,6 +15,7 @@ export type ProcessGroup = {
   status: string;
   displayOrder: number;
   summaryText: string;
+  capabilityTags: string[];
   overviewDiagramJson: string;
   detailedDiagramJson: string;
 };

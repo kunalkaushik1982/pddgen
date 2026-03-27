@@ -228,7 +228,18 @@ def map_action_log(action_log) -> ActionLogResponse:
 
 def map_process_group(process_group: ProcessGroupModel) -> ProcessGroupResponse:
     """Convert one persisted process group into an API response."""
-    return ProcessGroupResponse.model_validate(process_group)
+    return ProcessGroupResponse(
+        id=process_group.id,
+        session_id=process_group.session_id,
+        title=process_group.title,
+        canonical_slug=process_group.canonical_slug,
+        status=process_group.status,
+        display_order=process_group.display_order,
+        summary_text=process_group.summary_text,
+        capability_tags=[str(item) for item in _parse_json_list(getattr(process_group, "capability_tags_json", "[]")) if isinstance(item, str)],
+        overview_diagram_json=process_group.overview_diagram_json,
+        detailed_diagram_json=process_group.detailed_diagram_json,
+    )
 
 
 def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:

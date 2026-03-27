@@ -129,6 +129,7 @@ class ProcessGroupResponse(BaseModel):
     status: str
     display_order: int
     summary_text: str
+    capability_tags: list[str] = Field(default_factory=list)
     overview_diagram_json: str
     detailed_diagram_json: str
 

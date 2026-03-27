@@ -29,6 +29,7 @@ class ProcessGroupModel(Base):
     status: Mapped[str] = mapped_column(String(50), default="active")
     display_order: Mapped[int] = mapped_column(Integer, default=1)
     summary_text: Mapped[str] = mapped_column(Text, default="")
+    capability_tags_json: Mapped[str] = mapped_column(Text, default="[]")
     overview_diagram_json: Mapped[str] = mapped_column(Text, default="")
     detailed_diagram_json: Mapped[str] = mapped_column(Text, default="")
 

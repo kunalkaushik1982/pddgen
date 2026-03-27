@@ -97,6 +97,7 @@ export type BackendProcessGroup = {
   status: string;
   display_order: number;
   summary_text: string;
+  capability_tags: string[];
   overview_diagram_json: string;
   detailed_diagram_json: string;
 };

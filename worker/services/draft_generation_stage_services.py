@@ -27,6 +27,7 @@ from worker.services.canonical_process_merge import CanonicalProcessMergeService
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
 from worker.services.draft_generation_stage_context import DraftGenerationContext
 from worker.services.evidence_segmentation_service import (
+    AISemanticEnrichmentStrategy,
     AIWorkflowBoundaryStrategy,
     EvidenceSegmentationService,
     HeuristicSemanticEnrichmentStrategy,
@@ -258,12 +259,13 @@ class EvidenceSegmentationStage:
     def _build_default_segmentation_service() -> EvidenceSegmentationService:
         registry = WorkflowIntelligenceStrategyRegistry()
         registry.register_segmenter(ParagraphTranscriptSegmentationStrategy.strategy_key, ParagraphTranscriptSegmentationStrategy)
+        registry.register_enricher(AISemanticEnrichmentStrategy.strategy_key, AISemanticEnrichmentStrategy)
         registry.register_enricher(HeuristicSemanticEnrichmentStrategy.strategy_key, HeuristicSemanticEnrichmentStrategy)
         registry.register_boundary_detector(AIWorkflowBoundaryStrategy.strategy_key, AIWorkflowBoundaryStrategy)
         return EvidenceSegmentationService(
             strategy_set=registry.create_strategy_set(
                 segmenter_key=ParagraphTranscriptSegmentationStrategy.strategy_key,
-                enricher_key=HeuristicSemanticEnrichmentStrategy.strategy_key,
+                enricher_key=AISemanticEnrichmentStrategy.strategy_key,
                 boundary_detector_key=AIWorkflowBoundaryStrategy.strategy_key,
             )
         )
@@ -273,9 +275,16 @@ class EvidenceSegmentationStage:
         enrichment_confidence_counts = Counter(
             segment.enrichment.confidence for segment in context.evidence_segments if segment.enrichment is not None
         )
+        enrichment_source_counts = Counter(
+            segment.enrichment.enrichment_source for segment in context.evidence_segments if segment.enrichment is not None
+        )
         boundary_decision_counts = Counter(decision.decision for decision in context.workflow_boundary_decisions)
         boundary_confidence_counts = Counter(decision.confidence for decision in context.workflow_boundary_decisions)
         boundary_source_counts = Counter(decision.decision_source for decision in context.workflow_boundary_decisions)
+        boundary_conflict_counts = Counter(
+            "conflict" if decision.conflict_detected else "non_conflict"
+            for decision in context.workflow_boundary_decisions
+        )
         transcript_summaries: dict[str, dict[str, object]] = {}
         transcript_names = {artifact.id: artifact.name for artifact in context.transcript_artifacts}
         for segment in context.evidence_segments:
@@ -321,6 +330,7 @@ class EvidenceSegmentationStage:
                     "business_object": segment.enrichment.business_object if segment.enrichment is not None else None,
                     "workflow_goal": segment.enrichment.workflow_goal if segment.enrichment is not None else None,
                     "rule_hints": segment.enrichment.rule_hints if segment.enrichment is not None else [],
+                    "enrichment_source": segment.enrichment.enrichment_source if segment.enrichment is not None else "unknown",
                 }
             )
         return {
@@ -341,9 +351,11 @@ class EvidenceSegmentationStage:
             },
             "segment_methods": dict(segment_method_counts),
             "enrichment_confidence": dict(enrichment_confidence_counts),
+            "enrichment_sources": dict(enrichment_source_counts),
             "boundary_decisions": dict(boundary_decision_counts),
             "boundary_confidence": dict(boundary_confidence_counts),
             "decision_sources": dict(boundary_source_counts),
+            "boundary_conflicts": dict(boundary_conflict_counts),
             "transcript_summaries": [
                 {
                     "transcript_name": summary["transcript_name"],
@@ -443,6 +455,14 @@ class ProcessGroupingStage:
                 for assignment in grouping_result.assignment_details
                 if bool(assignment.get("is_ambiguous"))
             ]
+            grouping_decision_sources = Counter(
+                str(assignment.get("decision_source", "unknown") or "unknown")
+                for assignment in grouping_result.assignment_details
+            )
+            grouping_conflicts = Counter(
+                "conflict" if bool(assignment.get("conflict_detected")) else "non_conflict"
+                for assignment in grouping_result.assignment_details
+            )
             action_log.metadata_json = json.dumps(
                 {
                     "conclusion": (
@@ -462,6 +482,16 @@ class ProcessGroupingStage:
                         "ambiguous_assignment_count": len(ambiguous_assignments),
                         "has_ambiguity": bool(ambiguous_assignments),
                     },
+                    "decision_sources": dict(grouping_decision_sources),
+                    "grouping_conflicts": dict(grouping_conflicts),
+                    "process_group_summaries": [
+                        {
+                            "title": group.title,
+                            "capability_tags": json.loads(getattr(group, "capability_tags_json", "[]") or "[]"),
+                            "summary_text": getattr(group, "summary_text", "") or "",
+                        }
+                        for group in grouping_result.process_groups
+                    ],
                     "assignments": grouping_result.assignment_details,
                 }
             )

@@ -3,6 +3,7 @@ import React from "react";
 type SessionSummaryPanelProps = {
   heading: string;
   subheading: string;
+  narrativeText?: string;
   summaryBullets: string[];
   sessionTitle: string;
   stepCount: number;
@@ -18,6 +19,7 @@ type SessionSummaryPanelProps = {
 export function SessionSummaryPanel({
   heading,
   subheading,
+  narrativeText = "",
   summaryBullets,
   sessionTitle,
   stepCount,
@@ -45,6 +47,7 @@ export function SessionSummaryPanel({
         <div className="summary-document-card">
           <h4 className="summary-document-title">{heading}</h4>
           <div className="summary-document-subtitle">{subheading}</div>
+          {narrativeText.trim() ? <p className="summary-document-paragraph">{narrativeText}</p> : null}
           <ul className="summary-document-list">
             {visibleBullets.map((bullet, index) => (
               <li key={`${index}_${bullet}`}>{bullet}</li>

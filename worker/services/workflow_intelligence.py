@@ -20,6 +20,7 @@ class SemanticEnrichment:
     rule_hints: list[str] = field(default_factory=list)
     domain_terms: list[str] = field(default_factory=list)
     confidence: str = "unknown"
+    enrichment_source: str = "heuristic"
     resolution_status: str = "auto_resolved"
 
 
@@ -49,4 +50,9 @@ class WorkflowBoundaryDecision:
     confidence: str = "unknown"
     reason: str = ""
     decision_source: str = "heuristic"
+    heuristic_decision: str | None = None
+    heuristic_confidence: str | None = None
+    ai_decision: str | None = None
+    ai_confidence: str | None = None
+    conflict_detected: bool = False
     resolution_status: str = "auto_resolved"

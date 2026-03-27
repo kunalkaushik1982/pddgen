@@ -147,6 +147,7 @@ class HeuristicSemanticEnrichmentStrategy:
             rule_hints=rule_hints,
             domain_terms=domain_terms,
             confidence=self._confidence_from_signal_count(signal_count),
+            enrichment_source="heuristic",
         )
 
     def _extract_system_name(self, text: str) -> str | None:
@@ -221,6 +222,8 @@ class HeuristicWorkflowBoundaryStrategy:
                 confidence="low",
                 reason="One or both segments did not contain enrichment signals.",
                 decision_source="heuristic",
+                heuristic_decision="uncertain",
+                heuristic_confidence="low",
             )
 
         overlap_score = 0.0
@@ -282,6 +285,8 @@ class HeuristicWorkflowBoundaryStrategy:
             confidence=confidence,
             reason=reason,
             decision_source="heuristic",
+            heuristic_decision=decision,
+            heuristic_confidence=confidence,
         )
 
     @staticmethod
@@ -303,6 +308,70 @@ class HeuristicWorkflowBoundaryStrategy:
         if not left.end_timestamp or not right.start_timestamp:
             return False
         return left.end_timestamp == right.start_timestamp
+
+
+class AISemanticEnrichmentStrategy:
+    """AI-first segment enrichment strategy with deterministic fallback."""
+
+    strategy_key = "ai_plus_heuristic_v1"
+
+    def __init__(
+        self,
+        *,
+        ai_transcript_interpreter: AITranscriptInterpreter | None = None,
+        fallback_strategy: HeuristicSemanticEnrichmentStrategy | None = None,
+    ) -> None:
+        self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
+        self.fallback_strategy = fallback_strategy or HeuristicSemanticEnrichmentStrategy()
+
+    def enrich(self, segment: EvidenceSegment) -> SemanticEnrichment:
+        fallback_enrichment = self.fallback_strategy.enrich(segment)
+        ai_result = self.ai_transcript_interpreter.enrich_workflow_segment(
+            transcript_name=segment.transcript_artifact_id,
+            segment_text=segment.text,
+            segment_context={
+                "segment_order": segment.segment_order,
+                "start_timestamp": segment.start_timestamp,
+                "end_timestamp": segment.end_timestamp,
+                "segmentation_method": segment.segmentation_method,
+            },
+        )
+        if ai_result is None:
+            return fallback_enrichment
+
+        if ai_result.confidence not in {"high", "medium"}:
+            fallback_enrichment.enrichment_source = "heuristic_fallback"
+            return fallback_enrichment
+
+        resolved = SemanticEnrichment(
+            actor=ai_result.actor or fallback_enrichment.actor,
+            actor_role=ai_result.actor_role or fallback_enrichment.actor_role,
+            system_name=ai_result.system_name or fallback_enrichment.system_name,
+            action_verb=ai_result.action_verb or fallback_enrichment.action_verb,
+            action_type=ai_result.action_type or fallback_enrichment.action_type,
+            business_object=ai_result.business_object or fallback_enrichment.business_object,
+            workflow_goal=ai_result.workflow_goal or fallback_enrichment.workflow_goal,
+            rule_hints=ai_result.rule_hints or fallback_enrichment.rule_hints,
+            domain_terms=ai_result.domain_terms or fallback_enrichment.domain_terms,
+            confidence=ai_result.confidence,
+            enrichment_source="ai",
+        )
+        if not self._has_meaningful_ai_signal(resolved):
+            fallback_enrichment.enrichment_source = "heuristic_fallback"
+            return fallback_enrichment
+        return resolved
+
+    @staticmethod
+    def _has_meaningful_ai_signal(enrichment: SemanticEnrichment) -> bool:
+        return any(
+            (
+                enrichment.business_object,
+                enrichment.workflow_goal,
+                enrichment.system_name,
+                enrichment.action_verb,
+                enrichment.actor,
+            )
+        ) or bool(enrichment.domain_terms)
 
 
 class AIWorkflowBoundaryStrategy:
@@ -331,20 +400,86 @@ class AIWorkflowBoundaryStrategy:
         ai_confidence = ai_result.confidence
         if ai_confidence not in {"high", "medium"}:
             fallback_decision.decision_source = "heuristic_fallback"
+            fallback_decision.ai_decision = ai_result.decision
+            fallback_decision.ai_confidence = ai_result.confidence
             return fallback_decision
 
-        reason = ai_result.rationale.strip() or fallback_decision.reason
-        if ai_confidence == "medium" and fallback_decision.confidence == "high" and fallback_decision.decision != ai_result.decision:
-            fallback_decision.decision_source = "heuristic_fallback"
-            return fallback_decision
+        heuristic_decision = fallback_decision.decision
+        heuristic_confidence = fallback_decision.confidence
+        conflict_detected = heuristic_decision != ai_result.decision
+        ai_reason = ai_result.rationale.strip() or fallback_decision.reason
+
+        if not conflict_detected:
+            return WorkflowBoundaryDecision(
+                left_segment_id=left.id,
+                right_segment_id=right.id,
+                decision=ai_result.decision,
+                confidence=ai_confidence,
+                reason=ai_reason,
+                decision_source="ai",
+                heuristic_decision=heuristic_decision,
+                heuristic_confidence=heuristic_confidence,
+                ai_decision=ai_result.decision,
+                ai_confidence=ai_confidence,
+                conflict_detected=False,
+            )
+
+        resolved = self._resolve_conflict(
+            left=left,
+            right=right,
+            heuristic_decision=fallback_decision,
+            ai_decision=ai_result,
+        )
+        resolved.heuristic_decision = heuristic_decision
+        resolved.heuristic_confidence = heuristic_confidence
+        resolved.ai_decision = ai_result.decision
+        resolved.ai_confidence = ai_confidence
+        resolved.conflict_detected = True
+        return resolved
+
+    def _resolve_conflict(
+        self,
+        *,
+        left: EvidenceSegment,
+        right: EvidenceSegment,
+        heuristic_decision: WorkflowBoundaryDecision,
+        ai_decision,
+    ) -> WorkflowBoundaryDecision:
+        heuristic_confidence = heuristic_decision.confidence
+        ai_confidence = ai_decision.confidence
+
+        if ai_confidence == "high" and heuristic_confidence != "high":
+            return WorkflowBoundaryDecision(
+                left_segment_id=left.id,
+                right_segment_id=right.id,
+                decision=ai_decision.decision,
+                confidence=ai_confidence,
+                reason=(
+                    "AI boundary decision overrode a weaker heuristic decision. "
+                    f"AI rationale: {ai_decision.rationale.strip() or 'No AI rationale provided.'}"
+                ),
+                decision_source="ai_conflict_override",
+            )
+
+        if heuristic_confidence == "high" and ai_confidence != "high":
+            heuristic_decision.decision_source = "heuristic_fallback"
+            heuristic_decision.reason = (
+                "Heuristic boundary decision was kept because it had stronger confidence than the conflicting AI result. "
+                f"Heuristic rationale: {heuristic_decision.reason}"
+            )
+            return heuristic_decision
 
         return WorkflowBoundaryDecision(
             left_segment_id=left.id,
             right_segment_id=right.id,
-            decision=ai_result.decision,
-            confidence=ai_confidence,
-            reason=reason,
-            decision_source="ai",
+            decision="uncertain",
+            confidence="medium" if ai_confidence == "high" or heuristic_confidence == "high" else "low",
+            reason=(
+                "AI and heuristic workflow-boundary classifiers disagreed and neither result was strong enough to win decisively. "
+                f"Heuristic said {heuristic_decision.decision} ({heuristic_confidence}); "
+                f"AI said {ai_decision.decision} ({ai_confidence})."
+            ),
+            decision_source="conflict_unresolved",
         )
 
     @staticmethod
@@ -357,6 +492,15 @@ class AIWorkflowBoundaryStrategy:
             "start_timestamp": segment.start_timestamp,
             "end_timestamp": segment.end_timestamp,
             "segmentation_method": segment.segmentation_method,
+            "workflow_summary": {
+                "actor": enrichment.actor if enrichment else None,
+                "system_name": enrichment.system_name if enrichment else None,
+                "action_type": enrichment.action_type if enrichment else None,
+                "business_object": enrichment.business_object if enrichment else None,
+                "workflow_goal": enrichment.workflow_goal if enrichment else None,
+                "domain_terms": enrichment.domain_terms if enrichment else [],
+                "rule_hints": enrichment.rule_hints if enrichment else [],
+            },
             "enrichment": {
                 "actor": enrichment.actor if enrichment else None,
                 "actor_role": enrichment.actor_role if enrichment else None,
