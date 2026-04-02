@@ -5,23 +5,34 @@ import logging
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-try:
-    from worker.services.ai_skills.client import OpenAICompatibleSkillClient, extract_message_content
-    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+if TYPE_CHECKING:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient
     from worker.services.ai_skills.transcript_to_steps.schemas import (
         TranscriptNote,
         TranscriptStep,
         TranscriptToStepsRequest,
         TranscriptToStepsResponse,
     )
+
+try:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient as _OpenAICompatibleSkillClient, extract_message_content
+    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+    from worker.services.ai_skills.transcript_to_steps.schemas import (
+        TranscriptNote as _TranscriptNote,
+        TranscriptStep as _TranscriptStep,
+        TranscriptToStepsRequest as _TranscriptToStepsRequest,
+        TranscriptToStepsResponse as _TranscriptToStepsResponse,
+    )
 except Exception:
     _BASE_DIR = Path(__file__).resolve().parent
 
     def _load_local_module(name: str, path: Path):
         spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load module {name!r} from {path}.")
         module = importlib.util.module_from_spec(spec)
-        assert spec is not None and spec.loader is not None
         sys.modules[name] = module
         spec.loader.exec_module(module)
         return module
@@ -30,14 +41,14 @@ except Exception:
     _runtime_module = _load_local_module("ai_skill_runtime_local", _BASE_DIR.parent / "runtime.py")
     _schemas_module = _load_local_module("transcript_to_steps_schemas_local", _BASE_DIR / "schemas.py")
 
-    OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
+    _OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
     extract_message_content = _client_module.extract_message_content
     load_markdown_text = _runtime_module.load_markdown_text
     parse_json_object = _runtime_module.parse_json_object
-    TranscriptNote = _schemas_module.TranscriptNote
-    TranscriptStep = _schemas_module.TranscriptStep
-    TranscriptToStepsRequest = _schemas_module.TranscriptToStepsRequest
-    TranscriptToStepsResponse = _schemas_module.TranscriptToStepsResponse
+    _TranscriptNote = _schemas_module.TranscriptNote
+    _TranscriptStep = _schemas_module.TranscriptStep
+    _TranscriptToStepsRequest = _schemas_module.TranscriptToStepsRequest
+    _TranscriptToStepsResponse = _schemas_module.TranscriptToStepsResponse
 
 TIMESTAMP_PATTERN = re.compile(r"\b(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b")
 logger = logging.getLogger(__name__)
@@ -80,7 +91,7 @@ class TranscriptToStepsSkill:
         ]
 
     def run(self, input: TranscriptToStepsRequest) -> TranscriptToStepsResponse:
-        client = self.client or OpenAICompatibleSkillClient()
+        client = self.client or _OpenAICompatibleSkillClient()
         logger.info(
             "Executing AI skill.",
             extra={
@@ -93,7 +104,7 @@ class TranscriptToStepsSkill:
         content = extract_message_content(response_body)
         parsed = parse_json_object(content)
         steps = [
-            TranscriptStep(
+            _TranscriptStep(
                 application_name=str(item.get("application_name", "") or ""),
                 action_text=str(item.get("action_text", "") or "").strip(),
                 source_data_note=str(item.get("source_data_note", "") or "").strip(),
@@ -107,7 +118,7 @@ class TranscriptToStepsSkill:
             if isinstance(item, dict)
         ]
         notes = [
-            TranscriptNote(
+            _TranscriptNote(
                 text=str(item.get("text", "") or "").strip(),
                 confidence=normalize_confidence(str(item.get("confidence", "") or "")),
                 inference_type=str(item.get("inference_type", "inferred") or "inferred"),
@@ -115,4 +126,4 @@ class TranscriptToStepsSkill:
             for item in parsed.get("notes", [])
             if isinstance(item, dict)
         ]
-        return TranscriptToStepsResponse(steps=steps, notes=notes)
+        return _TranscriptToStepsResponse(steps=steps, notes=notes)

@@ -258,6 +258,22 @@ class WorkflowBoundaryDetectionSchemaTests(unittest.TestCase):
         self.assertEqual(result.decision, "same_workflow")
         self.assertEqual(result.decision_source, "ai")
 
+    def test_ai_boundary_strategy_serializes_segment_ids_for_skill_logging(self) -> None:
+        evidence_module, workflow_module = load_evidence_segmentation_module()
+
+        strategy = evidence_module.AIWorkflowBoundaryStrategy()
+        segment = workflow_module.EvidenceSegment(
+            id="left-1",
+            transcript_artifact_id="artifact-1",
+            meeting_id=None,
+            segment_order=1,
+            text="Open SAP vendor record",
+        )
+
+        payload = strategy._serialize_segment(segment)
+
+        self.assertEqual(payload["id"], "left-1")
+
 
 if __name__ == "__main__":
     unittest.main()

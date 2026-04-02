@@ -517,6 +517,7 @@ class AIWorkflowBoundaryStrategy:
     def _serialize_segment(segment: EvidenceSegment) -> dict[str, object]:
         enrichment = segment.enrichment
         return {
+            "id": segment.id,
             "transcript_artifact_id": segment.transcript_artifact_id,
             "segment_order": segment.segment_order,
             "text": segment.text,

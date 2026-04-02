@@ -5,21 +5,30 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-try:
-    from worker.services.ai_skills.client import OpenAICompatibleSkillClient, extract_message_content
-    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+if TYPE_CHECKING:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient
     from worker.services.ai_skills.diagram_generation.schemas import (
         DiagramGenerationRequest,
         DiagramGenerationResponse,
+    )
+
+try:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient as _OpenAICompatibleSkillClient, extract_message_content
+    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+    from worker.services.ai_skills.diagram_generation.schemas import (
+        DiagramGenerationRequest as _DiagramGenerationRequest,
+        DiagramGenerationResponse as _DiagramGenerationResponse,
     )
 except Exception:
     _BASE_DIR = Path(__file__).resolve().parent
 
     def _load_local_module(name: str, path: Path):
         spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load module {name!r} from {path}.")
         module = importlib.util.module_from_spec(spec)
-        assert spec is not None and spec.loader is not None
         sys.modules[name] = module
         spec.loader.exec_module(module)
         return module
@@ -28,12 +37,12 @@ except Exception:
     _runtime_module = _load_local_module("ai_skill_runtime_local_diagram", _BASE_DIR.parent / "runtime.py")
     _schemas_module = _load_local_module("diagram_generation_schemas_local", _BASE_DIR / "schemas.py")
 
-    OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
+    _OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
     extract_message_content = _client_module.extract_message_content
     load_markdown_text = _runtime_module.load_markdown_text
     parse_json_object = _runtime_module.parse_json_object
-    DiagramGenerationRequest = _schemas_module.DiagramGenerationRequest
-    DiagramGenerationResponse = _schemas_module.DiagramGenerationResponse
+    _DiagramGenerationRequest = _schemas_module.DiagramGenerationRequest
+    _DiagramGenerationResponse = _schemas_module.DiagramGenerationResponse
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +131,7 @@ class DiagramGenerationSkill:
     def run(self, input: DiagramGenerationRequest) -> DiagramGenerationResponse | None:
         if input.diagram_type.lower() != "flowchart":
             return None
-        client = self.client or OpenAICompatibleSkillClient()
+        client = self.client or _OpenAICompatibleSkillClient()
         logger.info(
             "Executing AI skill.",
             extra={
@@ -134,7 +143,7 @@ class DiagramGenerationSkill:
         response_body = client.post_json(messages=self.build_messages(input))
         content = extract_message_content(response_body)
         parsed = parse_json_object(content)
-        return DiagramGenerationResponse(
+        return _DiagramGenerationResponse(
             overview=normalize_diagram_view(parsed.get("overview", {}), "overview", input.session_title),
             detailed=normalize_diagram_view(parsed.get("detailed", {}), "detailed", input.session_title),
         )

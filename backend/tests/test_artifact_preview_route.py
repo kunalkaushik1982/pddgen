@@ -147,6 +147,29 @@ def load_route_module():
 
 
 class ArtifactPreviewRouteTests(unittest.TestCase):
+    def test_preview_route_streams_bytes_when_internal_redirect_is_unavailable(self) -> None:
+        module = load_route_module()
+
+        artifact = types.SimpleNamespace(id="artifact-2", name="step.png", storage_path="C:/tmp/step.png", content_type="image/png")
+        db = types.SimpleNamespace(get=lambda model, artifact_id: artifact)
+        storage_service = types.SimpleNamespace(
+            validate_preview_signature=lambda artifact_id, expires, signature: None,
+            build_internal_artifact_path=lambda storage_path: None,
+            read_bytes=lambda storage_path: b"image-bytes",
+        )
+
+        response = module.get_artifact_preview(
+            artifact_id="artifact-2",
+            expires=4102444800,
+            sig="valid",
+            db=db,
+            storage_service=storage_service,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.media_type, "image/png")
+        self.assertFalse("X-Accel-Redirect" in response.headers)
+
     def test_preview_route_serves_signed_local_artifact(self) -> None:
         module = load_route_module()
 

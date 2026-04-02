@@ -5,21 +5,30 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-try:
-    from worker.services.ai_skills.client import OpenAICompatibleSkillClient, extract_message_content
-    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+if TYPE_CHECKING:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient
     from worker.services.ai_skills.process_summary_generation.schemas import (
         ProcessSummaryGenerationRequest,
         ProcessSummaryGenerationResponse,
+    )
+
+try:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient as _OpenAICompatibleSkillClient, extract_message_content
+    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+    from worker.services.ai_skills.process_summary_generation.schemas import (
+        ProcessSummaryGenerationRequest as _ProcessSummaryGenerationRequest,
+        ProcessSummaryGenerationResponse as _ProcessSummaryGenerationResponse,
     )
 except Exception:
     _BASE_DIR = Path(__file__).resolve().parent
 
     def _load_local_module(name: str, path: Path):
         spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load module {name!r} from {path}.")
         module = importlib.util.module_from_spec(spec)
-        assert spec is not None and spec.loader is not None
         sys.modules[name] = module
         spec.loader.exec_module(module)
         return module
@@ -28,12 +37,12 @@ except Exception:
     _runtime_module = _load_local_module("ai_skill_runtime_local_summary", _BASE_DIR.parent / "runtime.py")
     _schemas_module = _load_local_module("process_summary_generation_schemas_local", _BASE_DIR / "schemas.py")
 
-    OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
+    _OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
     extract_message_content = _client_module.extract_message_content
     load_markdown_text = _runtime_module.load_markdown_text
     parse_json_object = _runtime_module.parse_json_object
-    ProcessSummaryGenerationRequest = _schemas_module.ProcessSummaryGenerationRequest
-    ProcessSummaryGenerationResponse = _schemas_module.ProcessSummaryGenerationResponse
+    _ProcessSummaryGenerationRequest = _schemas_module.ProcessSummaryGenerationRequest
+    _ProcessSummaryGenerationResponse = _schemas_module.ProcessSummaryGenerationResponse
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +85,7 @@ class ProcessSummaryGenerationSkill:
         ]
 
     def run(self, input: ProcessSummaryGenerationRequest) -> ProcessSummaryGenerationResponse | None:
-        client = self.client or OpenAICompatibleSkillClient()
+        client = self.client or _OpenAICompatibleSkillClient()
         logger.info(
             "Executing AI skill.",
             extra={
@@ -91,7 +100,7 @@ class ProcessSummaryGenerationSkill:
         summary_text = normalize_summary_text(parsed.get("summary_text"))
         if summary_text is None:
             return None
-        return ProcessSummaryGenerationResponse(
+        return _ProcessSummaryGenerationResponse(
             summary_text=summary_text,
             confidence=normalize_confidence(str(parsed.get("confidence", "") or "")),
             rationale=str(parsed.get("rationale", "") or "").strip(),

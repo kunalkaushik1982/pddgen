@@ -6,21 +6,30 @@ import logging
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-try:
-    from worker.services.ai_skills.client import OpenAICompatibleSkillClient, extract_message_content
-    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+if TYPE_CHECKING:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient
     from worker.services.ai_skills.workflow_title_resolution.schemas import (
         WorkflowTitleResolutionRequest,
         WorkflowTitleResolutionResponse,
+    )
+
+try:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient as _OpenAICompatibleSkillClient, extract_message_content
+    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+    from worker.services.ai_skills.workflow_title_resolution.schemas import (
+        WorkflowTitleResolutionRequest as _WorkflowTitleResolutionRequest,
+        WorkflowTitleResolutionResponse as _WorkflowTitleResolutionResponse,
     )
 except Exception:
     _BASE_DIR = Path(__file__).resolve().parent
 
     def _load_local_module(name: str, path: Path):
         spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load module {name!r} from {path}.")
         module = importlib.util.module_from_spec(spec)
-        assert spec is not None and spec.loader is not None
         sys.modules[name] = module
         spec.loader.exec_module(module)
         return module
@@ -29,12 +38,12 @@ except Exception:
     _runtime_module = _load_local_module("ai_skill_runtime_local_title", _BASE_DIR.parent / "runtime.py")
     _schemas_module = _load_local_module("workflow_title_resolution_schemas_local", _BASE_DIR / "schemas.py")
 
-    OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
+    _OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
     extract_message_content = _client_module.extract_message_content
     load_markdown_text = _runtime_module.load_markdown_text
     parse_json_object = _runtime_module.parse_json_object
-    WorkflowTitleResolutionRequest = _schemas_module.WorkflowTitleResolutionRequest
-    WorkflowTitleResolutionResponse = _schemas_module.WorkflowTitleResolutionResponse
+    _WorkflowTitleResolutionRequest = _schemas_module.WorkflowTitleResolutionRequest
+    _WorkflowTitleResolutionResponse = _schemas_module.WorkflowTitleResolutionResponse
 
 logger = logging.getLogger(__name__)
 _SLUG_NON_ALNUM = re.compile(r"[^a-z0-9]+")
@@ -81,7 +90,7 @@ class WorkflowTitleResolutionSkill:
         ]
 
     def run(self, input: WorkflowTitleResolutionRequest) -> WorkflowTitleResolutionResponse | None:
-        client = self.client or OpenAICompatibleSkillClient()
+        client = self.client or _OpenAICompatibleSkillClient()
         logger.info(
             "Executing AI skill.",
             extra={
@@ -96,7 +105,7 @@ class WorkflowTitleResolutionSkill:
         workflow_title = normalize_title(parsed.get("workflow_title"))
         if workflow_title is None:
             return None
-        return WorkflowTitleResolutionResponse(
+        return _WorkflowTitleResolutionResponse(
             workflow_title=workflow_title,
             canonical_slug=normalize_slug(parsed.get("canonical_slug"), fallback=workflow_title),
             confidence=normalize_confidence(str(parsed.get("confidence", "") or "")),

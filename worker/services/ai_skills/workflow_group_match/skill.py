@@ -6,21 +6,30 @@ import logging
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-try:
-    from worker.services.ai_skills.client import OpenAICompatibleSkillClient, extract_message_content
-    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+if TYPE_CHECKING:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient
     from worker.services.ai_skills.workflow_group_match.schemas import (
         WorkflowGroupMatchRequest,
         WorkflowGroupMatchResponse,
+    )
+
+try:
+    from worker.services.ai_skills.client import OpenAICompatibleSkillClient as _OpenAICompatibleSkillClient, extract_message_content
+    from worker.services.ai_skills.runtime import load_markdown_text, parse_json_object
+    from worker.services.ai_skills.workflow_group_match.schemas import (
+        WorkflowGroupMatchRequest as _WorkflowGroupMatchRequest,
+        WorkflowGroupMatchResponse as _WorkflowGroupMatchResponse,
     )
 except Exception:
     _BASE_DIR = Path(__file__).resolve().parent
 
     def _load_local_module(name: str, path: Path):
         spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load module {name!r} from {path}.")
         module = importlib.util.module_from_spec(spec)
-        assert spec is not None and spec.loader is not None
         sys.modules[name] = module
         spec.loader.exec_module(module)
         return module
@@ -29,12 +38,12 @@ except Exception:
     _runtime_module = _load_local_module("ai_skill_runtime_local_group_match", _BASE_DIR.parent / "runtime.py")
     _schemas_module = _load_local_module("workflow_group_match_schemas_local", _BASE_DIR / "schemas.py")
 
-    OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
+    _OpenAICompatibleSkillClient = _client_module.OpenAICompatibleSkillClient
     extract_message_content = _client_module.extract_message_content
     load_markdown_text = _runtime_module.load_markdown_text
     parse_json_object = _runtime_module.parse_json_object
-    WorkflowGroupMatchRequest = _schemas_module.WorkflowGroupMatchRequest
-    WorkflowGroupMatchResponse = _schemas_module.WorkflowGroupMatchResponse
+    _WorkflowGroupMatchRequest = _schemas_module.WorkflowGroupMatchRequest
+    _WorkflowGroupMatchResponse = _schemas_module.WorkflowGroupMatchResponse
 
 logger = logging.getLogger(__name__)
 _SLUG_NON_ALNUM = re.compile(r"[^a-z0-9]+")
@@ -82,7 +91,7 @@ class WorkflowGroupMatchSkill:
         ]
 
     def run(self, input: WorkflowGroupMatchRequest) -> WorkflowGroupMatchResponse:
-        client = self.client or OpenAICompatibleSkillClient()
+        client = self.client or _OpenAICompatibleSkillClient()
         logger.info(
             "Executing AI skill.",
             extra={
@@ -100,7 +109,7 @@ class WorkflowGroupMatchSkill:
             matched_existing_title = None
         recommended_title = normalize_title(parsed.get("recommended_title"))
         fallback_title = matched_existing_title or recommended_title
-        return WorkflowGroupMatchResponse(
+        return _WorkflowGroupMatchResponse(
             matched_existing_title=matched_existing_title,
             recommended_title=recommended_title,
             recommended_slug=normalize_slug(parsed.get("recommended_slug"), fallback=fallback_title or "workflow"),

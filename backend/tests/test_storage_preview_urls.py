@@ -34,6 +34,7 @@ def install_storage_stubs():
         api_prefix: str = "/api"
         storage_backend: str = "local"
         local_storage_root: Path = Path("C:/tmp/storage")
+        protected_artifact_internal_redirect_enabled: bool = False
         object_storage_bucket: str = "preview-bucket"
         object_storage_region: str = ""
         object_storage_endpoint_url: str = ""
@@ -111,6 +112,15 @@ class StoragePreviewUrlTests(unittest.TestCase):
         )
 
         service.validate_preview_signature("artifact-2", expires, signature)
+
+    def test_local_internal_redirect_path_is_disabled_by_default(self) -> None:
+        FakeSettings, _ = install_storage_stubs()
+        module = load_storage_module()
+        service = module.StorageService(backend=module.LocalStorageBackend(FakeSettings()))
+
+        result = service.build_internal_artifact_path("C:/tmp/storage/session/screenshots/step.png")
+
+        self.assertIsNone(result)
 
     def test_s3_storage_preview_url_uses_presigned_result(self) -> None:
         FakeSettings, fake_client = install_storage_stubs()

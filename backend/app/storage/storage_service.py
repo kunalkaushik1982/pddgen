@@ -272,6 +272,8 @@ class StorageService:
         """Return an nginx-internal local artifact path when available."""
         if self.settings.storage_backend.lower() != "local":
             return None
+        if not getattr(self.settings, "protected_artifact_internal_redirect_enabled", False):
+            return None
 
         try:
             root = self.settings.local_storage_root.resolve()
