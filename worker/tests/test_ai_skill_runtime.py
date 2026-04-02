@@ -5,10 +5,28 @@ from pathlib import Path
 import unittest
 
 RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
+BASE_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "base.py"
+REGISTRY_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "registry.py"
 
 
 def load_runtime_module():
     spec = importlib.util.spec_from_file_location("ai_skill_runtime", RUNTIME_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_base_module():
+    spec = importlib.util.spec_from_file_location("ai_skill_base", BASE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_registry_module():
+    spec = importlib.util.spec_from_file_location("ai_skill_registry", REGISTRY_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec is not None and spec.loader is not None
     spec.loader.exec_module(module)
@@ -43,6 +61,30 @@ class AiSkillRuntimeTests(unittest.TestCase):
         runtime = load_runtime_module()
         with self.assertRaisesRegex(ValueError, "JSON object"):
             runtime.parse_json_object("[1, 2, 3]")
+
+    def test_skill_registry_resolves_registered_skill(self) -> None:
+        registry_module = load_registry_module()
+
+        class DummySkill:
+            skill_id = "dummy"
+            version = "1.0"
+
+            def run(self, input: object) -> object:
+                return input
+
+        registry = registry_module.AISkillRegistry()
+        registry.register("dummy", lambda: DummySkill())
+        skill = registry.create("dummy")
+
+        self.assertEqual(skill.skill_id, "dummy")
+        self.assertEqual(skill.version, "1.0")
+
+    def test_skill_registry_rejects_unknown_skill(self) -> None:
+        registry_module = load_registry_module()
+        registry = registry_module.AISkillRegistry()
+
+        with self.assertRaisesRegex(ValueError, "Unknown AI skill"):
+            registry.create("missing")
 
 
 if __name__ == "__main__":
