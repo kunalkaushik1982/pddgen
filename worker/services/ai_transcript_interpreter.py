@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
 import httpx
@@ -362,7 +362,7 @@ class AITranscriptInterpreter:
         *,
         transcript_name: str,
         inferred_title: str,
-        candidate_matches: list[dict[str, Any]],
+        candidate_matches: Sequence[Mapping[str, Any]],
         steps: list[dict[str, Any]],
         notes: list[dict[str, Any]],
     ) -> AmbiguousProcessGroupResolution | None:

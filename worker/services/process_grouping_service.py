@@ -10,6 +10,7 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
+from typing import TypedDict
 
 from app.core.observability import get_logger
 from app.models.artifact import ArtifactModel
@@ -25,6 +26,24 @@ from worker.services.ai_transcript_interpreter import (
 from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
 
 logger = get_logger(__name__)
+
+
+class CandidateMatchRecord(TypedDict, total=False):
+    group_title: str
+    score: float | str
+    title_ratio: float
+    signature_overlap: float
+    profile_overlap: float
+    system_alignment: float
+    application_alignment: float
+
+
+class HeuristicGroupMatchResult(TypedDict):
+    matched_group: ProcessGroupModel | None
+    best_score: float
+    ambiguity: bool
+    candidate_matches: list[CandidateMatchRecord]
+    supporting_signals: list[str]
 
 
 @dataclass(slots=True)
@@ -63,7 +82,7 @@ class GroupResolutionDecision:
     decision_source: str
     is_ambiguous: bool
     rationale: str
-    candidate_matches: list[dict[str, object]]
+    candidate_matches: list[CandidateMatchRecord]
     supporting_signals: list[str]
     heuristic_decision: str | None = None
     heuristic_confidence: str | None = None
@@ -406,7 +425,7 @@ class ProcessGroupingService:
         steps: list[dict],
         notes: list[dict],
         existing_groups: list[ProcessGroupModel],
-        heuristic_match: dict[str, object],
+        heuristic_match: HeuristicGroupMatchResult,
     ) -> GroupResolutionDecision | None:
         if not existing_groups:
             return None
@@ -428,7 +447,8 @@ class ProcessGroupingService:
         if ai_match is None:
             return None
 
-        heuristic_title = heuristic_match["matched_group"].title if heuristic_match["matched_group"] is not None else None
+        heuristic_group = heuristic_match["matched_group"]
+        heuristic_title = heuristic_group.title if heuristic_group is not None else None
         heuristic_confidence = self._heuristic_resolution_confidence(heuristic_match)
         heuristic_decision = "matched_existing_group" if heuristic_title is not None else "created_new_group"
         ai_decision = "matched_existing_group" if ai_match.matched_existing_title else "created_new_group"
@@ -571,7 +591,7 @@ class ProcessGroupingService:
         *,
         inferred_title: str,
         inferred_slug: str,
-        heuristic_match: dict[str, object],
+        heuristic_match: HeuristicGroupMatchResult,
         title_supporting_signals: list[str],
         decision_source: str = "heuristic",
         force_ambiguous: bool = False,
@@ -643,10 +663,10 @@ class ProcessGroupingService:
             conflict_detected=conflict_detected,
         )
 
-    def _heuristic_resolution_confidence(self, heuristic_match: dict[str, object]) -> str:
-        best_score = float(heuristic_match.get("best_score", 0.0) or 0.0)
-        matched_group = heuristic_match.get("matched_group")
-        ambiguity = bool(heuristic_match.get("ambiguity"))
+    def _heuristic_resolution_confidence(self, heuristic_match: HeuristicGroupMatchResult) -> str:
+        best_score = float(heuristic_match["best_score"])
+        matched_group = heuristic_match["matched_group"]
+        ambiguity = bool(heuristic_match["ambiguity"])
         if ambiguity:
             return "medium"
         if matched_group is not None:
@@ -658,7 +678,7 @@ class ProcessGroupingService:
         *,
         transcript: ArtifactModel,
         inferred_title: str,
-        candidate_matches: list[dict[str, object]],
+        candidate_matches: list[CandidateMatchRecord],
         steps: list[dict],
         notes: list[dict],
         existing_groups: list[ProcessGroupModel],
@@ -713,7 +733,7 @@ class ProcessGroupingService:
         steps: list[dict],
         workflow_profile: TranscriptWorkflowProfile,
         existing_groups: list[ProcessGroupModel],
-    ) -> dict[str, object]:
+    ) -> HeuristicGroupMatchResult:
         for group in existing_groups:
             if slug and group.canonical_slug == slug:
                 return {
@@ -730,12 +750,13 @@ class ProcessGroupingService:
         best_group: ProcessGroupModel | None = None
         best_score = 0.0
         second_best_score = 0.0
-        candidate_scores: list[dict[str, object]] = []
+        candidate_scores: list[CandidateMatchRecord] = []
         for group in existing_groups:
             title_ratio = SequenceMatcher(None, normalized_title, self._normalize_text(group.title)).ratio()
             signature_overlap = 0.0
             system_alignment = 0.0
             application_alignment = 0.0
+            group_tokens: set[str] = set()
             if getattr(group, "summary_text", ""):
                 group_tokens = {token for token in self._normalize_text(group.summary_text).split() if token and token not in self._STOPWORDS}
                 signature_overlap = len(candidate_signature & group_tokens) / max(len(candidate_signature | group_tokens), 1)
@@ -771,7 +792,7 @@ class ProcessGroupingService:
             elif score > second_best_score:
                 second_best_score = score
 
-        candidate_scores.sort(key=lambda item: float(item["score"]), reverse=True)
+        candidate_scores.sort(key=lambda item: float(item.get("score", 0.0) or 0.0), reverse=True)
         ambiguity = (
             best_score >= 0.72
             and second_best_score >= 0.7
@@ -1227,16 +1248,15 @@ class ProcessGroupingService:
         self,
         *,
         existing_groups: list[ProcessGroupModel],
-        heuristic_match: dict[str, object],
+        heuristic_match: HeuristicGroupMatchResult,
     ) -> list[dict[str, object]]:
-        candidate_scores = {
+        candidate_scores: dict[str, CandidateMatchRecord] = {
             str(item.get("group_title", "")): item
-            for item in heuristic_match.get("candidate_matches", [])
-            if isinstance(item, dict)
+            for item in heuristic_match["candidate_matches"]
         }
         serialized: list[dict[str, object]] = []
         for group in existing_groups:
-            candidate_score = candidate_scores.get(group.title, {})
+            candidate_score = candidate_scores.get(group.title)
             serialized.append(
                 {
                     "title": group.title,
@@ -1248,11 +1268,11 @@ class ProcessGroupingService:
                         for token in self._normalize_text(getattr(group, "summary_text", "") or "").split()
                         if token and token not in self._STOPWORDS
                     ][:10],
-                    "heuristic_score": candidate_score.get("score"),
-                    "heuristic_title_ratio": candidate_score.get("title_ratio"),
-                    "heuristic_signature_overlap": candidate_score.get("signature_overlap"),
-                    "heuristic_system_alignment": candidate_score.get("system_alignment"),
-                    "heuristic_application_alignment": candidate_score.get("application_alignment"),
+                    "heuristic_score": candidate_score.get("score") if candidate_score is not None else None,
+                    "heuristic_title_ratio": candidate_score.get("title_ratio") if candidate_score is not None else None,
+                    "heuristic_signature_overlap": candidate_score.get("signature_overlap") if candidate_score is not None else None,
+                    "heuristic_system_alignment": candidate_score.get("system_alignment") if candidate_score is not None else None,
+                    "heuristic_application_alignment": candidate_score.get("application_alignment") if candidate_score is not None else None,
                 }
             )
         return serialized
@@ -1262,14 +1282,16 @@ class ProcessGroupingService:
         return sorted(
             transcript_artifacts,
             key=lambda artifact: (
-                getattr(getattr(artifact, "meeting", None), "order_index", None)
-                if getattr(getattr(artifact, "meeting", None), "order_index", None) is not None
+                meeting.order_index
+                if (meeting := getattr(artifact, "meeting", None)) is not None and meeting.order_index is not None
                 else 1_000_000,
-                getattr(getattr(artifact, "meeting", None), "meeting_date", None).isoformat()
-                if getattr(getattr(artifact, "meeting", None), "meeting_date", None) is not None
+                meeting_date.isoformat()
+                if (meeting := getattr(artifact, "meeting", None)) is not None
+                and (meeting_date := getattr(meeting, "meeting_date", None)) is not None
                 else "",
-                getattr(getattr(artifact, "meeting", None), "uploaded_at", None).isoformat()
-                if getattr(getattr(artifact, "meeting", None), "uploaded_at", None) is not None
+                uploaded_at.isoformat()
+                if (meeting := getattr(artifact, "meeting", None)) is not None
+                and (uploaded_at := getattr(meeting, "uploaded_at", None)) is not None
                 else "",
                 artifact.id,
             ),

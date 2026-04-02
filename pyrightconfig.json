@@ -1,0 +1,13 @@
+{
+  "include": ["backend", "worker"],
+  "executionEnvironments": [
+    {
+      "root": "backend",
+      "extraPaths": ["backend"]
+    },
+    {
+      "root": "worker",
+      "extraPaths": [".", "backend"]
+    }
+  ]
+}
