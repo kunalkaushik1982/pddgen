@@ -9,11 +9,14 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-import httpx
-
 from app.core.config import get_settings
+from app.core.observability import get_logger
 from app.models.draft_session import DraftSessionModel
+from app.services.ai_skills.session_grounded_qa.schemas import SessionGroundedQARequest
+from app.services.ai_skills.session_grounded_qa.skill import SessionGroundedQASkill
 from app.storage.storage_service import StorageService
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -33,6 +36,7 @@ class SessionChatService:
     def __init__(self, storage_service: StorageService | None = None) -> None:
         self.settings = get_settings()
         self.storage_service = storage_service or StorageService()
+        self._session_grounded_qa_skill: SessionGroundedQASkill | None = None
 
     def is_enabled(self) -> bool:
         """Return whether AI-backed session chat is configured."""
@@ -60,50 +64,26 @@ class SessionChatService:
             }
             for item in evidence_items
         ]
+        if self._session_grounded_qa_skill is None:
+            self._session_grounded_qa_skill = SessionGroundedQASkill(settings=self.settings)
+        logger.info(
+            "Delegating grounded session Q&A to AI skill.",
+            extra={
+                "skill_id": "session_grounded_qa",
+                "skill_version": getattr(self._session_grounded_qa_skill, "version", "unknown"),
+                "process_group_id": process_group_id,
+            },
+        )
+        result = self._session_grounded_qa_skill.run(
+            SessionGroundedQARequest(
+                session_title=session.title,
+                process_group_id=process_group_id,
+                question=cleaned_question,
+                evidence=evidence_payload,
+            )
+        )
 
-        payload = {
-            "model": self.settings.ai_model,
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"},
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You answer business analyst questions about one recorded session. "
-                        "Use only the supplied evidence. "
-                        "Do not invent facts. "
-                        "If the evidence is insufficient, say so directly. "
-                        "Return strict JSON with keys answer, confidence, and citation_ids. "
-                        "answer must be concise and business-readable. "
-                        "confidence must be one of high, medium, low. "
-                        "citation_ids must be an array of evidence ids actually used in the answer."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(
-                        {
-                            "session_title": session.title,
-                            "process_group_id": process_group_id,
-                            "question": cleaned_question,
-                            "evidence": evidence_payload,
-                        },
-                        ensure_ascii=False,
-                    ),
-                },
-            ],
-        }
-
-        endpoint = f"{self.settings.ai_base_url.rstrip('/')}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {self.settings.ai_api_key}",
-            "Content-Type": "application/json",
-        }
-        body = self._post_chat_completion(endpoint=endpoint, headers=headers, payload=payload)
-        content = self._extract_content(body)
-        parsed = self._parse_json_object(content)
-
-        cited_ids = [str(item) for item in parsed.get("citation_ids", []) if str(item).strip()]
+        cited_ids = result.citation_ids
         evidence_by_id = {item.evidence_id: item for item in evidence_items}
         citations = [
             {
@@ -117,8 +97,8 @@ class SessionChatService:
         ]
 
         return {
-            "answer": str(parsed.get("answer", "") or "").strip() or "The session evidence did not support a confident answer.",
-            "confidence": self._normalize_confidence(parsed.get("confidence")),
+            "answer": result.answer.strip() or "The session evidence did not support a confident answer.",
+            "confidence": self._normalize_confidence(result.confidence),
             "citations": citations,
         }
 
@@ -198,46 +178,6 @@ class SessionChatService:
                 transcript_chunk_index += 1
 
         return evidence_items[:20]
-
-    def _post_chat_completion(self, *, endpoint: str, headers: dict[str, str], payload: dict[str, Any]) -> dict[str, Any]:
-        """POST to the configured OpenAI-compatible chat completions endpoint."""
-        timeout = httpx.Timeout(self.settings.ai_timeout_seconds)
-        try:
-            with httpx.Client(timeout=timeout) as client:
-                response = client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
-                return response.json()
-        except httpx.TimeoutException as exc:
-            raise RuntimeError(f"Ask this Session timed out after {self.settings.ai_timeout_seconds:.0f} seconds.") from exc
-        except httpx.HTTPStatusError as exc:
-            status_code = exc.response.status_code if exc.response is not None else "unknown"
-            raise RuntimeError(f"Ask this Session failed with HTTP {status_code}.") from exc
-        except httpx.HTTPError as exc:
-            raise RuntimeError(f"Ask this Session request failed: {exc.__class__.__name__}.") from exc
-
-    @staticmethod
-    def _extract_content(response_body: dict[str, Any]) -> str:
-        """Extract message text from a chat completions response."""
-        choices = response_body.get("choices", [])
-        if not choices:
-            raise RuntimeError("Ask this Session did not receive any model choices.")
-        message = choices[0].get("message", {})
-        content = message.get("content", "")
-        if isinstance(content, list):
-            return "".join(item.get("text", "") for item in content if isinstance(item, dict))
-        if isinstance(content, str):
-            return content
-        raise RuntimeError("Ask this Session returned content in an unsupported format.")
-
-    @staticmethod
-    def _parse_json_object(text: str) -> dict[str, Any]:
-        """Parse a JSON object, tolerating markdown fences."""
-        cleaned = text.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.strip("`")
-            if cleaned.startswith("json"):
-                cleaned = cleaned[4:].strip()
-        return json.loads(cleaned)
 
     @staticmethod
     def _normalize_confidence(value: Any) -> str:

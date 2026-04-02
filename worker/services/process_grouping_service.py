@@ -17,9 +17,13 @@ from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_group import ProcessGroupModel
 from app.services.process_group_service import ProcessGroupService
+from worker.services.ai_skills.process_summary_generation.schemas import ProcessSummaryGenerationRequest
+from worker.services.ai_skills.registry import build_default_ai_skill_registry
+from worker.services.ai_skills.workflow_capability_tagging.schemas import WorkflowCapabilityTaggingRequest
+from worker.services.ai_skills.workflow_group_match.schemas import WorkflowGroupMatchRequest
+from worker.services.ai_skills.workflow_title_resolution.schemas import WorkflowTitleResolutionRequest
 from worker.services.ai_transcript_interpreter import (
     AITranscriptInterpreter,
-    WorkflowCapabilityInterpretation,
     WorkflowGroupMatchInterpretation,
     WorkflowTitleInterpretation,
 )
@@ -167,6 +171,11 @@ class ProcessGroupingService:
     ) -> None:
         self.process_group_service = process_group_service or ProcessGroupService()
         self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
+        self._ai_skill_registry = build_default_ai_skill_registry()
+        self._workflow_title_resolution_skill = None
+        self._workflow_group_match_skill = None
+        self._process_summary_generation_skill = None
+        self._workflow_capability_tagging_skill = None
 
     def assign_groups(
         self,
@@ -393,9 +402,31 @@ class ProcessGroupingService:
             steps=steps,
             notes=[],
         )
-        ai_resolution = self.ai_transcript_interpreter.resolve_workflow_title(
-            transcript_name=transcript.name,
-            workflow_summary=workflow_summary,
+        if self._workflow_title_resolution_skill is None:
+            self._workflow_title_resolution_skill = self._ai_skill_registry.create("workflow_title_resolution")
+        logger.info(
+            "Delegating workflow title resolution to AI skill.",
+            extra={
+                "skill_id": "workflow_title_resolution",
+                "skill_version": getattr(self._workflow_title_resolution_skill, "version", "unknown"),
+                "transcript_name": transcript.name,
+            },
+        )
+        ai_skill_result = self._workflow_title_resolution_skill.run(
+            WorkflowTitleResolutionRequest(
+                transcript_name=transcript.name,
+                workflow_summary=workflow_summary,
+            )
+        )
+        ai_resolution = (
+            None
+            if ai_skill_result is None
+            else WorkflowTitleInterpretation(
+                workflow_title=ai_skill_result.workflow_title,
+                canonical_slug=ai_skill_result.canonical_slug,
+                confidence=ai_skill_result.confidence,
+                rationale=ai_skill_result.rationale,
+            )
         )
         if ai_resolution is None or ai_resolution.confidence not in self._ACCEPTED_AI_CONFIDENCE:
             return WorkflowTitleInterpretation(
@@ -436,16 +467,36 @@ class ProcessGroupingService:
             steps=steps,
             notes=notes,
         )
-        ai_match = self.ai_transcript_interpreter.match_existing_workflow_group(
-            transcript_name=transcript.name,
-            workflow_summary=workflow_summary,
-            existing_groups=self._serialize_existing_groups_for_ai(
-                existing_groups=existing_groups,
-                heuristic_match=heuristic_match,
-            ),
+        serialized_existing_groups = self._serialize_existing_groups_for_ai(
+            existing_groups=existing_groups,
+            heuristic_match=heuristic_match,
         )
-        if ai_match is None:
+        if self._workflow_group_match_skill is None:
+            self._workflow_group_match_skill = self._ai_skill_registry.create("workflow_group_match")
+        logger.info(
+            "Delegating workflow group match to AI skill.",
+            extra={
+                "skill_id": "workflow_group_match",
+                "skill_version": getattr(self._workflow_group_match_skill, "version", "unknown"),
+                "transcript_name": transcript.name,
+            },
+        )
+        ai_skill_result = self._workflow_group_match_skill.run(
+            WorkflowGroupMatchRequest(
+                transcript_name=transcript.name,
+                workflow_summary=workflow_summary,
+                existing_groups=serialized_existing_groups,
+            )
+        )
+        if not ai_skill_result.recommended_title and ai_skill_result.matched_existing_title is None:
             return None
+        ai_match = WorkflowGroupMatchInterpretation(
+            matched_existing_title=ai_skill_result.matched_existing_title,
+            recommended_title=ai_skill_result.recommended_title,
+            recommended_slug=ai_skill_result.recommended_slug,
+            confidence=ai_skill_result.confidence,
+            rationale=ai_skill_result.rationale,
+        )
 
         heuristic_group = heuristic_match["matched_group"]
         heuristic_title = heuristic_group.title if heuristic_group is not None else None
@@ -1019,12 +1070,24 @@ class ProcessGroupingService:
                 steps=group_steps,
                 notes=group_notes,
             )
-            ai_summary = self.ai_transcript_interpreter.summarize_process_group(
-                process_title=process_group.title,
-                workflow_summary=workflow_summary,
-                steps=group_steps,
-                notes=group_notes,
-                document_type=document_type,
+            if self._process_summary_generation_skill is None:
+                self._process_summary_generation_skill = self._ai_skill_registry.create("process_summary_generation")
+            logger.info(
+                "Delegating process summary generation to AI skill.",
+                extra={
+                    "skill_id": "process_summary_generation",
+                    "skill_version": getattr(self._process_summary_generation_skill, "version", "unknown"),
+                    "process_title": process_group.title,
+                },
+            )
+            ai_summary = self._process_summary_generation_skill.run(
+                ProcessSummaryGenerationRequest(
+                    process_title=process_group.title,
+                    workflow_summary=workflow_summary,
+                    steps=group_steps[:12],
+                    notes=group_notes[:6],
+                    document_type=document_type,
+                )
             )
             if ai_summary is not None and ai_summary.confidence in self._ACCEPTED_AI_CONFIDENCE:
                 process_group.summary_text = ai_summary.summary_text
@@ -1122,10 +1185,22 @@ class ProcessGroupingService:
         workflow_profiles: list[TranscriptWorkflowProfile],
         document_type: str,
     ) -> list[str]:
-        ai_capabilities = self.ai_transcript_interpreter.classify_workflow_capabilities(
-            process_title=process_title,
-            workflow_summary=workflow_summary,
-            document_type=document_type,
+        if self._workflow_capability_tagging_skill is None:
+            self._workflow_capability_tagging_skill = self._ai_skill_registry.create("workflow_capability_tagging")
+        logger.info(
+            "Delegating workflow capability tagging to AI skill.",
+            extra={
+                "skill_id": "workflow_capability_tagging",
+                "skill_version": getattr(self._workflow_capability_tagging_skill, "version", "unknown"),
+                "process_title": process_title,
+            },
+        )
+        ai_capabilities = self._workflow_capability_tagging_skill.run(
+            WorkflowCapabilityTaggingRequest(
+                process_title=process_title,
+                workflow_summary=workflow_summary,
+                document_type=document_type,
+            )
         )
         if ai_capabilities is not None and ai_capabilities.confidence in self._ACCEPTED_AI_CONFIDENCE and ai_capabilities.capability_tags:
             normalized_tags = self._normalize_capability_tags(

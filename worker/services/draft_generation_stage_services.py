@@ -23,6 +23,8 @@ from app.services.action_log_service import ActionLogService
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
 from worker.bootstrap import get_backend_settings
+from worker.services.ai_skills.diagram_generation.schemas import DiagramGenerationRequest
+from worker.services.ai_skills.registry import build_default_ai_skill_registry
 from worker.services.canonical_process_merge import CanonicalProcessMergeService
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
 from worker.services.draft_generation_stage_context import DraftGenerationContext
@@ -1091,6 +1093,8 @@ class DiagramAssemblyStage:
     def __init__(self, *, ai_transcript_interpreter: AITranscriptInterpreter | None = None, action_log_service: ActionLogService | None = None) -> None:
         self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
         self.action_log_service = action_log_service or ActionLogService()
+        self._ai_skill_registry = build_default_ai_skill_registry()
+        self._diagram_generation_skill = None
 
     def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
         with bind_log_context(stage="diagram_assembly"):
@@ -1106,11 +1110,23 @@ class DiagramAssemblyStage:
 
             diagram_interpretation = None
             try:
-                diagram_interpretation = self.ai_transcript_interpreter.interpret_diagrams(
-                    session_title=context.session.title,
-                    diagram_type=context.session.diagram_type,
-                    steps=context.all_steps,
-                    notes=context.all_notes,
+                if self._diagram_generation_skill is None:
+                    self._diagram_generation_skill = self._ai_skill_registry.create("diagram_generation")
+                logger.info(
+                    "Delegating diagram generation to AI skill.",
+                    extra={
+                        "skill_id": "diagram_generation",
+                        "skill_version": getattr(self._diagram_generation_skill, "version", "unknown"),
+                        "session_title": context.session.title,
+                    },
+                )
+                diagram_interpretation = self._diagram_generation_skill.run(
+                    DiagramGenerationRequest(
+                        session_title=context.session.title,
+                        diagram_type=context.session.diagram_type,
+                        steps=context.all_steps,
+                        notes=context.all_notes,
+                    )
                 )
             except Exception:
                 diagram_interpretation = None
