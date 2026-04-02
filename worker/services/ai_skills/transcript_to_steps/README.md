@@ -1,3 +1,8 @@
+---
+name: transcript_to_steps
+description: Use when converting one grounded transcript into structured process steps and business-rule notes.
+---
+
 # Transcript To Steps
 
 ## Purpose

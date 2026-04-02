@@ -1,3 +1,8 @@
+---
+name: workflow_group_match
+description: Use when deciding whether workflow evidence matches an existing workflow group or should create a new one.
+---
+
 # Workflow Group Match
 
 ## Purpose

@@ -1,3 +1,8 @@
+---
+name: process_summary_generation
+description: Use when generating a concise business summary for one resolved workflow group.
+---
+
 # Process Summary Generation
 
 ## Purpose

@@ -1,3 +1,8 @@
+---
+name: semantic_enrichment
+description: Use when interpreting one workflow evidence segment into workflow-relevant business labels.
+---
+
 # Semantic Enrichment
 
 ## Purpose

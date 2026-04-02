@@ -1,3 +1,8 @@
+---
+name: diagram_generation
+description: Use when generating overview and detailed flowchart graph models for the session.
+---
+
 # Diagram Generation
 
 ## Purpose

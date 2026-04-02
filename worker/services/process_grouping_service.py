@@ -19,11 +19,11 @@ from app.models.process_group import ProcessGroupModel
 from app.services.process_group_service import ProcessGroupService
 from worker.services.ai_skills.process_summary_generation.schemas import ProcessSummaryGenerationRequest
 from worker.services.ai_skills.registry import build_default_ai_skill_registry
+from worker.services.ai_skills.workflow_capability_tagging.schemas import WorkflowCapabilityTaggingRequest
 from worker.services.ai_skills.workflow_group_match.schemas import WorkflowGroupMatchRequest
 from worker.services.ai_skills.workflow_title_resolution.schemas import WorkflowTitleResolutionRequest
 from worker.services.ai_transcript_interpreter import (
     AITranscriptInterpreter,
-    WorkflowCapabilityInterpretation,
     WorkflowGroupMatchInterpretation,
     WorkflowTitleInterpretation,
 )
@@ -175,6 +175,7 @@ class ProcessGroupingService:
         self._workflow_title_resolution_skill = None
         self._workflow_group_match_skill = None
         self._process_summary_generation_skill = None
+        self._workflow_capability_tagging_skill = None
 
     def assign_groups(
         self,
@@ -1184,10 +1185,22 @@ class ProcessGroupingService:
         workflow_profiles: list[TranscriptWorkflowProfile],
         document_type: str,
     ) -> list[str]:
-        ai_capabilities = self.ai_transcript_interpreter.classify_workflow_capabilities(
-            process_title=process_title,
-            workflow_summary=workflow_summary,
-            document_type=document_type,
+        if self._workflow_capability_tagging_skill is None:
+            self._workflow_capability_tagging_skill = self._ai_skill_registry.create("workflow_capability_tagging")
+        logger.info(
+            "Delegating workflow capability tagging to AI skill.",
+            extra={
+                "skill_id": "workflow_capability_tagging",
+                "skill_version": getattr(self._workflow_capability_tagging_skill, "version", "unknown"),
+                "process_title": process_title,
+            },
+        )
+        ai_capabilities = self._workflow_capability_tagging_skill.run(
+            WorkflowCapabilityTaggingRequest(
+                process_title=process_title,
+                workflow_summary=workflow_summary,
+                document_type=document_type,
+            )
         )
         if ai_capabilities is not None and ai_capabilities.confidence in self._ACCEPTED_AI_CONFIDENCE and ai_capabilities.capability_tags:
             normalized_tags = self._normalize_capability_tags(

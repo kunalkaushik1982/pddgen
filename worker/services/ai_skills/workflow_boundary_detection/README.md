@@ -1,3 +1,8 @@
+---
+name: workflow_boundary_detection
+description: Use when classifying whether two adjacent evidence segments belong to the same workflow, a new workflow, or remain uncertain.
+---
+
 # Workflow Boundary Detection
 
 ## Purpose

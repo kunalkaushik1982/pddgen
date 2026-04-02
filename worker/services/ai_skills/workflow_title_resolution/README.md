@@ -1,3 +1,8 @@
+---
+name: workflow_title_resolution
+description: Use when resolving a stable business workflow title and canonical slug from aggregated workflow evidence.
+---
+
 # Workflow Title Resolution
 
 ## Purpose
