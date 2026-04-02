@@ -33,6 +33,8 @@ class ArtifactResponse(BaseModel):
     kind: ArtifactKind
     storage_path: str
     content_type: str | None
+    preview_url: str | None = None
+    preview_expires_at: datetime | None = None
     size_bytes: int
     created_at: datetime
 

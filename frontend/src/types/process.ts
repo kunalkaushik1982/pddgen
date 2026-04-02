@@ -25,6 +25,8 @@ export type StepScreenshot = {
     name: string;
     kind: "screenshot";
     storagePath: string;
+    previewUrl?: string | null;
+    previewExpiresAt?: string | null;
   };
 };
 
@@ -41,6 +43,8 @@ export type CandidateScreenshot = {
     name: string;
     kind: "screenshot";
     storagePath: string;
+    previewUrl?: string | null;
+    previewExpiresAt?: string | null;
   };
 };
 

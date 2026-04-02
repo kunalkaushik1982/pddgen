@@ -39,6 +39,8 @@ export function mapArtifact(artifact: BackendArtifact): InputArtifact {
     kind: artifact.kind,
     storagePath: artifact.storage_path,
     contentType: artifact.content_type ?? null,
+    previewUrl: artifact.preview_url ?? null,
+    previewExpiresAt: artifact.preview_expires_at ?? null,
     sizeBytes: artifact.size_bytes ?? 0,
     createdAt: artifact.created_at ?? null,
   };
@@ -67,6 +69,8 @@ export function mapStepScreenshot(stepScreenshot: BackendStepScreenshot): StepSc
       name: stepScreenshot.artifact.name,
       kind: "screenshot",
       storagePath: stepScreenshot.artifact.storage_path,
+      previewUrl: stepScreenshot.artifact.preview_url ?? null,
+      previewExpiresAt: stepScreenshot.artifact.preview_expires_at ?? null,
     },
   };
 }
@@ -85,6 +89,8 @@ export function mapCandidateScreenshot(candidateScreenshot: BackendCandidateScre
       name: candidateScreenshot.artifact.name,
       kind: "screenshot",
       storagePath: candidateScreenshot.artifact.storage_path,
+      previewUrl: candidateScreenshot.artifact.preview_url ?? null,
+      previewExpiresAt: candidateScreenshot.artifact.preview_expires_at ?? null,
     },
   };
 }

@@ -6,6 +6,8 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\mappers
 import json
 from datetime import datetime
 
+from app.api.dependencies import get_storage_service
+from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_group import ProcessGroupModel
 from app.models.process_note import ProcessNoteModel
@@ -15,6 +17,7 @@ from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.schemas.common import EvidenceReference
 from app.schemas.draft_session import (
     ActionLogResponse,
+    ArtifactResponse,
     CandidateScreenshotResponse,
     DraftSessionListItemResponse,
     DraftSessionResponse,
@@ -136,15 +139,49 @@ def _latest_stage_info(session: DraftSessionModel) -> tuple[str, str]:
     return "Session created", "Session created."
 
 
-def map_process_step(step: ProcessStepModel) -> ProcessStepResponse:
+def _is_previewable_artifact(artifact: ArtifactModel) -> bool:
+    content_type = (artifact.content_type or "").lower()
+    return content_type.startswith("image/") or content_type == "application/pdf"
+
+
+def map_artifact(artifact: ArtifactModel, storage_service=None) -> ArtifactResponse:
+    """Convert one persisted artifact into an API response with preview metadata when available."""
+    preview_url = None
+    preview_expires_at = None
+    if _is_previewable_artifact(artifact):
+        service = storage_service or get_storage_service()
+        descriptor = service.build_preview_descriptor(artifact)
+        preview_url = descriptor.url
+        preview_expires_at = descriptor.expires_at
+
+    return ArtifactResponse(
+        id=artifact.id,
+        meeting_id=artifact.meeting_id,
+        upload_batch_id=artifact.upload_batch_id,
+        upload_pair_index=artifact.upload_pair_index,
+        name=artifact.name,
+        kind=artifact.kind,
+        storage_path=artifact.storage_path,
+        content_type=artifact.content_type,
+        preview_url=preview_url,
+        preview_expires_at=preview_expires_at,
+        size_bytes=artifact.size_bytes,
+        created_at=artifact.created_at,
+    )
+
+
+def map_process_step(step: ProcessStepModel, storage_service=None) -> ProcessStepResponse:
     """Convert a persisted process step into an API response."""
     evidence_references = [
         EvidenceReference.model_validate(item) for item in _parse_json_list(step.evidence_references)
     ]
-    screenshots = [map_step_screenshot(item) for item in sorted(step.step_screenshots, key=lambda screenshot: screenshot.sequence_number)]
+    screenshots = [
+        map_step_screenshot(item, storage_service=storage_service)
+        for item in sorted(step.step_screenshots, key=lambda screenshot: screenshot.sequence_number)
+    ]
     selected_artifact_ids = {item.artifact_id for item in step.step_screenshots}
     candidate_screenshots = [
-        map_candidate_screenshot(item, selected_artifact_ids)
+        map_candidate_screenshot(item, selected_artifact_ids, storage_service=storage_service)
         for item in sorted(step.step_screenshot_candidates, key=lambda screenshot: screenshot.sequence_number)
     ]
     return ProcessStepResponse(
@@ -168,7 +205,7 @@ def map_process_step(step: ProcessStepModel) -> ProcessStepResponse:
     )
 
 
-def map_step_screenshot(step_screenshot: ProcessStepScreenshotModel) -> StepScreenshotResponse:
+def map_step_screenshot(step_screenshot: ProcessStepScreenshotModel, storage_service=None) -> StepScreenshotResponse:
     """Convert one step screenshot relation into an API response."""
     return StepScreenshotResponse(
         id=step_screenshot.id,
@@ -178,13 +215,14 @@ def map_step_screenshot(step_screenshot: ProcessStepScreenshotModel) -> StepScre
         timestamp=step_screenshot.timestamp,
         selection_method=step_screenshot.selection_method,
         is_primary=step_screenshot.is_primary,
-        artifact=step_screenshot.artifact,
+        artifact=map_artifact(step_screenshot.artifact, storage_service=storage_service),
     )
 
 
 def map_candidate_screenshot(
     candidate_screenshot: ProcessStepScreenshotCandidateModel,
     selected_artifact_ids: set[str],
+    storage_service=None,
 ) -> CandidateScreenshotResponse:
     """Convert one candidate screenshot relation into an API response."""
     return CandidateScreenshotResponse(
@@ -195,7 +233,7 @@ def map_candidate_screenshot(
         source_role=candidate_screenshot.source_role,
         selection_method=candidate_screenshot.selection_method,
         is_selected=candidate_screenshot.artifact_id in selected_artifact_ids,
-        artifact=candidate_screenshot.artifact,
+        artifact=map_artifact(candidate_screenshot.artifact, storage_service=storage_service),
     )
 
 
@@ -244,6 +282,7 @@ def map_process_group(process_group: ProcessGroupModel) -> ProcessGroupResponse:
 
 def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
     """Convert a full persisted draft session into an API response."""
+    storage_service = get_storage_service()
     artifacts_by_id = {artifact.id: artifact for artifact in session.artifacts}
     pending_bundles: list[PendingEvidenceBundleResponse] = []
     for bundle in session.meeting_evidence_bundles:
@@ -276,8 +315,11 @@ def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
         has_unprocessed_evidence=bool(pending_bundles),
         pending_evidence_bundles=sorted(pending_bundles, key=lambda item: item.uploaded_at, reverse=True),
         process_groups=[map_process_group(group) for group in sorted(session.process_groups, key=lambda item: item.display_order)],
-        artifacts=session.artifacts,
-        process_steps=[map_process_step(step) for step in sorted(session.process_steps, key=lambda item: item.step_number)],
+        artifacts=[map_artifact(artifact, storage_service=storage_service) for artifact in session.artifacts],
+        process_steps=[
+            map_process_step(step, storage_service=storage_service)
+            for step in sorted(session.process_steps, key=lambda item: item.step_number)
+        ],
         process_notes=[map_process_note(note) for note in session.process_notes],
         output_documents=session.output_documents,
         action_logs=[map_action_log(item) for item in sorted(session.action_logs, key=lambda item: item.created_at, reverse=True)],

@@ -18,6 +18,8 @@ export type BackendArtifact = {
   kind: InputArtifact["kind"];
   storage_path: string;
   content_type?: string | null;
+  preview_url?: string | null;
+  preview_expires_at?: string | null;
   size_bytes?: number;
   created_at?: string;
 };

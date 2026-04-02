@@ -5,9 +5,14 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\storage\storage_
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
+import hashlib
+import hmac
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import quote
 from uuid import uuid4
 
 import boto3
@@ -15,6 +20,14 @@ from botocore.client import Config as BotoConfig
 from fastapi import UploadFile
 
 from app.core.config import Settings, get_settings
+
+
+@dataclass(frozen=True)
+class PreviewDescriptor:
+    """Resolvable preview URL metadata for one stored artifact."""
+
+    url: str
+    expires_at: datetime | None = None
 
 
 class StorageBackend(Protocol):
@@ -93,6 +106,23 @@ class LocalStorageBackend:
         if target_path.exists():
             target_path.unlink()
 
+    def build_preview_descriptor(self, artifact: object, settings: Settings) -> PreviewDescriptor:
+        expires_at = datetime.now(UTC) + timedelta(seconds=settings.preview_url_ttl_seconds)
+        expires = int(expires_at.timestamp())
+        signature = _sign_preview_token(
+            artifact_id=str(getattr(artifact, "id")),
+            expires=expires,
+            secret=settings.preview_url_signing_secret,
+        )
+        filename = quote(str(getattr(artifact, "name", "artifact")))
+        return PreviewDescriptor(
+            url=(
+                f"{settings.api_prefix}/uploads/artifacts/{getattr(artifact, 'id')}/preview"
+                f"?expires={expires}&sig={signature}&filename={filename}"
+            ),
+            expires_at=expires_at,
+        )
+
 
 class S3CompatibleStorageBackend:
     """S3-compatible object storage backend suitable for S3 or Cloudflare R2."""
@@ -159,6 +189,24 @@ class S3CompatibleStorageBackend:
         bucket, key = self._parse_storage_uri(storage_path)
         self.client.delete_object(Bucket=bucket, Key=key)
 
+    def build_preview_descriptor(self, artifact: object, settings: Settings) -> PreviewDescriptor:
+        bucket, key = self._parse_storage_uri(str(getattr(artifact, "storage_path")))
+        expires_in = settings.preview_url_ttl_seconds
+        preview_url = self.client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": key,
+                "ResponseContentDisposition": f'inline; filename="{getattr(artifact, "name", "artifact")}"',
+                "ResponseContentType": getattr(artifact, "content_type", None) or "application/octet-stream",
+            },
+            ExpiresIn=expires_in,
+        )
+        return PreviewDescriptor(
+            url=preview_url,
+            expires_at=datetime.now(UTC) + timedelta(seconds=expires_in),
+        )
+
     def _build_key(self, *, session_id: str, folder: str, filename: str) -> str:
         segments = [segment for segment in (self.prefix, session_id, folder, filename) if segment]
         return "/".join(segments)
@@ -216,6 +264,10 @@ class StorageService:
         """Delete one stored object if it exists."""
         self.backend.delete(storage_path)
 
+    def build_preview_descriptor(self, artifact: object) -> PreviewDescriptor:
+        """Return a preview descriptor for one artifact-like object."""
+        return self.backend.build_preview_descriptor(artifact=artifact, settings=self.settings)
+
     def build_internal_artifact_path(self, storage_path: str) -> str | None:
         """Return an nginx-internal local artifact path when available."""
         if self.settings.storage_backend.lower() != "local":
@@ -229,6 +281,18 @@ class StorageService:
             return None
 
         return f"/_protected-artifacts/{relative_path.as_posix()}"
+
+    def validate_preview_signature(self, artifact_id: str, expires: int, signature: str) -> None:
+        """Validate one signed preview request."""
+        if expires < int(datetime.now(UTC).timestamp()):
+            raise RuntimeError("Preview URL has expired.")
+        expected = _sign_preview_token(
+            artifact_id=artifact_id,
+            expires=expires,
+            secret=self.settings.preview_url_signing_secret,
+        )
+        if not hmac.compare_digest(expected, signature):
+            raise RuntimeError("Invalid preview signature.")
 
     def _build_backend(self) -> StorageBackend:
         backend_name = self.settings.storage_backend.lower()
@@ -250,3 +314,8 @@ def _guess_content_type(source_path: Path) -> str | None:
     if suffix == ".txt":
         return "text/plain"
     return None
+
+
+def _sign_preview_token(*, artifact_id: str, expires: int, secret: str) -> str:
+    payload = f"{artifact_id}:{expires}".encode("utf-8")
+    return hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()

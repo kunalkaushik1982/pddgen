@@ -71,6 +71,7 @@ export function StepReviewPanel({
                   <span className="screenshot-badge">Primary</span>
                   <AuthenticatedArtifactImage
                     artifactId={primaryScreenshot.artifactId}
+                    previewUrl={primaryScreenshot.artifact.previewUrl}
                     alt={`Primary screenshot for step ${step.stepNumber}`}
                   />
                 </div>
@@ -96,6 +97,7 @@ export function StepReviewPanel({
                       <div className="screenshot-preview">
                         <AuthenticatedArtifactImage
                           artifactId={stepScreenshot.artifactId}
+                          previewUrl={stepScreenshot.artifact.previewUrl}
                           alt={`${stepScreenshot.role} screenshot for step ${step.stepNumber}`}
                         />
                       </div>

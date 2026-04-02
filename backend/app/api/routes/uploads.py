@@ -131,6 +131,32 @@ def get_artifact_content(
     return StreamingResponse(iter([storage_service.read_bytes(artifact.storage_path)]), media_type=artifact.content_type, headers=headers)
 
 
+@router.get("/artifacts/{artifact_id}/preview")
+def get_artifact_preview(
+    artifact_id: str,
+    expires: int,
+    sig: str,
+    db: Annotated[Session, Depends(get_db_session)],
+    storage_service: Annotated[StorageService, Depends(get_storage_service)],
+) -> Response:
+    """Serve one preview artifact file through a signed, browser-safe URL."""
+    try:
+        storage_service.validate_preview_signature(artifact_id=artifact_id, expires=expires, signature=sig)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    artifact = db.get(ArtifactModel, artifact_id)
+    if artifact is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found.")
+
+    headers = {"Content-Disposition": f'inline; filename="{quote(artifact.name)}"'}
+    internal_path = storage_service.build_internal_artifact_path(artifact.storage_path)
+    if internal_path is not None:
+        headers["X-Accel-Redirect"] = internal_path
+        return Response(status_code=status.HTTP_200_OK, media_type=artifact.content_type, headers=headers)
+    return StreamingResponse(iter([storage_service.read_bytes(artifact.storage_path)]), media_type=artifact.content_type, headers=headers)
+
+
 @router.delete("/sessions/{session_id}/artifacts/{artifact_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_uploaded_artifact(
     session_id: str,

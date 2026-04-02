@@ -5,6 +5,10 @@ export const artifactService = {
     return `${API_BASE_URL}/uploads/artifacts/${artifactId}/content`;
   },
 
+  resolveArtifactUrl(url: string): string {
+    return new URL(url, `${API_BASE_URL}/`).toString();
+  },
+
   async fetchArtifactBlob(artifactId: string): Promise<Blob> {
     const response = await fetch(`${API_BASE_URL}/uploads/artifacts/${artifactId}/content`, {
       headers: buildAuthHeaders(),

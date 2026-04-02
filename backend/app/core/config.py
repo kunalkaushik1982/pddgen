@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     object_storage_secret_access_key: str = ""
     object_storage_prefix: str = "pdd-generator"
     object_storage_addressing_style: str = "auto"
+    preview_url_signing_secret: str = "local-preview-secret"
+    preview_url_ttl_seconds: int = 900
     max_upload_size_mb: int = 1024
     docx_output_folder: str = "exports"
     default_meeting_title_prefix: str = "Meeting"

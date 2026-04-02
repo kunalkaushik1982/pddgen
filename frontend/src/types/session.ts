@@ -29,6 +29,8 @@ export type InputArtifact = {
   kind: "video" | "transcript" | "template" | "sop" | "diagram" | "screenshot";
   storagePath: string;
   contentType?: string | null;
+  previewUrl?: string | null;
+  previewExpiresAt?: string | null;
   sizeBytes?: number;
   createdAt?: string | null;
 };
