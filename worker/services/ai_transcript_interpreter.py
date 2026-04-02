@@ -14,6 +14,8 @@ from uuid import uuid4
 import httpx
 
 from worker.bootstrap import get_backend_settings
+from worker.services.ai_skills.transcript_to_steps.schemas import TranscriptToStepsRequest, TranscriptToStepsResponse
+from worker.services.ai_skills.transcript_to_steps.skill import TranscriptToStepsSkill
 
 TIMESTAMP_PATTERN = re.compile(r"\b(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b")
 
@@ -124,6 +126,7 @@ class AITranscriptInterpreter:
 
     def __init__(self) -> None:
         self.settings = get_backend_settings()
+        self._transcript_to_steps_skill = TranscriptToStepsSkill()
 
     def is_enabled(self) -> bool:
         """Return whether AI interpretation is configured."""
@@ -133,51 +136,50 @@ class AITranscriptInterpreter:
         """Call the configured AI provider and return structured transcript output."""
         if not self.is_enabled():
             return None
+        skill_result = self._transcript_to_steps_skill.run(
+            TranscriptToStepsRequest(
+                transcript_artifact_id=transcript_artifact_id,
+                transcript_text=transcript_text,
+            )
+        )
+        return self._build_legacy_transcript_interpretation(
+            transcript_artifact_id=transcript_artifact_id,
+            skill_result=skill_result,
+        )
 
-        payload = {
-            "model": self.settings.ai_model,
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"},
-            "messages": [
+    def _build_legacy_transcript_interpretation(
+        self,
+        *,
+        transcript_artifact_id: str,
+        skill_result: TranscriptToStepsResponse,
+    ) -> TranscriptInterpretation:
+        """Adapt the first AI skill output back into the interpreter's legacy shape."""
+        steps = [
+            self._normalize_step(
                 {
-                    "role": "system",
-                    "content": (
-                        "You convert RPA discovery transcripts into structured process steps and business rules. "
-                        "Return strict JSON with two keys: steps and notes. "
-                        "Each step must include application_name, action_text, source_data_note, "
-                        "start_timestamp, end_timestamp, display_timestamp, supporting_transcript_text, confidence. "
-                        "Each note must include text, confidence, inference_type. "
-                        "Ignore greetings, filler talk, and YouTube-style intros. "
-                        "Prefer timestamps from the transcript when present. "
-                        "Every returned timestamp must be in HH:MM:SS format. "
-                        "If a step has no clear timestamp, return an empty string for that field. "
-                        "supporting_transcript_text must contain the exact transcript snippet that supports the step. "
-                        "display_timestamp should be the best single timestamp to show in UI and export. "
-                        "Confidence must be one of high, medium, low, unknown."
-                    ),
+                    "application_name": item.application_name,
+                    "action_text": item.action_text,
+                    "source_data_note": item.source_data_note,
+                    "start_timestamp": item.start_timestamp,
+                    "end_timestamp": item.end_timestamp,
+                    "display_timestamp": item.display_timestamp,
+                    "supporting_transcript_text": item.supporting_transcript_text,
+                    "confidence": item.confidence,
                 },
+                transcript_artifact_id,
+            )
+            for item in skill_result.steps
+        ]
+        notes = [
+            self._normalize_note(
                 {
-                    "role": "user",
-                    "content": (
-                        "Convert this transcript into process steps and business rules.\n\n"
-                        f"Transcript:\n{transcript_text}"
-                    ),
-                },
-            ],
-        }
-
-        headers = {
-            "Authorization": f"Bearer {self.settings.ai_api_key}",
-            "Content-Type": "application/json",
-        }
-        endpoint = f"{self.settings.ai_base_url.rstrip('/')}/chat/completions"
-
-        body = self._post_chat_completion(endpoint=endpoint, headers=headers, payload=payload, context="transcript interpretation")
-
-        content = self._extract_content(body)
-        parsed = self._parse_json_object(content)
-        steps = [self._normalize_step(item, transcript_artifact_id) for item in parsed.get("steps", [])]
-        notes = [self._normalize_note(item) for item in parsed.get("notes", [])]
+                    "text": item.text,
+                    "confidence": item.confidence,
+                    "inference_type": item.inference_type,
+                }
+            )
+            for item in skill_result.notes
+        ]
         return TranscriptInterpretation(steps=steps, notes=notes)
 
     def interpret_diagrams(
