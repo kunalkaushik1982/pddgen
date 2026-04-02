@@ -24,6 +24,7 @@ class TranscriptSegmentationStrategy(Protocol):
         transcript_text: str,
     ) -> list[EvidenceSegment]:
         """Return ordered evidence segments without requiring persistence."""
+        ...
 
 
 class SegmentEnrichmentStrategy(Protocol):
@@ -33,6 +34,7 @@ class SegmentEnrichmentStrategy(Protocol):
 
     def enrich(self, segment: EvidenceSegment) -> SemanticEnrichment:
         """Return semantic enrichment for one transcript segment."""
+        ...
 
 
 class WorkflowBoundaryStrategy(Protocol):
@@ -42,6 +44,7 @@ class WorkflowBoundaryStrategy(Protocol):
 
     def decide(self, left: EvidenceSegment, right: EvidenceSegment) -> WorkflowBoundaryDecision:
         """Return a first-pass workflow-boundary decision."""
+        ...
 
 
 @dataclass(slots=True)

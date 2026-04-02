@@ -6,6 +6,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\draft_genera
 import json
 from collections import Counter
 from pathlib import Path
+from typing import Protocol, TypedDict
 from uuid import uuid4
 
 from app.core.observability import bind_log_context, get_logger
@@ -51,6 +52,19 @@ from worker.services.video_frame_extractor import ExtractedFrameCandidate, Video
 from worker.services.workflow_strategy_registry import WorkflowIntelligenceStrategyRegistry
 
 logger = get_logger(__name__)
+
+
+class _TranscriptSummaryBuckets(TypedDict):
+    transcript_name: str
+    top_actors: Counter[str]
+    top_objects: Counter[str]
+    top_systems: Counter[str]
+    top_goals: Counter[str]
+    top_rules: Counter[str]
+
+
+class _IsoformatValue(Protocol):
+    def isoformat(self) -> str: ...
 
 
 class SessionPreparationStage:
@@ -287,19 +301,19 @@ class EvidenceSegmentationStage:
             "conflict" if decision.conflict_detected else "non_conflict"
             for decision in context.workflow_boundary_decisions
         )
-        transcript_summaries: dict[str, dict[str, object]] = {}
+        transcript_summaries: dict[str, _TranscriptSummaryBuckets] = {}
         transcript_names = {artifact.id: artifact.name for artifact in context.transcript_artifacts}
         for segment in context.evidence_segments:
             summary = transcript_summaries.setdefault(
                 segment.transcript_artifact_id,
-                {
-                    "transcript_name": transcript_names.get(segment.transcript_artifact_id, segment.transcript_artifact_id),
-                    "top_actors": Counter(),
-                    "top_objects": Counter(),
-                    "top_systems": Counter(),
-                    "top_goals": Counter(),
-                    "top_rules": Counter(),
-                },
+                _TranscriptSummaryBuckets(
+                    transcript_name=transcript_names.get(segment.transcript_artifact_id, segment.transcript_artifact_id),
+                    top_actors=Counter(),
+                    top_objects=Counter(),
+                    top_systems=Counter(),
+                    top_goals=Counter(),
+                    top_rules=Counter(),
+                ),
             )
             if segment.enrichment is None:
                 continue
@@ -581,21 +595,18 @@ class ScreenshotDerivationStage:
 
     @staticmethod
     def _sort_artifacts(artifacts: list[ArtifactModel]) -> list[ArtifactModel]:
+        def _iso_or_empty(value: _IsoformatValue | None) -> str:
+            return value.isoformat() if value is not None else ""
+
         return sorted(
             artifacts,
             key=lambda artifact: (
                 getattr(getattr(artifact, "meeting", None), "order_index", None)
                 if getattr(getattr(artifact, "meeting", None), "order_index", None) is not None
                 else 1_000_000,
-                getattr(getattr(artifact, "meeting", None), "meeting_date", None).isoformat()
-                if getattr(getattr(artifact, "meeting", None), "meeting_date", None) is not None
-                else "",
-                getattr(artifact, "created_at", None).isoformat()
-                if getattr(artifact, "created_at", None) is not None
-                else "",
-                getattr(getattr(artifact, "meeting", None), "uploaded_at", None).isoformat()
-                if getattr(getattr(artifact, "meeting", None), "uploaded_at", None) is not None
-                else "",
+                _iso_or_empty(getattr(getattr(artifact, "meeting", None), "meeting_date", None)),
+                _iso_or_empty(getattr(artifact, "created_at", None)),
+                _iso_or_empty(getattr(getattr(artifact, "meeting", None), "uploaded_at", None)),
                 artifact.id,
             ),
         )

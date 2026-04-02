@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime
 import importlib.util
 import json
 from pathlib import Path
@@ -285,6 +286,114 @@ class DiagramGenerationTests(unittest.TestCase):
         registry_module = load_registry_module()
         registry = registry_module.build_default_ai_skill_registry()
         self.assertEqual(registry.create("diagram_generation").skill_id, "diagram_generation")
+
+    def test_segmentation_metadata_builder_counts_summary_fields(self) -> None:
+        stage_module = load_stage_module()
+
+        class FakeSegmentationService:
+            segmenter = type("Segmenter", (), {"strategy_key": "paragraph_v1"})()
+            enricher = type("Enricher", (), {"strategy_key": "ai_plus_heuristic_v1"})()
+            boundary_detector = type("Boundary", (), {"strategy_key": "ai_plus_heuristic_v1"})()
+
+        stage = stage_module.EvidenceSegmentationStage(segmentation_service=FakeSegmentationService())
+        enrichment = type(
+            "Enrichment",
+            (),
+            {
+                "actor": "User",
+                "actor_role": "operator",
+                "system_name": "SAP",
+                "action_verb": "create",
+                "action_type": "create",
+                "business_object": "Purchase Order",
+                "workflow_goal": "Purchase Order Creation",
+                "rule_hints": ["Validate vendor"],
+                "enrichment_source": "ai",
+                "confidence": "high",
+            },
+        )()
+        segment = type(
+            "Segment",
+            (),
+            {
+                "id": "seg-1",
+                "transcript_artifact_id": "artifact-1",
+                "segment_order": 1,
+                "start_timestamp": "00:00:01",
+                "end_timestamp": "00:00:02",
+                "segmentation_method": "paragraph_v1",
+                "confidence": "high",
+                "enrichment": enrichment,
+            },
+        )()
+        decision = type(
+            "Decision",
+            (),
+            {
+                "decision": "same_workflow",
+                "confidence": "high",
+                "decision_source": "ai",
+                "conflict_detected": False,
+            },
+        )()
+        context = type(
+            "Context",
+            (),
+            {
+                "document_type": "pdd",
+                "transcript_artifacts": [type("Artifact", (), {"id": "artifact-1", "name": "Transcript 1"})()],
+                "evidence_segments": [segment],
+                "workflow_boundary_decisions": [decision],
+            },
+        )()
+
+        metadata = stage._build_segmentation_metadata(context)
+
+        self.assertEqual(metadata["transcript_summaries"][0]["top_actors"], ["User"])
+        self.assertEqual(metadata["transcript_summaries"][0]["top_rules"], ["Validate vendor"])
+
+    def test_sort_artifacts_orders_by_meeting_and_created_timestamps(self) -> None:
+        stage_module = load_stage_module()
+        meeting_late = type(
+            "Meeting",
+            (),
+            {
+                "order_index": 2,
+                "meeting_date": datetime(2026, 4, 2, 10, 0, 0),
+                "uploaded_at": datetime(2026, 4, 2, 10, 5, 0),
+            },
+        )()
+        meeting_early = type(
+            "Meeting",
+            (),
+            {
+                "order_index": 1,
+                "meeting_date": datetime(2026, 4, 2, 9, 0, 0),
+                "uploaded_at": datetime(2026, 4, 2, 9, 5, 0),
+            },
+        )()
+        artifact_late = type(
+            "Artifact",
+            (),
+            {
+                "id": "artifact-2",
+                "meeting": meeting_late,
+                "created_at": datetime(2026, 4, 2, 10, 6, 0),
+            },
+        )()
+        artifact_early = type(
+            "Artifact",
+            (),
+            {
+                "id": "artifact-1",
+                "meeting": meeting_early,
+                "created_at": datetime(2026, 4, 2, 9, 6, 0),
+            },
+        )()
+
+        sorted_artifacts = stage_module.ScreenshotDerivationStage._sort_artifacts([artifact_late, artifact_early])
+
+        self.assertEqual([artifact.id for artifact in sorted_artifacts], ["artifact-1", "artifact-2"])
 
 
 if __name__ == "__main__":
