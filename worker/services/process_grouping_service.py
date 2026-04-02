@@ -17,6 +17,7 @@ from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_group import ProcessGroupModel
 from app.services.process_group_service import ProcessGroupService
+from worker.services.ai_skills.process_summary_generation.schemas import ProcessSummaryGenerationRequest
 from worker.services.ai_skills.registry import build_default_ai_skill_registry
 from worker.services.ai_skills.workflow_group_match.schemas import WorkflowGroupMatchRequest
 from worker.services.ai_skills.workflow_title_resolution.schemas import WorkflowTitleResolutionRequest
@@ -173,6 +174,7 @@ class ProcessGroupingService:
         self._ai_skill_registry = build_default_ai_skill_registry()
         self._workflow_title_resolution_skill = None
         self._workflow_group_match_skill = None
+        self._process_summary_generation_skill = None
 
     def assign_groups(
         self,
@@ -1067,12 +1069,24 @@ class ProcessGroupingService:
                 steps=group_steps,
                 notes=group_notes,
             )
-            ai_summary = self.ai_transcript_interpreter.summarize_process_group(
-                process_title=process_group.title,
-                workflow_summary=workflow_summary,
-                steps=group_steps,
-                notes=group_notes,
-                document_type=document_type,
+            if self._process_summary_generation_skill is None:
+                self._process_summary_generation_skill = self._ai_skill_registry.create("process_summary_generation")
+            logger.info(
+                "Delegating process summary generation to AI skill.",
+                extra={
+                    "skill_id": "process_summary_generation",
+                    "skill_version": getattr(self._process_summary_generation_skill, "version", "unknown"),
+                    "process_title": process_group.title,
+                },
+            )
+            ai_summary = self._process_summary_generation_skill.run(
+                ProcessSummaryGenerationRequest(
+                    process_title=process_group.title,
+                    workflow_summary=workflow_summary,
+                    steps=group_steps[:12],
+                    notes=group_notes[:6],
+                    document_type=document_type,
+                )
             )
             if ai_summary is not None and ai_summary.confidence in self._ACCEPTED_AI_CONFIDENCE:
                 process_group.summary_text = ai_summary.summary_text

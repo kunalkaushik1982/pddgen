@@ -81,6 +81,24 @@ def _load_workflow_group_match_skill() -> type[Any]:
     )
 
 
+def _load_process_summary_generation_skill() -> type[Any]:
+    return _load_skill_type(
+        "worker.services.ai_skills.process_summary_generation.skill",
+        local_name="process_summary_generation_skill_registry_local",
+        relative_path="process_summary_generation/skill.py",
+        class_name="ProcessSummaryGenerationSkill",
+    )
+
+
+def _load_diagram_generation_skill() -> type[Any]:
+    return _load_skill_type(
+        "worker.services.ai_skills.diagram_generation.skill",
+        local_name="diagram_generation_skill_registry_local",
+        relative_path="diagram_generation/skill.py",
+        class_name="DiagramGenerationSkill",
+    )
+
+
 def build_default_ai_skill_registry() -> AISkillRegistry:
     registry = AISkillRegistry()
     registry.register("transcript_to_steps", _load_transcript_to_steps_skill())
@@ -88,4 +106,6 @@ def build_default_ai_skill_registry() -> AISkillRegistry:
     registry.register("workflow_boundary_detection", _load_workflow_boundary_detection_skill())
     registry.register("workflow_title_resolution", _load_workflow_title_resolution_skill())
     registry.register("workflow_group_match", _load_workflow_group_match_skill())
+    registry.register("process_summary_generation", _load_process_summary_generation_skill())
+    registry.register("diagram_generation", _load_diagram_generation_skill())
     return registry
