@@ -63,9 +63,29 @@ def _load_workflow_boundary_detection_skill() -> type[Any]:
     )
 
 
+def _load_workflow_title_resolution_skill() -> type[Any]:
+    return _load_skill_type(
+        "worker.services.ai_skills.workflow_title_resolution.skill",
+        local_name="workflow_title_resolution_skill_registry_local",
+        relative_path="workflow_title_resolution/skill.py",
+        class_name="WorkflowTitleResolutionSkill",
+    )
+
+
+def _load_workflow_group_match_skill() -> type[Any]:
+    return _load_skill_type(
+        "worker.services.ai_skills.workflow_group_match.skill",
+        local_name="workflow_group_match_skill_registry_local",
+        relative_path="workflow_group_match/skill.py",
+        class_name="WorkflowGroupMatchSkill",
+    )
+
+
 def build_default_ai_skill_registry() -> AISkillRegistry:
     registry = AISkillRegistry()
     registry.register("transcript_to_steps", _load_transcript_to_steps_skill())
     registry.register("semantic_enrichment", _load_semantic_enrichment_skill())
     registry.register("workflow_boundary_detection", _load_workflow_boundary_detection_skill())
+    registry.register("workflow_title_resolution", _load_workflow_title_resolution_skill())
+    registry.register("workflow_group_match", _load_workflow_group_match_skill())
     return registry
