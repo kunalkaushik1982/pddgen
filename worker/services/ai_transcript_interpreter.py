@@ -6,6 +6,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\ai_transcrip
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
@@ -18,6 +19,7 @@ from worker.services.ai_skills.transcript_to_steps.schemas import TranscriptToSt
 from worker.services.ai_skills.transcript_to_steps.skill import TranscriptToStepsSkill
 
 TIMESTAMP_PATTERN = re.compile(r"\b(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b")
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -136,6 +138,14 @@ class AITranscriptInterpreter:
         """Call the configured AI provider and return structured transcript output."""
         if not self.is_enabled():
             return None
+        logger.info(
+            "Delegating transcript interpretation to AI skill.",
+            extra={
+                "skill_id": self._transcript_to_steps_skill.skill_id,
+                "skill_version": self._transcript_to_steps_skill.version,
+                "transcript_artifact_id": transcript_artifact_id,
+            },
+        )
         skill_result = self._transcript_to_steps_skill.run(
             TranscriptToStepsRequest(
                 transcript_artifact_id=transcript_artifact_id,

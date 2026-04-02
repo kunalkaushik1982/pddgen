@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import logging
 import re
 import sys
 from pathlib import Path
@@ -39,6 +40,7 @@ except Exception:
     TranscriptToStepsResponse = _schemas_module.TranscriptToStepsResponse
 
 TIMESTAMP_PATTERN = re.compile(r"\b(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b")
+logger = logging.getLogger(__name__)
 
 
 def normalize_confidence(value: str) -> str:
@@ -79,6 +81,14 @@ class TranscriptToStepsSkill:
 
     def run(self, input: TranscriptToStepsRequest) -> TranscriptToStepsResponse:
         client = self.client or OpenAICompatibleSkillClient()
+        logger.info(
+            "Executing AI skill.",
+            extra={
+                "skill_id": self.skill_id,
+                "skill_version": self.version,
+                "transcript_artifact_id": input.transcript_artifact_id,
+            },
+        )
         response_body = client.post_json(messages=self.build_messages(input))
         content = extract_message_content(response_body)
         parsed = parse_json_object(content)
