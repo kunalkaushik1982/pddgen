@@ -7,6 +7,7 @@ import unittest
 RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
 BASE_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "base.py"
 REGISTRY_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "registry.py"
+CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "client.py"
 
 
 def load_runtime_module():
@@ -27,6 +28,14 @@ def load_base_module():
 
 def load_registry_module():
     spec = importlib.util.spec_from_file_location("ai_skill_registry", REGISTRY_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_client_module():
+    spec = importlib.util.spec_from_file_location("ai_skill_client", CLIENT_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec is not None and spec.loader is not None
     spec.loader.exec_module(module)
@@ -85,6 +94,29 @@ class AiSkillRuntimeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Unknown AI skill"):
             registry.create("missing")
+
+    def test_extract_message_content_accepts_string_content(self) -> None:
+        client_module = load_client_module()
+        body = {"choices": [{"message": {"content": '{"steps": [], "notes": []}'}}]}
+
+        self.assertEqual(client_module.extract_message_content(body), '{"steps": [], "notes": []}')
+
+    def test_extract_message_content_accepts_list_content(self) -> None:
+        client_module = load_client_module()
+        body = {
+            "choices": [
+                {
+                    "message": {
+                        "content": [
+                            {"text": '{"steps": []'},
+                            {"text": ', "notes": []}'},
+                        ]
+                    }
+                }
+            ]
+        }
+
+        self.assertEqual(client_module.extract_message_content(body), '{"steps": [], "notes": []}')
 
 
 if __name__ == "__main__":
