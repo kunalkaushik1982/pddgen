@@ -146,6 +146,7 @@ export function mapActionLog(actionLog: BackendActionLog): ActionLogEntry {
     eventType: actionLog.event_type,
     title: actionLog.title,
     detail: actionLog.detail,
+    metadata: actionLog.metadata ?? {},
     actor: actionLog.actor,
     createdAt: actionLog.created_at,
   };
@@ -174,6 +175,7 @@ export function mapProcessGroup(processGroup: BackendProcessGroup): ProcessGroup
     status: processGroup.status,
     displayOrder: processGroup.display_order,
     summaryText: processGroup.summary_text,
+    capabilityTags: processGroup.capability_tags ?? [],
     overviewDiagramJson: processGroup.overview_diagram_json,
     detailedDiagramJson: processGroup.detailed_diagram_json,
   };
@@ -186,6 +188,7 @@ export function mapDraftSession(session: BackendDraftSession): DraftSession {
     status: session.status,
     ownerId: session.owner_id,
     diagramType: session.diagram_type,
+    documentType: session.document_type,
     hasUnprocessedEvidence: session.has_unprocessed_evidence,
     pendingEvidenceBundles: session.pending_evidence_bundles.map(mapPendingEvidenceBundle),
     processGroups: session.process_groups.map(mapProcessGroup),
@@ -204,6 +207,7 @@ export function mapDraftSessionListItem(session: BackendDraftSessionListItem): D
     status: session.status,
     ownerId: session.owner_id,
     diagramType: session.diagram_type,
+    documentType: session.document_type,
     createdAt: session.created_at,
     updatedAt: session.updated_at,
     latestStageTitle: session.latest_stage_title,

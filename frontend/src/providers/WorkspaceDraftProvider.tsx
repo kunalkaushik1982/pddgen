@@ -7,6 +7,7 @@ import type {
   ArtifactUploadProgressItem,
   ArtifactUploadState,
   DiagramType,
+  WorkflowDocumentType,
 } from "../types/workflow";
 
 const INITIAL_UPLOAD_STATE: ArtifactUploadState = {
@@ -23,12 +24,14 @@ type WorkspaceDraftContextValue = {
   title: string;
   ownerId: string;
   diagramType: DiagramType;
+  documentType: WorkflowDocumentType;
   uploads: ArtifactUploadState;
   uploadSessionId: string | null;
   uploadItems: ArtifactUploadProgressItem[];
   setTitle: (value: string) => void;
   setOwnerId: (value: string) => void;
   setDiagramType: (value: DiagramType) => void;
+  setDocumentType: (value: WorkflowDocumentType) => void;
   updateFiles: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", files: FileList | null) => void;
   removeSelectedFile: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", index: number) => void;
   setUploadSessionId: (value: string | null) => void;
@@ -43,6 +46,7 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
   const [title, setTitle] = useState<string>(uiCopy.defaultDraftTitle);
   const [ownerId, setOwnerId] = useState("");
   const [diagramType, setDiagramType] = useState<DiagramType>("flowchart");
+  const [documentType, setDocumentType] = useState<WorkflowDocumentType>("pdd");
   const [uploads, setUploads] = useState<ArtifactUploadState>(INITIAL_UPLOAD_STATE);
   const [uploadSessionId, setUploadSessionId] = useState<string | null>(null);
   const [uploadItems, setUploadItems] = useState<ArtifactUploadProgressItem[]>([]);
@@ -105,6 +109,7 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
     setTitle(session.title);
     setOwnerId(session.ownerId);
     setDiagramType(session.diagramType);
+    setDocumentType(session.documentType);
     setUploadSessionId(session.id);
     setUploads(INITIAL_UPLOAD_STATE);
     setUploadItems(
@@ -125,6 +130,7 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
     setTitle(uiCopy.defaultDraftTitle);
     setOwnerId("");
     setDiagramType("flowchart");
+    setDocumentType("pdd");
     setUploads(INITIAL_UPLOAD_STATE);
     setUploadSessionId(null);
     setUploadItems([]);
@@ -135,12 +141,14 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
       title,
       ownerId,
       diagramType,
+      documentType,
       uploads,
       uploadSessionId,
       uploadItems,
       setTitle,
       setOwnerId,
       setDiagramType,
+      setDocumentType,
       updateFiles,
       removeSelectedFile,
       setUploadSessionId,
@@ -148,7 +156,7 @@ export function WorkspaceDraftProvider({ children }: { children: React.ReactNode
       hydrateFromDraftSession,
       reset,
     }),
-    [diagramType, ownerId, title, uploadItems, uploadSessionId, uploads],
+    [diagramType, documentType, ownerId, title, uploadItems, uploadSessionId, uploads],
   );
 
   return <WorkspaceDraftContext.Provider value={value}>{children}</WorkspaceDraftContext.Provider>;

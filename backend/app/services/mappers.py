@@ -38,6 +38,18 @@ def _parse_json_list(value: str) -> list:
     return parsed if isinstance(parsed, list) else []
 
 
+def _parse_json_object(value: str) -> dict:
+    """Parse persisted JSON object values into Python dictionaries."""
+    if not value:
+        return {}
+
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def _has_required_uploads(session: DraftSessionModel) -> bool:
     kinds = {artifact.kind for artifact in session.artifacts}
     return {"video", "transcript", "template"}.issubset(kinds)
@@ -203,12 +215,31 @@ def map_process_note(note: ProcessNoteModel) -> ProcessNoteResponse:
 
 def map_action_log(action_log) -> ActionLogResponse:
     """Convert one persisted action log row into an API response."""
-    return ActionLogResponse.model_validate(action_log)
+    return ActionLogResponse(
+        id=action_log.id,
+        event_type=action_log.event_type,
+        title=action_log.title,
+        detail=action_log.detail,
+        metadata=_parse_json_object(getattr(action_log, "metadata_json", "")),
+        actor=action_log.actor,
+        created_at=action_log.created_at,
+    )
 
 
 def map_process_group(process_group: ProcessGroupModel) -> ProcessGroupResponse:
     """Convert one persisted process group into an API response."""
-    return ProcessGroupResponse.model_validate(process_group)
+    return ProcessGroupResponse(
+        id=process_group.id,
+        session_id=process_group.session_id,
+        title=process_group.title,
+        canonical_slug=process_group.canonical_slug,
+        status=process_group.status,
+        display_order=process_group.display_order,
+        summary_text=process_group.summary_text,
+        capability_tags=[str(item) for item in _parse_json_list(getattr(process_group, "capability_tags_json", "[]")) if isinstance(item, str)],
+        overview_diagram_json=process_group.overview_diagram_json,
+        detailed_diagram_json=process_group.detailed_diagram_json,
+    )
 
 
 def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
@@ -239,6 +270,7 @@ def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
         status=session.status,
         owner_id=session.owner_id,
         diagram_type=session.diagram_type,
+        document_type=session.document_type,
         created_at=session.created_at,
         updated_at=session.updated_at,
         has_unprocessed_evidence=bool(pending_bundles),
@@ -263,6 +295,7 @@ def map_draft_session_list_item(session: DraftSessionModel) -> DraftSessionListI
         status=session.status,
         owner_id=session.owner_id,
         diagram_type=session.diagram_type,
+        document_type=session.document_type,
         created_at=session.created_at,
         updated_at=session.updated_at,
         latest_stage_title=latest_stage_title,

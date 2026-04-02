@@ -20,8 +20,10 @@ class DraftGenerationWorkerTests(unittest.TestCase):
         worker.session_preparation_stage.load_and_prepare = Mock(
             side_effect=lambda _db, _session: order.append("prepare") or context
         )
+        worker.evidence_segmentation_stage.run = Mock(side_effect=lambda _db, _context: order.append("segment"))
         worker.transcript_stage.run = Mock(side_effect=lambda _db, _context: order.append("transcript"))
-        worker.screenshot_stage.run = Mock(side_effect=lambda _db, _context: order.append("screenshots"))
+        worker.process_grouping_stage.run = Mock(side_effect=lambda _db, _context: order.append("group"))
+        worker.canonical_merge_stage.run = Mock(side_effect=lambda _db, _context: order.append("merge"))
         worker.diagram_stage.run = Mock(side_effect=lambda _db, _context: order.append("diagram"))
         worker.persistence_stage.run = Mock(
             side_effect=lambda _db, _context: order.append("persist") or {"session_id": "session-1", "steps_created": 2}
@@ -29,7 +31,7 @@ class DraftGenerationWorkerTests(unittest.TestCase):
 
         result = worker.run("session-1")
 
-        assert order == ["load_session", "prepare", "transcript", "screenshots", "diagram", "persist"]
+        assert order == ["load_session", "prepare", "segment", "transcript", "group", "merge", "diagram", "persist"]
         assert result["session_id"] == "session-1"
         db.close.assert_called_once()
 
@@ -40,7 +42,10 @@ class DraftGenerationWorkerTests(unittest.TestCase):
 
         worker = DraftGenerationWorker(task_id="task-2")
         worker._load_session = Mock(return_value="session")
-        worker.session_preparation_stage.load_and_prepare = Mock(return_value="context")
+        context = Mock()
+        context.session_id = "session-2"
+        worker.session_preparation_stage.load_and_prepare = Mock(return_value=context)
+        worker.evidence_segmentation_stage.run = Mock(return_value=None)
         worker.transcript_stage.run = Mock(side_effect=RuntimeError("boom"))
         worker.failure_stage.mark_failed = Mock()
 

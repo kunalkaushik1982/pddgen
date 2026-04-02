@@ -11,12 +11,14 @@ import type {
   ArtifactUploadProgressItem,
   ArtifactUploadState,
   DiagramType,
+  WorkflowDocumentType,
 } from "../types/workflow";
 
 type UploadPageProps = {
   title: string;
   ownerId: string;
   diagramType: DiagramType;
+  documentType?: WorkflowDocumentType;
   uploads: ArtifactUploadState;
   uploadItems: ArtifactUploadProgressItem[];
   uploadReady?: boolean;
@@ -31,6 +33,7 @@ type UploadPageProps = {
   onTitleChange: (value: string) => void;
   onOwnerIdChange: (value: string) => void;
   onDiagramTypeChange: (value: DiagramType) => void;
+  onDocumentTypeChange?: (value: WorkflowDocumentType) => void;
   onFilesChange: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", files: FileList | null) => void;
   onRemoveSelectedFile?: (field: keyof ArtifactUploadState | "sopFiles" | "diagramFiles", index: number) => void;
   onUploadInputs?: () => void;
@@ -41,6 +44,7 @@ export function UploadPage({
   title,
   ownerId,
   diagramType,
+  documentType = "pdd",
   uploads,
   uploadItems,
   uploadReady = false,
@@ -55,6 +59,7 @@ export function UploadPage({
   onTitleChange,
   onOwnerIdChange,
   onDiagramTypeChange,
+  onDocumentTypeChange,
   onFilesChange,
   onRemoveSelectedFile,
   onUploadInputs,
@@ -156,7 +161,7 @@ export function UploadPage({
         <div>
           <h2>1. Set Up Your Session</h2>
           <p className="muted">
-            Add recordings, transcripts, and the PDD template to prepare this session for draft generation.
+            Add recordings, transcripts, and a Word template to prepare this session for draft generation.
           </p>
         </div>
       ) : null}
@@ -173,6 +178,17 @@ export function UploadPage({
               <select value={diagramType} onChange={(event) => onDiagramTypeChange(event.target.value as DiagramType)}>
                 <option value="flowchart">Flowchart</option>
                 <option value="sequence">Sequence</option>
+              </select>
+            </label>
+            <label className="field-group">
+              <span>Document output</span>
+              <select
+                value={documentType}
+                onChange={(event) => onDocumentTypeChange?.(event.target.value as WorkflowDocumentType)}
+              >
+                <option value="pdd">PDD</option>
+                <option value="sop">SOP</option>
+                <option value="brd">BRD</option>
               </select>
             </label>
             {!ownerLocked ? (
@@ -211,7 +227,7 @@ export function UploadPage({
             </label>
 
             <label className="field-group upload-field-card">
-              <span>PDD Word template (.docx)</span>
+              <span>{documentType.toUpperCase()} Word template (.docx)</span>
               <input
                 ref={templateInputRef}
                 type="file"

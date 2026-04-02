@@ -4,10 +4,11 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\schemas\draft_se
 """
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import ArtifactKind, ConfidenceLevel, EvidenceReference
+from app.schemas.common import ArtifactKind, ConfidenceLevel, EvidenceReference, WorkflowDocumentType
 
 
 class CreateDraftSessionRequest(BaseModel):
@@ -16,6 +17,7 @@ class CreateDraftSessionRequest(BaseModel):
     title: str = Field(default="Untitled PDD Session", min_length=1, max_length=255)
     owner_id: str = Field(default="pilot-user", min_length=1, max_length=255)
     diagram_type: str = Field(default="flowchart", min_length=1, max_length=50)
+    document_type: WorkflowDocumentType = "pdd"
 
 
 class ArtifactResponse(BaseModel):
@@ -127,6 +129,7 @@ class ProcessGroupResponse(BaseModel):
     status: str
     display_order: int
     summary_text: str
+    capability_tags: list[str] = Field(default_factory=list)
     overview_diagram_json: str
     detailed_diagram_json: str
 
@@ -154,6 +157,7 @@ class ActionLogResponse(BaseModel):
     event_type: str
     title: str
     detail: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
     actor: str
     created_at: datetime
 
@@ -168,6 +172,7 @@ class DraftSessionResponse(BaseModel):
     status: str
     owner_id: str
     diagram_type: str
+    document_type: WorkflowDocumentType
     created_at: datetime
     updated_at: datetime
     has_unprocessed_evidence: bool = False
@@ -190,6 +195,7 @@ class DraftSessionListItemResponse(BaseModel):
     status: str
     owner_id: str
     diagram_type: str
+    document_type: WorkflowDocumentType
     created_at: datetime
     updated_at: datetime
     latest_stage_title: str = ""

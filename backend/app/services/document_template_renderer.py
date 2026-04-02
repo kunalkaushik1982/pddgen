@@ -14,15 +14,22 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.draft_session import DraftSessionModel
-from app.services.document_export_context_builder import DocumentExportContextBuilder
+from app.services.document_context_builder_interfaces import DocumentContextBuilder
+from app.services.document_context_builder_registry import DocumentContextBuilderRegistry
+from app.services.document_export_context_builder import (
+    BrdDocumentExportContextBuilder,
+    PddDocumentExportContextBuilder,
+    SopDocumentExportContextBuilder,
+)
 from app.storage.storage_service import StorageService
 
 
 class DocumentTemplateRenderer:
     """Render DOCX output files from a draft session and a template artifact."""
 
-    def __init__(self, context_builder: DocumentExportContextBuilder | None = None) -> None:
-        self.context_builder = context_builder or DocumentExportContextBuilder()
+    def __init__(self, context_builder: DocumentContextBuilder | None = None) -> None:
+        self.context_builder = context_builder
+        self.builder_registry = self._build_default_registry()
 
     def render_docx_file(
         self,
@@ -40,8 +47,17 @@ class DocumentTemplateRenderer:
             )
             self._prepare_template_for_rendering(template_path, draft_session)
             doc = DocxTemplate(str(template_path))
-            doc.render(self.context_builder.build(db, draft_session, doc, asset_root=asset_root, storage_service=storage_service))
+            context_builder = self.context_builder or self.builder_registry.create(getattr(draft_session, "document_type", "pdd"))
+            doc.render(context_builder.build(db, draft_session, doc, asset_root=asset_root, storage_service=storage_service))
             doc.save(str(output_path))
+
+    @staticmethod
+    def _build_default_registry() -> DocumentContextBuilderRegistry:
+        registry = DocumentContextBuilderRegistry()
+        registry.register(PddDocumentExportContextBuilder.document_type, PddDocumentExportContextBuilder)
+        registry.register(SopDocumentExportContextBuilder.document_type, SopDocumentExportContextBuilder)
+        registry.register(BrdDocumentExportContextBuilder.document_type, BrdDocumentExportContextBuilder)
+        return registry
 
     @staticmethod
     def _get_template_artifact(draft_session: DraftSessionModel):
@@ -54,6 +70,8 @@ class DocumentTemplateRenderer:
         return template_artifact
 
     def _prepare_template_for_rendering(self, template_path: Path, draft_session: DraftSessionModel) -> None:
+        if getattr(draft_session, "document_type", "pdd") != PddDocumentExportContextBuilder.document_type:
+            return
         process_groups = [group for group in getattr(draft_session, "process_groups", []) if getattr(group, "title", "")]
         if len(process_groups) <= 1:
             return

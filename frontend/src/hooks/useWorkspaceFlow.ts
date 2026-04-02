@@ -26,6 +26,7 @@ export function useWorkspaceFlow() {
     title,
     ownerId,
     diagramType,
+    documentType,
     uploads,
     uploadSessionId,
     uploadItems,
@@ -58,7 +59,7 @@ export function useWorkspaceFlow() {
         throw new Error("At least one video, one transcript, and one template are required.");
       }
 
-      const session = await sessionService.createDraftSession({ title, ownerId, diagramType });
+      const session = await sessionService.createDraftSession({ title, ownerId, diagramType, documentType });
       const queue = createArtifactQueue(uploads);
       const uploadBatchId = crypto.randomUUID();
       setUploadItems(createInitialUploadItems(uploads));

@@ -140,7 +140,23 @@ export function StepReviewPage({
   );
   const summaryHeading = activeProcessGroup?.title || filteredNotes[0]?.text || uiCopy.summaryHeadingFallback;
   const summarySubheading = applications.length > 0 ? applications.join(" and ") : uiCopy.summarySubheadingFallback;
-  const summaryBullets = filteredSteps.slice(0, 12).map((step) => step.actionText);
+  const summaryBullets = filteredSteps.map((step) => step.actionText);
+  const summarySteps = activeProcessGroup ? filteredSteps : session.processSteps;
+  const summaryNotes = activeProcessGroup ? filteredNotes : session.processNotes;
+  const summaryApplications = Array.from(new Set(summarySteps.map((step) => step.applicationName).filter(Boolean)));
+  const summaryEditedSteps = summarySteps.filter((step) => step.editedByBa);
+  const summaryScreenshotCount = summarySteps.reduce((total, step) => total + step.screenshots.length, 0);
+  const summaryPrimaryScreenshotCount = summarySteps.reduce(
+    (total, step) => total + step.screenshots.filter((screenshot) => screenshot.isPrimary).length,
+    0,
+  );
+  const summaryPanelHeading = activeProcessGroup?.title || summaryNotes[0]?.text || uiCopy.summaryHeadingFallback;
+  const summaryPanelSubheading =
+    summaryApplications.length > 0 ? summaryApplications.join(" and ") : uiCopy.summarySubheadingFallback;
+  const summaryNarrative =
+    (activeProcessGroup?.summaryText ?? "").trim() ||
+    (availableProcessGroups.length === 1 ? (availableProcessGroups[0]?.summaryText ?? "").trim() : "");
+  const summaryBulletsForPanel = summarySteps.map((step) => step.actionText);
   const actionLogEntries = session.actionLogs;
 
   function renderLazyPanel(children: React.ReactNode, message: string) {
@@ -258,18 +274,19 @@ export function StepReviewPage({
           {workspace.reviewMode === "view" && workspace.activeViewTab === "summary" ? (
             <section role="tabpanel" id="review-view-panel-summary" aria-labelledby="review-view-tab-summary">
               <SessionSummaryPanel
-                heading={summaryHeading}
-                subheading={summarySubheading}
-                summaryBullets={summaryBullets}
-                sessionTitle={activeProcessGroup?.title ?? session.title}
-                stepCount={filteredSteps.length}
+                heading={summaryPanelHeading}
+                subheading={summaryPanelSubheading}
+                narrativeText={summaryNarrative}
+                summaryBullets={summaryBulletsForPanel}
+                sessionTitle={session.title}
+                stepCount={summarySteps.length}
                 diagramType={session.diagramType}
-                applicationsLabel={applications.length > 0 ? applications.join(", ") : "Not detected"}
-                applicationCount={applications.length}
-                screenshotCount={screenshotCount}
-                primaryScreenshotCount={primaryScreenshotCount}
-                editedStepCount={editedSteps.length}
-                noteCount={filteredNotes.length}
+                applicationsLabel={summaryApplications.length > 0 ? summaryApplications.join(", ") : "Not detected"}
+                applicationCount={summaryApplications.length}
+                screenshotCount={summaryScreenshotCount}
+                primaryScreenshotCount={summaryPrimaryScreenshotCount}
+                editedStepCount={summaryEditedSteps.length}
+                noteCount={summaryNotes.length}
               />
             </section>
           ) : null}

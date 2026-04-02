@@ -3,6 +3,9 @@ Purpose: Helper for recording meaningful draft-session activity events.
 Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\action_log_service.py
 """
 
+import json
+from typing import Any
+
 from sqlalchemy.orm import Session
 
 from app.models.action_log import ActionLogModel
@@ -19,6 +22,7 @@ class ActionLogService:
         event_type: str,
         title: str,
         detail: str = "",
+        metadata: dict[str, Any] | None = None,
         actor: str = "system",
     ) -> ActionLogModel:
         """Stage one action log row on the current session transaction."""
@@ -27,6 +31,7 @@ class ActionLogService:
             event_type=event_type,
             title=title,
             detail=detail,
+            metadata_json=json.dumps(metadata) if metadata else "",
             actor=actor,
         )
         db.add(action_log)

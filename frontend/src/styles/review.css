@@ -152,12 +152,34 @@
   color: var(--summary-card-subtle);
 }
 
+.summary-document-paragraph {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--summary-card-subtle);
+}
+
 .summary-document-list {
   margin: 0;
   padding-left: 18px;
   display: grid;
   gap: 8px;
   color: var(--summary-card-subtle);
+}
+
+.review-link-button {
+  margin-top: 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.review-link-button:hover,
+.review-link-button:focus-visible {
+  text-decoration: underline;
 }
 
 .summary-meta-grid {
@@ -248,6 +270,35 @@
   gap: 16px;
 }
 
+.action-log-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.action-log-copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--accent-border);
+  background: var(--surface-soft);
+  color: var(--summary-card-text);
+}
+
+.action-log-copy-button:hover {
+  border-color: color-mix(in srgb, var(--button-primary-end) 45%, var(--accent-border));
+  background: color-mix(in srgb, var(--surface-soft) 82%, var(--accent-soft) 18%);
+}
+
+.action-log-copy-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .action-log-document-list {
   margin: 0;
   padding-left: 18px;
@@ -268,6 +319,142 @@
 
 .action-log-document-detail {
   color: var(--summary-card-subtle);
+}
+
+.action-log-explanation-list {
+  display: grid;
+  gap: 12px;
+}
+
+.action-log-explanation-item {
+  display: grid;
+  gap: 4px;
+}
+
+.action-log-metadata {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.action-log-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-bg) 78%, var(--accent-soft) 22%);
+}
+
+.action-log-decision-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.action-log-decision-table th,
+.action-log-decision-table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--summary-card-text);
+}
+
+.action-log-decision-table th {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--summary-card-subtle);
+  background: color-mix(in srgb, var(--panel-bg) 84%, var(--surface-soft) 16%);
+}
+
+.action-log-decision-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.action-log-details-toggle {
+  display: grid;
+  gap: 10px;
+}
+
+.action-log-details-toggle summary {
+  cursor: pointer;
+  color: var(--summary-card-text);
+  font-weight: 600;
+}
+
+.action-log-details-body {
+  display: grid;
+  gap: 10px;
+}
+
+.action-log-conclusion {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--panel-bg) 70%, var(--accent-soft) 30%);
+  color: var(--summary-card-text);
+  font-weight: 600;
+}
+
+.action-log-metadata-section {
+  display: grid;
+  gap: 6px;
+}
+
+.action-log-metadata-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--summary-card-subtle);
+}
+
+.action-log-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.action-log-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--panel-bg) 78%, var(--accent-soft) 22%);
+  color: var(--summary-card-text);
+  font-size: 0.84rem;
+}
+
+.action-log-segment-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.action-log-segment-item {
+  display: grid;
+  gap: 2px;
+  color: var(--summary-card-text);
+}
+
+.action-log-insight-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.action-log-insight-item {
+  display: grid;
+  gap: 6px;
+}
+
+.action-log-insight-title {
+  font-weight: 700;
+  color: var(--summary-card-text);
 }
 
 .session-chat-list {

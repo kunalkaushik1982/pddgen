@@ -48,6 +48,7 @@ def create_upload_session(
         title=payload.title,
         owner_id=current_user.username,
         diagram_type=payload.diagram_type,
+        document_type=payload.document_type,
     )
     meeting_service.ensure_default_meeting(db, session=session)
     process_group_service.ensure_default_process_group(db, session=session)

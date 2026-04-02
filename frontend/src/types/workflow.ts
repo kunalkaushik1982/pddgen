@@ -3,7 +3,7 @@
  * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\types\workflow.ts
  */
 
-import type { DraftSession, ExportResult, InputArtifact } from "./session";
+import type { DocumentType, DraftSession, ExportResult, InputArtifact } from "./session";
 
 export type WorkflowMessage = {
   tone: "info" | "error";
@@ -19,6 +19,7 @@ export type WorkflowContext = {
 };
 
 export type DiagramType = "flowchart" | "sequence";
+export type WorkflowDocumentType = DocumentType;
 
 export type ArtifactUploadState = {
   videoFiles: File[];
