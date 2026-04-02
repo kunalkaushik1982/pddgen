@@ -5,13 +5,20 @@ Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\evidence_seg
 
 from __future__ import annotations
 
+import logging
 import re
 from uuid import uuid4
 
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
+from worker.services.ai_skills.semantic_enrichment.schemas import SemanticEnrichmentRequest
+from worker.services.ai_skills.semantic_enrichment.skill import SemanticEnrichmentSkill
+from worker.services.ai_skills.workflow_boundary_detection.schemas import WorkflowBoundaryDetectionRequest
+from worker.services.ai_skills.workflow_boundary_detection.skill import WorkflowBoundaryDetectionSkill
 from worker.services.draft_generation_support import ACTION_VERB_PATTERNS, TIMESTAMP_PATTERN, classify_action_type
 from worker.services.workflow_strategy_interfaces import WorkflowIntelligenceStrategySet
 from worker.services.workflow_intelligence import EvidenceSegment, SemanticEnrichment, WorkflowBoundaryDecision
+
+logger = logging.getLogger(__name__)
 
 
 class ParagraphTranscriptSegmentationStrategy:
@@ -323,18 +330,30 @@ class AISemanticEnrichmentStrategy:
     ) -> None:
         self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
         self.fallback_strategy = fallback_strategy or HeuristicSemanticEnrichmentStrategy()
+        self._semantic_enrichment_skill = SemanticEnrichmentSkill()
 
     def enrich(self, segment: EvidenceSegment) -> SemanticEnrichment:
         fallback_enrichment = self.fallback_strategy.enrich(segment)
-        ai_result = self.ai_transcript_interpreter.enrich_workflow_segment(
-            transcript_name=segment.transcript_artifact_id,
-            segment_text=segment.text,
-            segment_context={
-                "segment_order": segment.segment_order,
-                "start_timestamp": segment.start_timestamp,
-                "end_timestamp": segment.end_timestamp,
-                "segmentation_method": segment.segmentation_method,
+        logger.info(
+            "Delegating semantic enrichment to AI skill.",
+            extra={
+                "skill_id": self._semantic_enrichment_skill.skill_id,
+                "skill_version": self._semantic_enrichment_skill.version,
+                "segment_id": segment.id,
+                "transcript_artifact_id": segment.transcript_artifact_id,
             },
+        )
+        ai_result = self._semantic_enrichment_skill.run(
+            SemanticEnrichmentRequest(
+                transcript_name=segment.transcript_artifact_id,
+                segment_text=segment.text,
+                segment_context={
+                    "segment_order": segment.segment_order,
+                    "start_timestamp": segment.start_timestamp or "",
+                    "end_timestamp": segment.end_timestamp or "",
+                    "segmentation_method": segment.segmentation_method,
+                },
+            )
         )
         if ai_result is None:
             return fallback_enrichment
@@ -387,12 +406,24 @@ class AIWorkflowBoundaryStrategy:
     ) -> None:
         self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
         self.fallback_strategy = fallback_strategy or HeuristicWorkflowBoundaryStrategy()
+        self._workflow_boundary_skill = WorkflowBoundaryDetectionSkill()
 
     def decide(self, left: EvidenceSegment, right: EvidenceSegment) -> WorkflowBoundaryDecision:
         fallback_decision = self.fallback_strategy.decide(left, right)
-        ai_result = self.ai_transcript_interpreter.classify_workflow_boundary(
-            left_segment=self._serialize_segment(left),
-            right_segment=self._serialize_segment(right),
+        logger.info(
+            "Delegating workflow boundary detection to AI skill.",
+            extra={
+                "skill_id": self._workflow_boundary_skill.skill_id,
+                "skill_version": self._workflow_boundary_skill.version,
+                "left_segment_id": left.id,
+                "right_segment_id": right.id,
+            },
+        )
+        ai_result = self._workflow_boundary_skill.run(
+            WorkflowBoundaryDetectionRequest(
+                left_segment=self._serialize_segment(left),
+                right_segment=self._serialize_segment(right),
+            )
         )
         if ai_result is None:
             return fallback_decision

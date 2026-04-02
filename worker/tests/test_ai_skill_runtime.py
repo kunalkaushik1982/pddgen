@@ -126,6 +126,22 @@ class AiSkillRuntimeTests(unittest.TestCase):
 
         self.assertEqual(skill.skill_id, "transcript_to_steps")
 
+    def test_default_registry_includes_semantic_enrichment_skill(self) -> None:
+        registry_module = load_registry_module()
+
+        registry = registry_module.build_default_ai_skill_registry()
+        skill = registry.create("semantic_enrichment")
+
+        self.assertEqual(skill.skill_id, "semantic_enrichment")
+
+    def test_default_registry_includes_workflow_boundary_detection_skill(self) -> None:
+        registry_module = load_registry_module()
+
+        registry = registry_module.build_default_ai_skill_registry()
+        skill = registry.create("workflow_boundary_detection")
+
+        self.assertEqual(skill.skill_id, "workflow_boundary_detection")
+
 
 if __name__ == "__main__":
     unittest.main()
