@@ -118,6 +118,14 @@ class AiSkillRuntimeTests(unittest.TestCase):
 
         self.assertEqual(client_module.extract_message_content(body), '{"steps": [], "notes": []}')
 
+    def test_default_registry_includes_transcript_to_steps_skill(self) -> None:
+        registry_module = load_registry_module()
+
+        registry = registry_module.build_default_ai_skill_registry()
+        skill = registry.create("transcript_to_steps")
+
+        self.assertEqual(skill.skill_id, "transcript_to_steps")
+
 
 if __name__ == "__main__":
     unittest.main()

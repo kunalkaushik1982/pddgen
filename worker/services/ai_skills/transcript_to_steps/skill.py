@@ -64,7 +64,7 @@ class TranscriptToStepsSkill:
     version = "1.0"
 
     def __init__(self, client: OpenAICompatibleSkillClient | None = None) -> None:
-        self.client = client or OpenAICompatibleSkillClient()
+        self.client = client
 
     def build_messages(self, request: TranscriptToStepsRequest) -> list[dict[str, str]]:
         prompt_path = Path(__file__).with_name("prompt.md")
@@ -78,7 +78,8 @@ class TranscriptToStepsSkill:
         ]
 
     def run(self, input: TranscriptToStepsRequest) -> TranscriptToStepsResponse:
-        response_body = self.client.post_json(messages=self.build_messages(input))
+        client = self.client or OpenAICompatibleSkillClient()
+        response_body = client.post_json(messages=self.build_messages(input))
         content = extract_message_content(response_body)
         parsed = parse_json_object(content)
         steps = [
