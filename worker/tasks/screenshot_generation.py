@@ -3,6 +3,7 @@ Purpose: Background task for screenshot-only generation work.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\tasks\screenshot_generation.py
 """
 
+from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 from worker.celery_app import celery_app
 from worker.services.screenshot_generation_worker import ScreenshotGenerationWorker

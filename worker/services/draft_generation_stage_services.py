@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Protocol, TypedDict
 from uuid import uuid4
 
+from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 from sqlalchemy import delete, select
 
@@ -225,11 +226,11 @@ class EvidenceSegmentationStage:
         self,
         *,
         transcript_normalizer: TranscriptNormalizer | None = None,
-        segmentation_service: EvidenceSegmentationService | None = None,
+        segmentation_service: EvidenceSegmentationService,
         action_log_service: ActionLogService | None = None,
     ) -> None:
         self.transcript_normalizer = transcript_normalizer or TranscriptNormalizer()
-        self.segmentation_service = segmentation_service or self._build_default_segmentation_service()
+        self.segmentation_service = segmentation_service
         self.action_log_service = action_log_service or ActionLogService()
 
     def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
@@ -270,21 +271,6 @@ class EvidenceSegmentationStage:
                     "boundary_strategy": self.segmentation_service.boundary_detector.strategy_key,
                 },
             )
-
-    @staticmethod
-    def _build_default_segmentation_service() -> EvidenceSegmentationService:
-        registry = WorkflowIntelligenceStrategyRegistry()
-        registry.register_segmenter(ParagraphTranscriptSegmentationStrategy.strategy_key, ParagraphTranscriptSegmentationStrategy)
-        registry.register_enricher(AISemanticEnrichmentStrategy.strategy_key, AISemanticEnrichmentStrategy)
-        registry.register_enricher(HeuristicSemanticEnrichmentStrategy.strategy_key, HeuristicSemanticEnrichmentStrategy)
-        registry.register_boundary_detector(AIWorkflowBoundaryStrategy.strategy_key, AIWorkflowBoundaryStrategy)
-        return EvidenceSegmentationService(
-            strategy_set=registry.create_strategy_set(
-                segmenter_key=ParagraphTranscriptSegmentationStrategy.strategy_key,
-                enricher_key=AISemanticEnrichmentStrategy.strategy_key,
-                boundary_detector_key=AIWorkflowBoundaryStrategy.strategy_key,
-            )
-        )
 
     def _build_segmentation_metadata(self, context: DraftGenerationContext) -> dict:
         segment_method_counts = Counter(segment.segmentation_method for segment in context.evidence_segments)

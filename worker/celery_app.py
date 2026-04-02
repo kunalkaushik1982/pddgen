@@ -5,6 +5,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\worker\celery_app.py
 
 import sys
 
+from worker import bootstrap as _bootstrap  # noqa: F401
 from celery import Celery
 
 from app.core.observability import configure_logging
