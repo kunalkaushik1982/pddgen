@@ -42,10 +42,10 @@ class TranscriptWorkflowProfile:
     top_actors: list[str]
     top_objects: list[str]
     top_systems: list[str]
-    top_applications: list[str] = field(default_factory=list)
     top_actions: list[str]
     top_goals: list[str]
     top_rules: list[str]
+    top_applications: list[str] = field(default_factory=list)
     top_domain_terms: list[str] = field(default_factory=list)
     boundary_to_next: str | None = None
     boundary_to_next_confidence: str | None = None
