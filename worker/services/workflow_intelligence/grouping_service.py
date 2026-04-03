@@ -10,7 +10,7 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
-from typing import TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict, cast
 
 from app.core.observability import get_logger
 from app.models.artifact import ArtifactModel
@@ -30,6 +30,13 @@ from worker.services.ai_transcript_interpreter import (
 from worker.services.generation_types import NoteRecord, StepRecord
 from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
 
+if TYPE_CHECKING:
+    from worker.services.ai_skills.process_summary_generation.schemas import ProcessSummaryGenerationResponse
+    from worker.services.ai_skills.workflow_capability_tagging.schemas import WorkflowCapabilityTaggingResponse
+    from worker.services.ai_skills.workflow_group_match.schemas import WorkflowGroupMatchResponse
+    from worker.services.ai_skills.workflow_title_resolution.schemas import WorkflowTitleResolutionResponse
+    from worker.services.ai_transcript_interpreter import ProcessSummaryInterpretation, WorkflowCapabilityInterpretation
+
 logger = get_logger(__name__)
 
 
@@ -38,7 +45,7 @@ class _InterpreterWorkflowTitleResolutionSkill:
         self._interpreter = interpreter
         self.version = "interpreter-adapter"
 
-    def run(self, input):  # type: ignore[no-untyped-def]
+    def run(self, input: WorkflowTitleResolutionRequest) -> WorkflowTitleInterpretation | WorkflowTitleResolutionResponse | None:
         return self._interpreter.resolve_workflow_title(
             transcript_name=input.transcript_name,
             workflow_summary=input.workflow_summary,
@@ -50,7 +57,7 @@ class _InterpreterWorkflowGroupMatchSkill:
         self._interpreter = interpreter
         self.version = "interpreter-adapter"
 
-    def run(self, input):  # type: ignore[no-untyped-def]
+    def run(self, input: WorkflowGroupMatchRequest) -> WorkflowGroupMatchInterpretation | WorkflowGroupMatchResponse | None:
         return self._interpreter.match_existing_workflow_group(
             transcript_name=input.transcript_name,
             workflow_summary=input.workflow_summary,
@@ -63,7 +70,7 @@ class _InterpreterProcessSummarySkill:
         self._interpreter = interpreter
         self.version = "interpreter-adapter"
 
-    def run(self, input):  # type: ignore[no-untyped-def]
+    def run(self, input: ProcessSummaryGenerationRequest) -> ProcessSummaryInterpretation | ProcessSummaryGenerationResponse | None:
         return self._interpreter.summarize_process_group(
             process_title=input.process_title,
             workflow_summary=input.workflow_summary,
@@ -78,7 +85,7 @@ class _InterpreterWorkflowCapabilityTaggingSkill:
         self._interpreter = interpreter
         self.version = "interpreter-adapter"
 
-    def run(self, input):  # type: ignore[no-untyped-def]
+    def run(self, input: WorkflowCapabilityTaggingRequest) -> WorkflowCapabilityInterpretation | WorkflowCapabilityTaggingResponse | None:
         return self._interpreter.classify_workflow_capabilities(
             process_title=input.process_title,
             workflow_summary=input.workflow_summary,

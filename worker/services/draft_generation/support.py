@@ -1,9 +1,16 @@
+from __future__ import annotations
+
 r"""
 Purpose: Shared constants and deterministic helpers for draft generation.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\draft_generation_support.py
 """
 
 import re
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.artifact import ArtifactModel
 
 
 TIMESTAMP_PATTERN = re.compile(r"\b(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b")
@@ -67,7 +74,7 @@ def classify_action_type(action_text: str) -> str:
     return "default"
 
 
-def build_pairing_detail(transcript_artifacts, video_artifacts) -> str:  # type: ignore[no-untyped-def]
+def build_pairing_detail(transcript_artifacts: Sequence[ArtifactModel], video_artifacts: Sequence[ArtifactModel]) -> str:
     if not transcript_artifacts or not video_artifacts:
         return "No video/transcript pairing available."
     if len(video_artifacts) == 1 and len(transcript_artifacts) > 1:

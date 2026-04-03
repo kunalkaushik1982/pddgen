@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
@@ -18,6 +19,11 @@ from worker.services.draft_generation.support import ACTION_VERB_PATTERNS, TIMES
 from worker.services.workflow_intelligence.strategy_interfaces import WorkflowIntelligenceStrategySet
 from worker.services.workflow_intelligence import EvidenceSegment, SemanticEnrichment, WorkflowBoundaryDecision
 
+if TYPE_CHECKING:
+    from worker.services.ai_transcript_interpreter import WorkflowBoundaryInterpretation, WorkflowSemanticEnrichmentInterpretation
+    from worker.services.ai_skills.semantic_enrichment.schemas import SemanticEnrichmentResponse
+    from worker.services.ai_skills.workflow_boundary_detection.schemas import WorkflowBoundaryDetectionResponse
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +33,7 @@ class _InterpreterSemanticEnrichmentSkill:
         self.skill_id = "semantic_enrichment_interpreter_adapter"
         self.version = "interpreter-adapter"
 
-    def run(self, input):  # type: ignore[no-untyped-def]
+    def run(self, input: SemanticEnrichmentRequest) -> WorkflowSemanticEnrichmentInterpretation | SemanticEnrichmentResponse | None:
         return self._interpreter.enrich_workflow_segment(
             transcript_name=input.transcript_name,
             segment_text=input.segment_text,
@@ -41,7 +47,7 @@ class _InterpreterWorkflowBoundarySkill:
         self.skill_id = "workflow_boundary_interpreter_adapter"
         self.version = "interpreter-adapter"
 
-    def run(self, input):  # type: ignore[no-untyped-def]
+    def run(self, input: WorkflowBoundaryDetectionRequest) -> WorkflowBoundaryInterpretation | WorkflowBoundaryDetectionResponse | None:
         return self._interpreter.classify_workflow_boundary(
             left_segment=input.left_segment,
             right_segment=input.right_segment,
