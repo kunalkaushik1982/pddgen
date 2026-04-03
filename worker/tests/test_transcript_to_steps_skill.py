@@ -28,6 +28,7 @@ MODELS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_
 NORMALIZATION_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_normalization.py"
 INTERPRETER_CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_client.py"
 DIAGRAMS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_diagrams.py"
+WORKFLOWS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_workflows.py"
 
 
 def load_schemas_module():
@@ -138,6 +139,7 @@ def load_interpreter_module():
     _load_service_module("worker.services.ai_transcript_normalization", NORMALIZATION_PATH)
     _load_service_module("worker.services.ai_transcript_client", INTERPRETER_CLIENT_PATH)
     _load_service_module("worker.services.ai_transcript_diagrams", DIAGRAMS_PATH)
+    _load_service_module("worker.services.ai_transcript_workflows", WORKFLOWS_PATH)
     sys.modules["worker.services.ai_skills.client"] = load_client_module()
     sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()
     sys.modules["worker.services.ai_skills.transcript_to_steps.schemas"] = load_schemas_module()

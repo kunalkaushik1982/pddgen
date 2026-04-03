@@ -144,6 +144,7 @@ class WorkerArchitectureBoundaryTests(unittest.TestCase):
         self.assertIn("worker.services.ai_transcript_normalization", imported_modules)
         self.assertIn("worker.services.ai_transcript_client", imported_modules)
         self.assertIn("worker.services.ai_transcript_diagrams", imported_modules)
+        self.assertIn("worker.services.ai_transcript_workflows", imported_modules)
 
     def test_screenshot_derivation_delegates_to_split_modules(self) -> None:
         module = _parse(SCREENSHOT_DERIVATION_PATH)

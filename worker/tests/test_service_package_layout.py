@@ -37,6 +37,7 @@ class ServicePackageLayoutTests(unittest.TestCase):
             SERVICES_DIR / "ai_transcript_diagrams.py",
             SERVICES_DIR / "ai_transcript_models.py",
             SERVICES_DIR / "ai_transcript_normalization.py",
+            SERVICES_DIR / "ai_transcript_workflows.py",
             SERVICES_DIR / "media" / "video_frame_extractor.py",
         ]
 
