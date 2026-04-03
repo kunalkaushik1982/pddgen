@@ -21,6 +21,10 @@ class ServicePackageLayoutTests(unittest.TestCase):
             SERVICES_DIR / "draft_generation" / "failure.py",
             SERVICES_DIR / "screenshot_generation" / "worker.py",
             SERVICES_DIR / "screenshot_generation" / "context_builder.py",
+            SERVICES_DIR / "workflow_intelligence" / "grouping_ai_adapters.py",
+            SERVICES_DIR / "workflow_intelligence" / "grouping_models.py",
+            SERVICES_DIR / "workflow_intelligence" / "grouping_title_resolution.py",
+            SERVICES_DIR / "workflow_intelligence" / "grouping_identity_resolution.py",
             SERVICES_DIR / "workflow_intelligence" / "segmentation_service.py",
             SERVICES_DIR / "media" / "video_frame_extractor.py",
         ]

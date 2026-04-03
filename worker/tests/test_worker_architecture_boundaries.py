@@ -9,6 +9,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SERVICES_DIR = REPO_ROOT / "worker" / "services"
 CONTRACTS_PATH = SERVICES_DIR / "orchestration" / "contracts.py"
 PIPELINE_PATH = SERVICES_DIR / "orchestration" / "pipeline.py"
+AI_SKILL_BASE_PATH = SERVICES_DIR / "ai_skills" / "base.py"
+GROUPING_SERVICE_PATH = SERVICES_DIR / "workflow_intelligence" / "grouping_service.py"
 
 NON_RUNTIME_MODULES = [
     SERVICES_DIR / "orchestration" / "composition.py",
@@ -96,6 +98,32 @@ class WorkerArchitectureBoundaryTests(unittest.TestCase):
                     if isinstance(item, ast.FunctionDef) and item.name == "run":
                         run_annotation = _annotation_name(item.args.args[1].annotation)
         self.assertEqual(run_annotation, "WorkerDbSession")
+
+    def test_ai_skill_protocol_is_generic(self) -> None:
+        module = _parse(AI_SKILL_BASE_PATH)
+        class_names = {node.name for node in module.body if isinstance(node, ast.ClassDef)}
+        assign_names = {
+            target.id
+            for node in module.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        self.assertIn("RequestT", assign_names)
+        self.assertIn("ResponseT", assign_names)
+        self.assertIn("AISkill", class_names)
+
+    def test_grouping_service_delegates_to_split_modules(self) -> None:
+        module = _parse(GROUPING_SERVICE_PATH)
+        imported_modules = {
+            node.module
+            for node in module.body
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+        }
+        self.assertIn("worker.services.workflow_intelligence.grouping_models", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_ai_adapters", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_title_resolution", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_identity_resolution", imported_modules)
 
 
 if __name__ == "__main__":
