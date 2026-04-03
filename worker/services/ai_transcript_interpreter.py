@@ -7,124 +7,46 @@ from __future__ import annotations
 
 import json
 import logging
-import re
-from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
-from uuid import uuid4
-
-try:
-    import httpx
-except ModuleNotFoundError:  # pragma: no cover - dependency-light test environments
-    httpx = None
 
 from worker.bootstrap import get_backend_settings
+from worker.services.ai_transcript_client import extract_content, parse_json_object, post_chat_completion
+from worker.services.ai_transcript_diagrams import normalize_diagram_view
+from worker.services.ai_transcript_models import (
+    AmbiguousProcessGroupResolution,
+    DiagramInterpretation,
+    ProcessGroupInterpretation,
+    ProcessSummaryInterpretation,
+    TranscriptInterpretation,
+    WorkflowBoundaryInterpretation,
+    WorkflowCapabilityInterpretation,
+    WorkflowGroupMatchInterpretation,
+    WorkflowSemanticEnrichmentInterpretation,
+    WorkflowTitleInterpretation,
+)
+from worker.services.ai_transcript_normalization import (
+    calibrate_confidence,
+    confidence_from_rank,
+    confidence_rank,
+    normalize_confidence,
+    normalize_existing_title,
+    normalize_label,
+    normalize_label_list,
+    normalize_note,
+    normalize_optional_text,
+    normalize_slug,
+    normalize_step,
+    normalize_textish,
+    normalize_timestamp,
+    summary_quality_points,
+    title_quality_points,
+    workflow_evidence_points,
+)
 from worker.services.ai_skills.transcript_to_steps.schemas import TranscriptToStepsRequest, TranscriptToStepsResponse
 from worker.services.ai_skills.transcript_to_steps.skill import TranscriptToStepsSkill
 from worker.services.generation_types import NoteRecord, StepRecord
 
-TIMESTAMP_PATTERN = re.compile(r"\b(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b")
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TranscriptInterpretation:
-    """Structured AI interpretation output."""
-
-    steps: list[StepRecord]
-    notes: list[NoteRecord]
-
-
-@dataclass
-class DiagramInterpretation:
-    """Structured AI diagram output."""
-
-    overview: dict[str, Any]
-    detailed: dict[str, Any]
-
-
-@dataclass
-class ProcessGroupInterpretation:
-    """Structured process-group classification output."""
-
-    process_title: str
-    canonical_slug: str
-    matched_existing_title: str | None
-
-
-@dataclass
-class AmbiguousProcessGroupResolution:
-    """Structured AI tie-break result for ambiguous process-group resolution."""
-
-    matched_existing_title: str | None
-    recommended_title: str
-    recommended_slug: str
-    confidence: str
-    rationale: str
-
-
-@dataclass
-class WorkflowTitleInterpretation:
-    """Structured AI workflow-title resolution output."""
-
-    workflow_title: str
-    canonical_slug: str
-    confidence: str
-    rationale: str
-
-
-@dataclass
-class WorkflowBoundaryInterpretation:
-    """Structured AI workflow-boundary classification output."""
-
-    decision: str
-    confidence: str
-    rationale: str
-
-
-@dataclass
-class WorkflowGroupMatchInterpretation:
-    """Structured AI workflow-group matching output."""
-
-    matched_existing_title: str | None
-    recommended_title: str
-    recommended_slug: str
-    confidence: str
-    rationale: str
-
-
-@dataclass
-class WorkflowSemanticEnrichmentInterpretation:
-    """Structured AI semantic enrichment output for one evidence segment."""
-
-    actor: str | None
-    actor_role: str | None
-    system_name: str | None
-    action_verb: str | None
-    action_type: str | None
-    business_object: str | None
-    workflow_goal: str | None
-    rule_hints: list[str]
-    domain_terms: list[str]
-    confidence: str
-    rationale: str
-
-
-@dataclass
-class ProcessSummaryInterpretation:
-    """Structured AI-generated business summary for one process group."""
-
-    summary_text: str
-    confidence: str
-    rationale: str
-
-
-@dataclass
-class WorkflowCapabilityInterpretation:
-    """Structured AI-generated capability tags for one workflow group."""
-
-    capability_tags: list[str]
-    confidence: str
-    rationale: str
 
 
 class AITranscriptInterpreter:
@@ -911,17 +833,7 @@ class AITranscriptInterpreter:
     @staticmethod
     def _extract_content(response_body: dict[str, Any]) -> str:
         """Extract message text from a chat completions response."""
-        choices = response_body.get("choices", [])
-        if not choices:
-            raise ValueError("AI response did not contain any choices.")
-
-        message = choices[0].get("message", {})
-        content = message.get("content", "")
-        if isinstance(content, list):
-            return "".join(item.get("text", "") for item in content if isinstance(item, dict))
-        if isinstance(content, str):
-            return content
-        raise ValueError("AI response content was not in a supported format.")
+        return extract_content(response_body)
 
     def _post_chat_completion(
         self,
@@ -932,87 +844,33 @@ class AITranscriptInterpreter:
         context: str,
     ) -> dict[str, Any]:
         """POST to the configured OpenAI-compatible endpoint and normalize retryable failures."""
-        if httpx is None:
-            raise RuntimeError("AI HTTP client dependency 'httpx' is not installed.")
-        timeout = httpx.Timeout(self.settings.ai_timeout_seconds)
-        try:
-            with httpx.Client(timeout=timeout) as client:
-                response = client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
-                return response.json()
-        except httpx.TimeoutException as exc:
-            raise RuntimeError(
-                f"AI {context} timed out after {self.settings.ai_timeout_seconds:.0f} seconds."
-            ) from exc
-        except httpx.HTTPStatusError as exc:
-            status_code = exc.response.status_code if exc.response is not None else "unknown"
-            raise RuntimeError(f"AI {context} failed with HTTP {status_code}.") from exc
-        except httpx.HTTPError as exc:
-            raise RuntimeError(f"AI {context} request failed: {exc.__class__.__name__}.") from exc
+        return post_chat_completion(
+            timeout_seconds=self.settings.ai_timeout_seconds,
+            endpoint=endpoint,
+            headers=headers,
+            payload=payload,
+            context=context,
+        )
 
     @staticmethod
     def _parse_json_object(text: str) -> dict[str, Any]:
         """Parse JSON from the model response, even if wrapped in markdown fences."""
-        cleaned = text.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.strip("`")
-            if cleaned.startswith("json"):
-                cleaned = cleaned[4:].strip()
-        return json.loads(cleaned)
+        return parse_json_object(text)
 
     @staticmethod
     def _normalize_step(item: Mapping[str, Any], transcript_artifact_id: str) -> StepRecord:
         """Normalize one AI-produced step into the worker's step shape."""
-        start_timestamp = AITranscriptInterpreter._normalize_timestamp(str(item.get("start_timestamp", "") or ""))
-        end_timestamp = AITranscriptInterpreter._normalize_timestamp(str(item.get("end_timestamp", "") or ""))
-        display_timestamp = AITranscriptInterpreter._normalize_timestamp(
-            str(item.get("display_timestamp", item.get("timestamp", "")) or "")
-        )
-        supporting_transcript_text = str(item.get("supporting_transcript_text", "") or "").strip()
-        locator = display_timestamp or start_timestamp or "ai:transcript"
-        return {
-            "id": str(uuid4()),
-            "process_group_id": None,
-            "meeting_id": None,
-            "step_number": 0,
-            "application_name": str(item.get("application_name", "") or ""),
-            "action_text": str(item.get("action_text", "") or "").strip(),
-            "source_data_note": str(item.get("source_data_note", "") or "").strip(),
-            "timestamp": display_timestamp,
-            "start_timestamp": start_timestamp,
-            "end_timestamp": end_timestamp,
-            "supporting_transcript_text": supporting_transcript_text,
-            "screenshot_id": "",
-            "confidence": AITranscriptInterpreter._normalize_confidence(item.get("confidence")),
-            "evidence_references": json.dumps(
-                [
-                    {
-                        "id": str(uuid4()),
-                        "artifact_id": transcript_artifact_id,
-                        "kind": "transcript",
-                        "locator": locator,
-                    }
-                ]
-            ),
-            "edited_by_ba": False,
-        }
+        return normalize_step(item, transcript_artifact_id)
 
     @staticmethod
     def _normalize_note(item: Mapping[str, Any]) -> NoteRecord:
         """Normalize one AI-produced note into the worker's note shape."""
-        return {
-            "text": str(item.get("text", "") or "").strip(),
-            "related_step_ids": json.dumps([]),
-            "evidence_reference_ids": json.dumps([]),
-            "confidence": AITranscriptInterpreter._normalize_confidence(item.get("confidence")),
-            "inference_type": str(item.get("inference_type", "inferred") or "inferred"),
-        }
+        return normalize_note(item)
 
     @staticmethod
     def _normalize_confidence(value: Any) -> str:
         """Constrain confidence values to the supported enum."""
-        normalized = str(value or "medium").lower()
-        return normalized if normalized in {"high", "medium", "low", "unknown"} else "medium"
+        return normalize_confidence(value)
 
     @classmethod
     def _calibrate_confidence(
@@ -1023,74 +881,44 @@ class AITranscriptInterpreter:
         quality_points: int,
         lower_when: int = 2,
     ) -> str:
-        rank = cls._confidence_rank(confidence)
-        if evidence_points <= lower_when:
-            rank = min(rank, 1)
-        elif evidence_points <= lower_when + 1 and rank > 1:
-            rank -= 1
-        if quality_points <= 0:
-            rank = min(rank, 1)
-        elif quality_points == 1 and rank > 1:
-            rank -= 1
-        return cls._confidence_from_rank(rank)
+        return calibrate_confidence(
+            confidence,
+            evidence_points=evidence_points,
+            quality_points=quality_points,
+            lower_when=lower_when,
+        )
 
     @staticmethod
     def _confidence_rank(confidence: str) -> int:
-        return {"unknown": 0, "low": 1, "medium": 2, "high": 3}.get(confidence, 1)
+        return confidence_rank(confidence)
 
     @staticmethod
     def _confidence_from_rank(rank: int) -> str:
-        return {0: "unknown", 1: "low", 2: "medium", 3: "high"}.get(max(0, min(rank, 3)), "low")
+        return confidence_from_rank(rank)
 
     @staticmethod
     def _workflow_evidence_points(workflow_summary: dict[str, Any]) -> int:
-        score = 0
-        for key in ("top_actors", "top_objects", "top_systems", "top_actions", "top_goals", "top_rules", "top_domain_terms"):
-            values = workflow_summary.get(key, [])
-            if isinstance(values, list) and any(str(value).strip() for value in values):
-                score += 1
-        for key in ("step_samples", "note_samples"):
-            values = workflow_summary.get(key, [])
-            if isinstance(values, list) and any(values):
-                score += 1
-        return score
+        return workflow_evidence_points(workflow_summary)
 
     @staticmethod
     def _title_quality_points(workflow_title: str) -> int:
-        token_count = len([token for token in re.split(r"\s+", workflow_title.strip()) if token])
-        if token_count < 2:
-            return 0
-        if token_count <= 6:
-            return 2
-        return 1
+        return title_quality_points(workflow_title)
 
     @staticmethod
     def _summary_quality_points(summary_text: str) -> int:
-        sentence_count = len([part for part in re.split(r"[.!?]+", summary_text) if part.strip()])
-        if sentence_count < 2:
-            return 0
-        if sentence_count <= 4:
-            return 2
-        return 1
+        return summary_quality_points(summary_text)
 
     @staticmethod
     def _normalize_slug(value: str, *, fallback: str) -> str:
-        normalized_source = value.strip() or fallback
-        normalized = re.sub(r"[^a-z0-9\s-]+", " ", normalized_source.lower())
-        collapsed = re.sub(r"\s+", "-", normalized.strip())
-        return re.sub(r"-{2,}", "-", collapsed).strip("-") or "process"
+        return normalize_slug(value, fallback=fallback)
 
     @staticmethod
     def _normalize_existing_title(value: str, *, existing_titles: list[str]) -> str | None:
-        candidate = value.strip()
-        if not candidate:
-            return None
-        return candidate if candidate in existing_titles else None
+        return normalize_existing_title(value, existing_titles=existing_titles)
 
     @staticmethod
     def _normalize_label(value: str) -> str:
-        normalized = re.sub(r"\s+", " ", value.strip())
-        return normalized[:120].strip()
+        return normalize_label(value)
 
     @classmethod
     def _normalize_label_list(
@@ -1100,101 +928,23 @@ class AITranscriptInterpreter:
         max_items: int,
         exclude: set[str] | None = None,
     ) -> list[str]:
-        if not isinstance(values, list):
-            return []
-        excluded = {cls._normalize_textish(item) for item in (exclude or set()) if cls._normalize_textish(item)}
-        normalized_items: list[str] = []
-        seen: set[str] = set()
-        for value in values:
-            if not isinstance(value, str):
-                continue
-            cleaned = cls._normalize_label(value)
-            if not cleaned:
-                continue
-            normalized_key = cls._normalize_textish(cleaned)
-            if not normalized_key or normalized_key in seen or normalized_key in excluded:
-                continue
-            seen.add(normalized_key)
-            normalized_items.append(cleaned)
-            if len(normalized_items) >= max_items:
-                break
-        return normalized_items
+        return normalize_label_list(values, max_items=max_items, exclude=exclude)
 
     @staticmethod
     def _normalize_textish(value: str) -> str:
-        normalized = re.sub(r"[^a-z0-9\s]+", " ", value.lower())
-        return re.sub(r"\s+", " ", normalized).strip()
+        return normalize_textish(value)
 
     @staticmethod
     def _normalize_timestamp(value: str) -> str:
         """Normalize flexible transcript timestamps into HH:MM:SS."""
-        if not value:
-            return ""
-
-        match = TIMESTAMP_PATTERN.search(value.strip())
-        if not match:
-            return ""
-
-        hours_group, minutes_group, seconds_group = match.groups()
-        hours = int(hours_group or 0)
-        minutes = int(minutes_group)
-        seconds = int(seconds_group)
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        return normalize_timestamp(value)
 
     @staticmethod
     def _normalize_diagram_view(view: dict[str, Any], view_type: str, session_title: str) -> dict[str, Any]:
         """Normalize one AI-produced diagram view into the API shape."""
-        raw_nodes = view.get("nodes", []) if isinstance(view, dict) else []
-        raw_edges = view.get("edges", []) if isinstance(view, dict) else []
-
-        nodes: list[dict[str, str]] = []
-        node_ids: set[str] = set()
-        for index, item in enumerate(raw_nodes, start=1):
-            node_id = str(item.get("id", "") or f"{view_type}_n{index}").strip()
-            if not node_id or node_id in node_ids:
-                node_id = f"{view_type}_n{index}"
-            node_ids.add(node_id)
-            category = str(item.get("category", "process") or "process").strip().lower()
-            if category not in {"process", "decision"}:
-                category = "process"
-            nodes.append(
-                {
-                    "id": node_id,
-                    "label": str(item.get("label", "") or "").strip() or f"Step {index}",
-                    "category": category,
-                    "step_range": str(item.get("step_range", "") or "").strip(),
-                }
-            )
-
-        edges: list[dict[str, str]] = []
-        for index, item in enumerate(raw_edges, start=1):
-            source = str(item.get("source", "") or "").strip()
-            target = str(item.get("target", "") or "").strip()
-            if source not in node_ids or target not in node_ids:
-                continue
-            edges.append(
-                {
-                    "id": str(item.get("id", "") or f"{view_type}_e{index}").strip() or f"{view_type}_e{index}",
-                    "source": source,
-                    "target": target,
-                    "label": str(item.get("label", "") or "").strip(),
-                }
-            )
-
-        if not nodes:
-            nodes = [{"id": f"{view_type}_n1", "label": "No process steps available", "category": "process", "step_range": ""}]
-            edges = []
-
-        return {
-            "diagram_type": "flowchart",
-            "view_type": view_type,
-            "title": str(view.get("title", "") or session_title).strip() or session_title,
-            "nodes": nodes,
-            "edges": edges,
-        }
+        return normalize_diagram_view(view, view_type, session_title)
 
     @staticmethod
     def _normalize_optional_text(value: Any) -> str | None:
         """Normalize optional scalar text fields from AI output."""
-        normalized = str(value or "").strip()
-        return normalized or None
+        return normalize_optional_text(value)

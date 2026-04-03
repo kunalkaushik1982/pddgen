@@ -24,6 +24,10 @@ CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "
 RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
 INTERPRETER_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_interpreter.py"
 GENERATION_TYPES_PATH = Path(__file__).resolve().parents[1] / "services" / "generation_types.py"
+MODELS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_models.py"
+NORMALIZATION_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_normalization.py"
+INTERPRETER_CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_client.py"
+DIAGRAMS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_diagrams.py"
 
 
 def load_schemas_module():
@@ -67,6 +71,15 @@ def load_generation_types_module():
     module = importlib.util.module_from_spec(spec)
     assert spec is not None and spec.loader is not None
     sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_service_module(module_name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -121,6 +134,10 @@ def load_interpreter_module():
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["httpx"] = httpx_module
     sys.modules["worker.services.generation_types"] = load_generation_types_module()
+    _load_service_module("worker.services.ai_transcript_models", MODELS_PATH)
+    _load_service_module("worker.services.ai_transcript_normalization", NORMALIZATION_PATH)
+    _load_service_module("worker.services.ai_transcript_client", INTERPRETER_CLIENT_PATH)
+    _load_service_module("worker.services.ai_transcript_diagrams", DIAGRAMS_PATH)
     sys.modules["worker.services.ai_skills.client"] = load_client_module()
     sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()
     sys.modules["worker.services.ai_skills.transcript_to_steps.schemas"] = load_schemas_module()

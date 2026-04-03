@@ -11,6 +11,7 @@ CONTRACTS_PATH = SERVICES_DIR / "orchestration" / "contracts.py"
 PIPELINE_PATH = SERVICES_DIR / "orchestration" / "pipeline.py"
 AI_SKILL_BASE_PATH = SERVICES_DIR / "ai_skills" / "base.py"
 GROUPING_SERVICE_PATH = SERVICES_DIR / "workflow_intelligence" / "grouping_service.py"
+AI_TRANSCRIPT_INTERPRETER_PATH = SERVICES_DIR / "ai_transcript_interpreter.py"
 
 NON_RUNTIME_MODULES = [
     SERVICES_DIR / "orchestration" / "composition.py",
@@ -124,6 +125,18 @@ class WorkerArchitectureBoundaryTests(unittest.TestCase):
         self.assertIn("worker.services.workflow_intelligence.grouping_ai_adapters", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_title_resolution", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_identity_resolution", imported_modules)
+
+    def test_ai_transcript_interpreter_delegates_to_split_modules(self) -> None:
+        module = _parse(AI_TRANSCRIPT_INTERPRETER_PATH)
+        imported_modules = {
+            node.module
+            for node in module.body
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+        }
+        self.assertIn("worker.services.ai_transcript_models", imported_modules)
+        self.assertIn("worker.services.ai_transcript_normalization", imported_modules)
+        self.assertIn("worker.services.ai_transcript_client", imported_modules)
+        self.assertIn("worker.services.ai_transcript_diagrams", imported_modules)
 
 
 if __name__ == "__main__":
