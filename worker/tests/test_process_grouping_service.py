@@ -75,7 +75,7 @@ sys.modules.setdefault("app.services.process_group_service", process_group_servi
 sys.modules.setdefault("worker.bootstrap", bootstrap_module)
 
 from worker.services.workflow_intelligence.grouping_service import ProcessGroupingService, TranscriptWorkflowProfile
-from worker.services.ai_transcript_interpreter import (
+from worker.services.ai_transcript.interpreter import (
     AITranscriptInterpreter,
     AmbiguousProcessGroupResolution,
     ProcessSummaryInterpretation,

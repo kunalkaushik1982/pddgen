@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
+from worker.services.ai_transcript.interpreter import AITranscriptInterpreter
 from worker.services.ai_skills.semantic_enrichment.schemas import SemanticEnrichmentRequest
 from worker.services.ai_skills.workflow_boundary_detection.schemas import WorkflowBoundaryDetectionRequest
 
 if TYPE_CHECKING:
-    from worker.services.ai_transcript_interpreter import WorkflowBoundaryInterpretation, WorkflowSemanticEnrichmentInterpretation
+    from worker.services.ai_transcript.interpreter import WorkflowBoundaryInterpretation, WorkflowSemanticEnrichmentInterpretation
     from worker.services.ai_skills.semantic_enrichment.schemas import SemanticEnrichmentResponse
     from worker.services.ai_skills.workflow_boundary_detection.schemas import WorkflowBoundaryDetectionResponse
 

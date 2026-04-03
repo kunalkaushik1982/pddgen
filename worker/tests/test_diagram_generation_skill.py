@@ -139,7 +139,7 @@ def load_stage_module(path: Path):
     canonical_merge_module = types.ModuleType("worker.services.workflow_intelligence.canonical_merge")
     canonical_merge_module.CanonicalProcessMergeService = type("CanonicalProcessMergeService", (), {})
 
-    ai_transcript_module = types.ModuleType("worker.services.ai_transcript_interpreter")
+    ai_transcript_module = types.ModuleType("worker.services.ai_transcript.interpreter")
 
     class AITranscriptInterpreter:
         pass
@@ -208,7 +208,7 @@ def load_stage_module(path: Path):
     sys.modules["worker.services.ai_skills.diagram_generation"] = diagram_pkg
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["worker.services.workflow_intelligence.canonical_merge"] = canonical_merge_module
-    sys.modules["worker.services.ai_transcript_interpreter"] = ai_transcript_module
+    sys.modules["worker.services.ai_transcript.interpreter"] = ai_transcript_module
     sys.modules["worker.services.draft_generation.stage_context"] = draft_context_module
     sys.modules["worker.services.workflow_intelligence.segmentation_service"] = evidence_module
     sys.modules["worker.services.draft_generation.support"] = support_module

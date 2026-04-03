@@ -41,6 +41,10 @@ class ServicePackageLayoutTests(unittest.TestCase):
             SERVICES_DIR / "ai_transcript" / "models.py",
             SERVICES_DIR / "ai_transcript" / "normalization.py",
             SERVICES_DIR / "ai_transcript" / "workflows.py",
+            SERVICES_DIR / "ai_transcript" / "workflow_grouping.py",
+            SERVICES_DIR / "ai_transcript" / "workflow_titles.py",
+            SERVICES_DIR / "ai_transcript" / "workflow_enrichment.py",
+            SERVICES_DIR / "ai_transcript" / "workflow_summaries.py",
             SERVICES_DIR / "ai_transcript" / "interpreter.py",
             SERVICES_DIR / "media" / "video_frame_extractor.py",
         ]
@@ -80,6 +84,12 @@ class ServicePackageLayoutTests(unittest.TestCase):
             SERVICES_DIR / "process_grouping_service.py",
             SERVICES_DIR / "evidence_segmentation_service.py",
             SERVICES_DIR / "workflow_intelligence.py",
+            SERVICES_DIR / "ai_transcript_client.py",
+            SERVICES_DIR / "ai_transcript_diagrams.py",
+            SERVICES_DIR / "ai_transcript_models.py",
+            SERVICES_DIR / "ai_transcript_normalization.py",
+            SERVICES_DIR / "ai_transcript_workflows.py",
+            SERVICES_DIR / "ai_transcript_interpreter.py",
         ]
 
         remaining_shims = [str(path) for path in removed_second_pass_shims if path.exists()]

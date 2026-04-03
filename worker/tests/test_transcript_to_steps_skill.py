@@ -29,6 +29,10 @@ NORMALIZATION_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_tran
 INTERPRETER_CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "client.py"
 DIAGRAMS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "diagrams.py"
 WORKFLOWS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "workflows.py"
+WORKFLOW_GROUPING_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "workflow_grouping.py"
+WORKFLOW_TITLES_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "workflow_titles.py"
+WORKFLOW_ENRICHMENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "workflow_enrichment.py"
+WORKFLOW_SUMMARIES_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "workflow_summaries.py"
 
 
 def load_schemas_module():
@@ -142,6 +146,10 @@ def load_interpreter_module():
     _load_service_module("worker.services.ai_transcript.normalization", NORMALIZATION_PATH)
     _load_service_module("worker.services.ai_transcript.client", INTERPRETER_CLIENT_PATH)
     _load_service_module("worker.services.ai_transcript.diagrams", DIAGRAMS_PATH)
+    _load_service_module("worker.services.ai_transcript.workflow_grouping", WORKFLOW_GROUPING_PATH)
+    _load_service_module("worker.services.ai_transcript.workflow_titles", WORKFLOW_TITLES_PATH)
+    _load_service_module("worker.services.ai_transcript.workflow_enrichment", WORKFLOW_ENRICHMENT_PATH)
+    _load_service_module("worker.services.ai_transcript.workflow_summaries", WORKFLOW_SUMMARIES_PATH)
     _load_service_module("worker.services.ai_transcript.workflows", WORKFLOWS_PATH)
     sys.modules["worker.services.ai_skills.client"] = load_client_module()
     sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()

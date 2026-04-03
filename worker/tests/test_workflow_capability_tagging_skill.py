@@ -115,7 +115,7 @@ def load_process_grouping_module():
     capability_pkg = types.ModuleType("worker.services.ai_skills.workflow_capability_tagging")
     capability_pkg.__path__ = []  # type: ignore[attr-defined]
 
-    ai_transcript_module = types.ModuleType("worker.services.ai_transcript_interpreter")
+    ai_transcript_module = types.ModuleType("worker.services.ai_transcript.interpreter")
 
     @dataclass(slots=True)
     class WorkflowTitleInterpretation:
@@ -203,7 +203,7 @@ def load_process_grouping_module():
     sys.modules["worker.services.ai_skills.workflow_title_resolution.schemas"] = title_schema_module
     sys.modules["worker.services.ai_skills.workflow_group_match.schemas"] = group_schema_module
     sys.modules["worker.services.ai_skills.process_summary_generation.schemas"] = process_summary_schema_module
-    sys.modules["worker.services.ai_transcript_interpreter"] = ai_transcript_module
+    sys.modules["worker.services.ai_transcript.interpreter"] = ai_transcript_module
     sys.modules["worker.services.workflow_intelligence"] = workflow_intelligence_module
     sys.modules["worker.services.ai_skills.registry"] = load_registry_module()
 

@@ -17,7 +17,7 @@ from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCa
 from app.services.action_log_service import ActionLogService
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
-from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
+from worker.services.ai_transcript.interpreter import AITranscriptInterpreter
 from worker.services.draft_generation.stage_context import DraftGenerationContext
 from worker.services.generation_types import NoteRecord, StepRecord
 from worker.services.orchestration.contracts import WorkerDbSession

@@ -4,7 +4,7 @@ from collections.abc import Callable, Sequence
 from difflib import SequenceMatcher
 
 from app.models.process_group import ProcessGroupModel
-from worker.services.ai_transcript_interpreter import WorkflowGroupMatchInterpretation
+from worker.services.ai_transcript.interpreter import WorkflowGroupMatchInterpretation
 from worker.services.generation_types import StepRecord
 from worker.services.workflow_intelligence.grouping_models import (
     CandidateMatchRecord,

@@ -20,7 +20,7 @@ from worker.services.ai_skills.registry import build_default_ai_skill_registry
 from worker.services.ai_skills.workflow_capability_tagging.schemas import WorkflowCapabilityTaggingRequest
 from worker.services.ai_skills.workflow_group_match.schemas import WorkflowGroupMatchRequest
 from worker.services.ai_skills.workflow_title_resolution.schemas import WorkflowTitleResolutionRequest
-from worker.services.ai_transcript_interpreter import AITranscriptInterpreter, WorkflowGroupMatchInterpretation, WorkflowTitleInterpretation
+from worker.services.ai_transcript.interpreter import AITranscriptInterpreter, WorkflowGroupMatchInterpretation, WorkflowTitleInterpretation
 from worker.services.generation_types import NoteRecord, StepRecord
 from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
 from worker.services.workflow_intelligence.grouping_ai_adapters import (

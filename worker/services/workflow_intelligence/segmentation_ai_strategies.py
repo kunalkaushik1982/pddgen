@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
+from worker.services.ai_transcript.interpreter import AITranscriptInterpreter
 from worker.services.ai_skills.semantic_enrichment.schemas import SemanticEnrichmentRequest
 from worker.services.ai_skills.semantic_enrichment.skill import SemanticEnrichmentSkill
 from worker.services.ai_skills.workflow_boundary_detection.schemas import WorkflowBoundaryDetectionRequest
@@ -19,7 +19,7 @@ from worker.services.workflow_intelligence.segmentation_heuristics import (
 )
 
 if TYPE_CHECKING:
-    from worker.services.ai_transcript_interpreter import WorkflowBoundaryInterpretation
+    from worker.services.ai_transcript.interpreter import WorkflowBoundaryInterpretation
 
 logger = logging.getLogger(__name__)
 

@@ -100,7 +100,7 @@ def load_process_grouping_module():
 
     process_group_service_module.ProcessGroupService = ProcessGroupService
 
-    ai_transcript_module = types.ModuleType("worker.services.ai_transcript_interpreter")
+    ai_transcript_module = types.ModuleType("worker.services.ai_transcript.interpreter")
     worker_module = types.ModuleType("worker")
     worker_module.__path__ = []  # type: ignore[attr-defined]
     worker_services_module = types.ModuleType("worker.services")
@@ -157,7 +157,7 @@ def load_process_grouping_module():
     sys.modules["worker.services.ai_skills"] = ai_skills_module
     sys.modules["worker.services.ai_skills.workflow_title_resolution"] = title_pkg_module
     sys.modules["worker.services.ai_skills.workflow_group_match"] = group_pkg_module
-    sys.modules["worker.services.ai_transcript_interpreter"] = ai_transcript_module
+    sys.modules["worker.services.ai_transcript.interpreter"] = ai_transcript_module
     sys.modules["worker.services.workflow_intelligence"] = workflow_intelligence_module
     sys.modules["worker.services.ai_skills.client"] = load_client_module()
     sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()

@@ -6,7 +6,7 @@ from worker.services.ai_skills.process_summary_generation.schemas import Process
 from worker.services.ai_skills.workflow_capability_tagging.schemas import WorkflowCapabilityTaggingRequest
 from worker.services.ai_skills.workflow_group_match.schemas import WorkflowGroupMatchRequest
 from worker.services.ai_skills.workflow_title_resolution.schemas import WorkflowTitleResolutionRequest
-from worker.services.ai_transcript_interpreter import (
+from worker.services.ai_transcript.interpreter import (
     AITranscriptInterpreter,
     WorkflowGroupMatchInterpretation,
     WorkflowTitleInterpretation,
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from worker.services.ai_skills.workflow_capability_tagging.schemas import WorkflowCapabilityTaggingResponse
     from worker.services.ai_skills.workflow_group_match.schemas import WorkflowGroupMatchResponse
     from worker.services.ai_skills.workflow_title_resolution.schemas import WorkflowTitleResolutionResponse
-    from worker.services.ai_transcript_interpreter import ProcessSummaryInterpretation, WorkflowCapabilityInterpretation
+    from worker.services.ai_transcript.interpreter import ProcessSummaryInterpretation, WorkflowCapabilityInterpretation
 
 
 class InterpreterWorkflowTitleResolutionSkill:

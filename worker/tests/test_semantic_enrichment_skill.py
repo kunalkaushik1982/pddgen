@@ -115,7 +115,7 @@ def load_evidence_segmentation_module():
     boundary_module = types.ModuleType("worker.services.ai_skills.workflow_boundary_detection")
     boundary_module.__path__ = []  # type: ignore[attr-defined]
 
-    ai_transcript_module = types.ModuleType("worker.services.ai_transcript_interpreter")
+    ai_transcript_module = types.ModuleType("worker.services.ai_transcript.interpreter")
 
     class FakeInterpreter:
         def enrich_workflow_segment(self, **kwargs):
@@ -138,7 +138,7 @@ def load_evidence_segmentation_module():
     sys.modules["worker.services.ai_skills"] = ai_skills_module
     sys.modules["worker.services.ai_skills.semantic_enrichment"] = semantic_module
     sys.modules["worker.services.ai_skills.workflow_boundary_detection"] = boundary_module
-    sys.modules["worker.services.ai_transcript_interpreter"] = ai_transcript_module
+    sys.modules["worker.services.ai_transcript.interpreter"] = ai_transcript_module
     sys.modules["worker.services.ai_skills.client"] = load_client_module()
     sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()
     sys.modules["worker.services.ai_skills.semantic_enrichment.schemas"] = load_schemas_module()

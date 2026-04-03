@@ -25,7 +25,7 @@ from worker.services.workflow_intelligence.segmentation_service import (
     HeuristicSemanticEnrichmentStrategy,
     HeuristicWorkflowBoundaryStrategy,
 )
-from worker.services.ai_transcript_interpreter import WorkflowBoundaryInterpretation, WorkflowSemanticEnrichmentInterpretation
+from worker.services.ai_transcript.interpreter import WorkflowBoundaryInterpretation, WorkflowSemanticEnrichmentInterpretation
 from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
 
 
