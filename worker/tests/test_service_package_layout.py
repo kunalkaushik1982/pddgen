@@ -19,6 +19,14 @@ class ServicePackageLayoutTests(unittest.TestCase):
             SERVICES_DIR / "screenshot_generation" / "worker.py",
             SERVICES_DIR / "screenshot_generation" / "context_builder.py",
             SERVICES_DIR / "workflow_intelligence" / "segmentation_service.py",
+            SERVICES_DIR / "ai_transcript" / "__init__.py",
+            SERVICES_DIR / "ai_transcript" / "client.py",
+            SERVICES_DIR / "ai_transcript" / "models.py",
+            SERVICES_DIR / "ai_transcript" / "normalization.py",
+            SERVICES_DIR / "ai_transcript" / "diagrams.py",
+            SERVICES_DIR / "ai_transcript" / "diagram_interpreter.py",
+            SERVICES_DIR / "ai_transcript" / "transcript_adaptation.py",
+            SERVICES_DIR / "ai_transcript" / "workflows.py",
             SERVICES_DIR / "media" / "video_frame_extractor.py",
         ]
 
