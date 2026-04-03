@@ -8,6 +8,7 @@ from typing import Any
 
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
+from app.models.process_group import ProcessGroupModel
 from app.models.process_step import ProcessStepModel
 from worker.services.generation_types import NoteRecord, StepRecord
 from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
@@ -26,7 +27,7 @@ class DraftGenerationContext:
     evidence_segments: list[EvidenceSegment] = field(default_factory=list)
     workflow_boundary_decisions: list[WorkflowBoundaryDecision] = field(default_factory=list)
     default_process_group_id: str | None = None
-    process_groups: list[Any] = field(default_factory=list)
+    process_groups: list[ProcessGroupModel] = field(default_factory=list)
     all_steps: list[StepRecord] = field(default_factory=list)
     all_notes: list[NoteRecord] = field(default_factory=list)
     steps_by_transcript: dict[str, list[StepRecord]] = field(default_factory=dict)

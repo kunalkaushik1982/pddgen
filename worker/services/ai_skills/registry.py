@@ -6,15 +6,17 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from worker.services.ai_skills.base import AISkill
+
 
 class AISkillRegistry:
     def __init__(self) -> None:
-        self._skills: dict[str, Callable[[], Any]] = {}
+        self._skills: dict[str, Callable[[], AISkill[Any, Any]]] = {}
 
-    def register(self, key: str, factory: Callable[[], Any]) -> None:
+    def register(self, key: str, factory: Callable[[], AISkill[Any, Any]]) -> None:
         self._skills[key] = factory
 
-    def create(self, key: str) -> Any:
+    def create(self, key: str) -> AISkill[Any, Any]:
         try:
             return self._skills[key]()
         except KeyError as exc:

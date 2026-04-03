@@ -4,11 +4,13 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\action_
 """
 
 import json
-from typing import Any
-
-from sqlalchemy.orm import Session
+from typing import Any, Protocol
 
 from app.models.action_log import ActionLogModel
+
+
+class _ActionLogSession(Protocol):
+    def add(self, instance: Any) -> None: ...
 
 
 class ActionLogService:
@@ -16,7 +18,7 @@ class ActionLogService:
 
     def record(
         self,
-        db: Session,
+        db: _ActionLogSession,
         *,
         session_id: str,
         event_type: str,

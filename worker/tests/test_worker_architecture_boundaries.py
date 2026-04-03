@@ -13,6 +13,9 @@ AI_SKILL_BASE_PATH = SERVICES_DIR / "ai_skills" / "base.py"
 GROUPING_SERVICE_PATH = SERVICES_DIR / "workflow_intelligence" / "grouping_service.py"
 AI_TRANSCRIPT_INTERPRETER_PATH = SERVICES_DIR / "ai_transcript_interpreter.py"
 SCREENSHOT_DERIVATION_PATH = SERVICES_DIR / "draft_generation" / "screenshot_derivation.py"
+SEGMENTATION_SERVICE_PATH = SERVICES_DIR / "workflow_intelligence" / "segmentation_service.py"
+STAGE_CONTEXT_PATH = SERVICES_DIR / "draft_generation" / "stage_context.py"
+AI_SKILL_REGISTRY_PATH = SERVICES_DIR / "ai_skills" / "registry.py"
 
 NON_RUNTIME_MODULES = [
     SERVICES_DIR / "orchestration" / "composition.py",
@@ -148,6 +151,49 @@ class WorkerArchitectureBoundaryTests(unittest.TestCase):
         }
         self.assertIn("worker.services.draft_generation.screenshot_timing", imported_modules)
         self.assertIn("worker.services.draft_generation.screenshot_selection", imported_modules)
+
+    def test_segmentation_service_delegates_to_split_modules(self) -> None:
+        module = _parse(SEGMENTATION_SERVICE_PATH)
+        imported_modules = {
+            node.module
+            for node in module.body
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+        }
+        self.assertIn("worker.services.workflow_intelligence.segmentation_ai_adapters", imported_modules)
+
+    def test_stage_context_uses_concrete_process_group_type(self) -> None:
+        module = _parse(STAGE_CONTEXT_PATH)
+        imported_modules = {
+            node.module
+            for node in module.body
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+        }
+        self.assertIn("app.models.process_group", imported_modules)
+
+        process_groups_annotation = None
+        for node in module.body:
+            if isinstance(node, ast.ClassDef) and node.name == "DraftGenerationContext":
+                for item in node.body:
+                    if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name) and item.target.id == "process_groups":
+                        process_groups_annotation = ast.unparse(item.annotation)
+        self.assertEqual(process_groups_annotation, "list[ProcessGroupModel]")
+
+    def test_ai_skill_registry_returns_ai_skill_protocol(self) -> None:
+        module = _parse(AI_SKILL_REGISTRY_PATH)
+        imported_modules = {
+            node.module
+            for node in module.body
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+        }
+        self.assertIn("worker.services.ai_skills.base", imported_modules)
+
+        create_return_annotation = None
+        for node in module.body:
+            if isinstance(node, ast.ClassDef) and node.name == "AISkillRegistry":
+                for item in node.body:
+                    if isinstance(item, ast.FunctionDef) and item.name == "create":
+                        create_return_annotation = ast.unparse(item.returns) if item.returns is not None else None
+        self.assertEqual(create_return_annotation, "AISkill[Any, Any]")
 
 
 if __name__ == "__main__":

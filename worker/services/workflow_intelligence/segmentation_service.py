@@ -16,6 +16,10 @@ from worker.services.ai_skills.semantic_enrichment.skill import SemanticEnrichme
 from worker.services.ai_skills.workflow_boundary_detection.schemas import WorkflowBoundaryDetectionRequest
 from worker.services.ai_skills.workflow_boundary_detection.skill import WorkflowBoundaryDetectionSkill
 from worker.services.draft_generation.support import ACTION_VERB_PATTERNS, TIMESTAMP_PATTERN, classify_action_type
+from worker.services.workflow_intelligence.segmentation_ai_adapters import (
+    InterpreterSemanticEnrichmentSkill,
+    InterpreterWorkflowBoundarySkill,
+)
 from worker.services.workflow_intelligence.strategy_interfaces import WorkflowIntelligenceStrategySet
 from worker.services.workflow_intelligence import EvidenceSegment, SemanticEnrichment, WorkflowBoundaryDecision
 
@@ -25,33 +29,6 @@ if TYPE_CHECKING:
     from worker.services.ai_skills.workflow_boundary_detection.schemas import WorkflowBoundaryDetectionResponse
 
 logger = logging.getLogger(__name__)
-
-
-class _InterpreterSemanticEnrichmentSkill:
-    def __init__(self, interpreter: AITranscriptInterpreter) -> None:
-        self._interpreter = interpreter
-        self.skill_id = "semantic_enrichment_interpreter_adapter"
-        self.version = "interpreter-adapter"
-
-    def run(self, input: SemanticEnrichmentRequest) -> WorkflowSemanticEnrichmentInterpretation | SemanticEnrichmentResponse | None:
-        return self._interpreter.enrich_workflow_segment(
-            transcript_name=input.transcript_name,
-            segment_text=input.segment_text,
-            segment_context=input.segment_context,
-        )
-
-
-class _InterpreterWorkflowBoundarySkill:
-    def __init__(self, interpreter: AITranscriptInterpreter) -> None:
-        self._interpreter = interpreter
-        self.skill_id = "workflow_boundary_interpreter_adapter"
-        self.version = "interpreter-adapter"
-
-    def run(self, input: WorkflowBoundaryDetectionRequest) -> WorkflowBoundaryInterpretation | WorkflowBoundaryDetectionResponse | None:
-        return self._interpreter.classify_workflow_boundary(
-            left_segment=input.left_segment,
-            right_segment=input.right_segment,
-        )
 
 
 class ParagraphTranscriptSegmentationStrategy:
@@ -364,7 +341,7 @@ class AISemanticEnrichmentStrategy:
         self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
         self.fallback_strategy = fallback_strategy or HeuristicSemanticEnrichmentStrategy()
         self._semantic_enrichment_skill = (
-            _InterpreterSemanticEnrichmentSkill(self.ai_transcript_interpreter)
+            InterpreterSemanticEnrichmentSkill(self.ai_transcript_interpreter)
             if ai_transcript_interpreter is not None
             else SemanticEnrichmentSkill()
         )
@@ -444,7 +421,7 @@ class AIWorkflowBoundaryStrategy:
         self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
         self.fallback_strategy = fallback_strategy or HeuristicWorkflowBoundaryStrategy()
         self._workflow_boundary_skill = (
-            _InterpreterWorkflowBoundarySkill(self.ai_transcript_interpreter)
+            InterpreterWorkflowBoundarySkill(self.ai_transcript_interpreter)
             if ai_transcript_interpreter is not None
             else WorkflowBoundaryDetectionSkill()
         )
