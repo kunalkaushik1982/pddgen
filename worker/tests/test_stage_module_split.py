@@ -6,7 +6,6 @@ import unittest
 
 
 SERVICES_DIR = Path(__file__).resolve().parents[1] / "services"
-LEGACY_STAGE_PATH = SERVICES_DIR / "draft_generation_stage_services.py"
 LEGACY_OUTPUT_STAGE_PATH = SERVICES_DIR / "draft_generation_output_stages.py"
 OUTPUT_STAGE_PATH = SERVICES_DIR / "draft_generation" / "output_stages.py"
 
@@ -33,10 +32,8 @@ class StageModuleSplitTests(unittest.TestCase):
 
         self.assertTrue(OUTPUT_STAGE_CLASS_NAMES.issubset(output_class_names))
 
-    def test_legacy_stage_module_does_not_define_output_stage_classes(self) -> None:
-        legacy_class_names = _defined_class_names(LEGACY_STAGE_PATH)
-
-        self.assertTrue(OUTPUT_STAGE_CLASS_NAMES.isdisjoint(legacy_class_names))
+    def test_legacy_stage_module_has_been_removed(self) -> None:
+        self.assertFalse((SERVICES_DIR / "draft_generation_stage_services.py").exists())
 
     def test_legacy_output_stage_module_has_been_removed(self) -> None:
         self.assertFalse(LEGACY_OUTPUT_STAGE_PATH.exists())

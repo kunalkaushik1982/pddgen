@@ -961,7 +961,7 @@ class AITranscriptInterpreter:
         return json.loads(cleaned)
 
     @staticmethod
-    def _normalize_step(item: dict[str, Any], transcript_artifact_id: str) -> dict[str, Any]:
+    def _normalize_step(item: Mapping[str, Any], transcript_artifact_id: str) -> StepRecord:
         """Normalize one AI-produced step into the worker's step shape."""
         start_timestamp = AITranscriptInterpreter._normalize_timestamp(str(item.get("start_timestamp", "") or ""))
         end_timestamp = AITranscriptInterpreter._normalize_timestamp(str(item.get("end_timestamp", "") or ""))
@@ -971,6 +971,9 @@ class AITranscriptInterpreter:
         supporting_transcript_text = str(item.get("supporting_transcript_text", "") or "").strip()
         locator = display_timestamp or start_timestamp or "ai:transcript"
         return {
+            "id": str(uuid4()),
+            "process_group_id": None,
+            "meeting_id": None,
             "step_number": 0,
             "application_name": str(item.get("application_name", "") or ""),
             "action_text": str(item.get("action_text", "") or "").strip(),
@@ -995,7 +998,7 @@ class AITranscriptInterpreter:
         }
 
     @staticmethod
-    def _normalize_note(item: dict[str, Any]) -> dict[str, Any]:
+    def _normalize_note(item: Mapping[str, Any]) -> NoteRecord:
         """Normalize one AI-produced note into the worker's note shape."""
         return {
             "text": str(item.get("text", "") or "").strip(),

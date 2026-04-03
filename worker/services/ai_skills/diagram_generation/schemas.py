@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Mapping
+from collections.abc import Sequence
 
 
 @dataclass(slots=True)
 class DiagramGenerationRequest:
     session_title: str
     diagram_type: str
-    steps: list[dict[str, object]]
-    notes: list[dict[str, object]]
+    steps: Sequence[Mapping[str, object]]
+    notes: Sequence[Mapping[str, object]]
 
 
 @dataclass(slots=True)

@@ -27,7 +27,8 @@ SKILL_PATH = (
 CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "client.py"
 RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
 REGISTRY_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "registry.py"
-STAGE_SERVICES_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation_stage_services.py"
+OUTPUT_STAGES_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation" / "output_stages.py"
+INPUT_STAGES_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation" / "input_stages.py"
 WORKER_DIR = Path(__file__).resolve().parents[1]
 SERVICES_DIR = WORKER_DIR / "services"
 
@@ -61,12 +62,11 @@ def load_registry_module():
     return load_module("ai_skill_registry_diagram_test", REGISTRY_PATH)
 
 
-def load_stage_module():
+def load_stage_module(path: Path):
     for module_name in (
         "worker",
         "worker.bootstrap",
         "worker.services",
-        "worker.services.draft_generation_stage_services",
         "worker.services.draft_generation.input_stages",
         "worker.services.draft_generation.process_stages",
         "worker.services.draft_generation.output_stages",
@@ -220,7 +220,7 @@ def load_stage_module():
     sys.modules["worker.services.ai_skills.diagram_generation.skill"] = load_skill_module()
     sys.modules["worker.services.ai_skills.registry"] = load_registry_module()
 
-    return load_module("draft_stage_diagram_test", STAGE_SERVICES_PATH)
+    return load_module(f"draft_stage_{path.stem}_test", path)
 
 
 class DiagramGenerationTests(unittest.TestCase):
@@ -266,7 +266,7 @@ class DiagramGenerationTests(unittest.TestCase):
         self.assertEqual(view["edges"], [])
 
     def test_diagram_stage_uses_skill_and_serializes_output(self) -> None:
-        stage_module = load_stage_module()
+        stage_module = load_stage_module(OUTPUT_STAGES_PATH)
 
         class StubDiagramSkill:
             skill_id = "diagram_generation"
@@ -302,7 +302,7 @@ class DiagramGenerationTests(unittest.TestCase):
         self.assertEqual(registry.create("diagram_generation").skill_id, "diagram_generation")
 
     def test_segmentation_metadata_builder_counts_summary_fields(self) -> None:
-        stage_module = load_stage_module()
+        stage_module = load_stage_module(INPUT_STAGES_PATH)
 
         class FakeSegmentationService:
             segmenter = type("Segmenter", (), {"strategy_key": "paragraph_v1"})()
@@ -367,7 +367,7 @@ class DiagramGenerationTests(unittest.TestCase):
         self.assertEqual(metadata["transcript_summaries"][0]["top_rules"], ["Validate vendor"])
 
     def test_sort_artifacts_orders_by_meeting_and_created_timestamps(self) -> None:
-        stage_module = load_stage_module()
+        stage_module = load_stage_module(OUTPUT_STAGES_PATH)
         meeting_late = type(
             "Meeting",
             (),

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from typing import TypedDict, cast
+from collections.abc import Sequence
+from typing import Mapping, TypedDict, cast
 
 from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
@@ -177,11 +178,11 @@ class TranscriptInterpretationStage:
             )
 
     @staticmethod
-    def _coerce_step_records(steps: list[dict[str, object]]) -> list[StepRecord]:
+    def _coerce_step_records(steps: Sequence[Mapping[str, object]]) -> list[StepRecord]:
         return [cast(StepRecord, step) for step in steps]
 
     @staticmethod
-    def _coerce_note_records(notes: list[dict[str, object]]) -> list[NoteRecord]:
+    def _coerce_note_records(notes: Sequence[Mapping[str, object]]) -> list[NoteRecord]:
         return [cast(NoteRecord, note) for note in notes]
 
 

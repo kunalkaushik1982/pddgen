@@ -1,6 +1,8 @@
-r"""
-Purpose: Workflow-intelligence foundation contracts for worker-side segment-aware processing.
-Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\workflow_intelligence.py
+"""Workflow-intelligence shared models.
+
+This module intentionally stays lightweight because isolated tests import it
+without the full worker dependency graph loaded. See `worker/services/README.md`
+and `worker/WORKER_PIPELINE.md` for the runtime call flow.
 """
 
 from dataclasses import dataclass, field
@@ -56,3 +58,10 @@ class WorkflowBoundaryDecision:
     ai_confidence: str | None = None
     conflict_detected: bool = False
     resolution_status: str = "auto_resolved"
+
+
+__all__ = [
+    "EvidenceSegment",
+    "SemanticEnrichment",
+    "WorkflowBoundaryDecision",
+]
