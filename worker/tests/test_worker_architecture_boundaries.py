@@ -14,6 +14,7 @@ GROUPING_SERVICE_PATH = SERVICES_DIR / "workflow_intelligence" / "grouping_servi
 AI_TRANSCRIPT_INTERPRETER_PATH = SERVICES_DIR / "ai_transcript_interpreter.py"
 SCREENSHOT_DERIVATION_PATH = SERVICES_DIR / "draft_generation" / "screenshot_derivation.py"
 SEGMENTATION_SERVICE_PATH = SERVICES_DIR / "workflow_intelligence" / "segmentation_service.py"
+SEGMENTATION_AI_STRATEGIES_PATH = SERVICES_DIR / "workflow_intelligence" / "segmentation_ai_strategies.py"
 STAGE_CONTEXT_PATH = SERVICES_DIR / "draft_generation" / "stage_context.py"
 AI_SKILL_REGISTRY_PATH = SERVICES_DIR / "ai_skills" / "registry.py"
 
@@ -161,7 +162,18 @@ class WorkerArchitectureBoundaryTests(unittest.TestCase):
             for node in module.body
             if isinstance(node, ast.ImportFrom) and node.module is not None
         }
+        self.assertIn("worker.services.workflow_intelligence.segmentation_heuristics", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.segmentation_ai_strategies", imported_modules)
+
+    def test_segmentation_ai_strategies_delegate_to_adapters(self) -> None:
+        module = _parse(SEGMENTATION_AI_STRATEGIES_PATH)
+        imported_modules = {
+            node.module
+            for node in module.body
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+        }
         self.assertIn("worker.services.workflow_intelligence.segmentation_ai_adapters", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.segmentation_heuristics", imported_modules)
 
     def test_stage_context_uses_concrete_process_group_type(self) -> None:
         module = _parse(STAGE_CONTEXT_PATH)

@@ -30,6 +30,8 @@ class ServicePackageLayoutTests(unittest.TestCase):
             SERVICES_DIR / "workflow_intelligence" / "grouping_summary_support.py",
             SERVICES_DIR / "workflow_intelligence" / "grouping_capability_support.py",
             SERVICES_DIR / "workflow_intelligence" / "segmentation_ai_adapters.py",
+            SERVICES_DIR / "workflow_intelligence" / "segmentation_heuristics.py",
+            SERVICES_DIR / "workflow_intelligence" / "segmentation_ai_strategies.py",
             SERVICES_DIR / "workflow_intelligence" / "segmentation_service.py",
             SERVICES_DIR / "ai_transcript_client.py",
             SERVICES_DIR / "ai_transcript_diagrams.py",
