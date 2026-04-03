@@ -48,11 +48,17 @@ def load_worker_composition_module():
     process_stages_module.CanonicalMergeStage = type("CanonicalMergeStage", (), {})
     process_stages_module.ProcessGroupingStage = type("ProcessGroupingStage", (), {})
 
-    output_stages_module = types.ModuleType("worker.services.draft_generation.output_stages")
-    output_stages_module.DiagramAssemblyStage = type("DiagramAssemblyStage", (), {})
-    output_stages_module.FailureStage = type("FailureStage", (), {"mark_failed": lambda self, db, session_id, detail=None: None})
-    output_stages_module.PersistenceStage = type("PersistenceStage", (), {"run": lambda self, db, context: {}, "_persist_step_screenshots": lambda self, db, step_models, all_steps: None})
-    output_stages_module.ScreenshotDerivationStage = type("ScreenshotDerivationStage", (), {})
+    diagram_assembly_module = types.ModuleType("worker.services.draft_generation.diagram_assembly")
+    diagram_assembly_module.DiagramAssemblyStage = type("DiagramAssemblyStage", (), {})
+
+    failure_module = types.ModuleType("worker.services.draft_generation.failure")
+    failure_module.FailureStage = type("FailureStage", (), {"mark_failed": lambda self, db, session_id, detail=None: None})
+
+    persistence_module = types.ModuleType("worker.services.draft_generation.persistence")
+    persistence_module.PersistenceStage = type("PersistenceStage", (), {"run": lambda self, db, context: {}, "_persist_step_screenshots": lambda self, db, step_models, all_steps: None})
+
+    screenshot_derivation_module = types.ModuleType("worker.services.draft_generation.screenshot_derivation")
+    screenshot_derivation_module.ScreenshotDerivationStage = type("ScreenshotDerivationStage", (), {})
 
     screenshot_context_builder_module = types.ModuleType("worker.services.screenshot_generation.context_builder")
     screenshot_context_builder_module.DefaultScreenshotContextBuilder = type("DefaultScreenshotContextBuilder", (), {})
@@ -105,7 +111,10 @@ def load_worker_composition_module():
     sys.modules["worker.services"] = services_module
     sys.modules["worker.services.draft_generation.input_stages"] = input_stages_module
     sys.modules["worker.services.draft_generation.process_stages"] = process_stages_module
-    sys.modules["worker.services.draft_generation.output_stages"] = output_stages_module
+    sys.modules["worker.services.draft_generation.diagram_assembly"] = diagram_assembly_module
+    sys.modules["worker.services.draft_generation.failure"] = failure_module
+    sys.modules["worker.services.draft_generation.persistence"] = persistence_module
+    sys.modules["worker.services.draft_generation.screenshot_derivation"] = screenshot_derivation_module
     sys.modules["worker.services.screenshot_generation.context_builder"] = screenshot_context_builder_module
     sys.modules["worker.services.orchestration.repositories"] = worker_repositories_module
     sys.modules["worker.services.orchestration.uow"] = worker_uow_module

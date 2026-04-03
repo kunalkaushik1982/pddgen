@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from typing import Any
 
 from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
@@ -20,7 +21,7 @@ class CanonicalMergeStage:
         self.merge_service = merge_service or CanonicalProcessMergeService()
         self.action_log_service = action_log_service or ActionLogService()
 
-    def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
+    def run(self, db: Any, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="canonical_merge"):
             self.action_log_service.record(
                 db,
@@ -56,7 +57,7 @@ class ProcessGroupingStage:
         self.grouping_service = grouping_service or ProcessGroupingService()
         self.action_log_service = action_log_service or ActionLogService()
 
-    def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
+    def run(self, db: Any, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="process_grouping"):
             action_log = self.action_log_service.record(
                 db,

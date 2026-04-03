@@ -27,7 +27,8 @@ SKILL_PATH = (
 CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "client.py"
 RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
 REGISTRY_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "registry.py"
-OUTPUT_STAGES_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation" / "output_stages.py"
+DIAGRAM_ASSEMBLY_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation" / "diagram_assembly.py"
+SCREENSHOT_DERIVATION_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation" / "screenshot_derivation.py"
 INPUT_STAGES_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation" / "input_stages.py"
 WORKER_DIR = Path(__file__).resolve().parents[1]
 SERVICES_DIR = WORKER_DIR / "services"
@@ -69,7 +70,8 @@ def load_stage_module(path: Path):
         "worker.services",
         "worker.services.draft_generation.input_stages",
         "worker.services.draft_generation.process_stages",
-        "worker.services.draft_generation.output_stages",
+        "worker.services.draft_generation.diagram_assembly",
+        "worker.services.draft_generation.screenshot_derivation",
         "worker.services.draft_generation.stage_context",
     ):
         sys.modules.pop(module_name, None)
@@ -214,6 +216,12 @@ def load_stage_module(path: Path):
     sys.modules["worker.services.media.transcript_normalizer"] = normalizer_module
     sys.modules["worker.services.media.video_frame_extractor"] = video_module
     sys.modules["worker.services.workflow_intelligence.strategy_registry"] = workflow_registry_module
+    generation_types_module = types.ModuleType("worker.services.generation_types")
+    generation_types_module.StepRecord = dict
+    generation_types_module.NoteRecord = dict
+    generation_types_module.ScreenshotCandidateRecord = dict
+    generation_types_module.DerivedScreenshotRecord = dict
+    sys.modules["worker.services.generation_types"] = generation_types_module
     sys.modules["worker.services.ai_skills.client"] = load_client_module()
     sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()
     sys.modules["worker.services.ai_skills.diagram_generation.schemas"] = load_schemas_module()
@@ -266,7 +274,7 @@ class DiagramGenerationTests(unittest.TestCase):
         self.assertEqual(view["edges"], [])
 
     def test_diagram_stage_uses_skill_and_serializes_output(self) -> None:
-        stage_module = load_stage_module(OUTPUT_STAGES_PATH)
+        stage_module = load_stage_module(DIAGRAM_ASSEMBLY_PATH)
 
         class StubDiagramSkill:
             skill_id = "diagram_generation"
@@ -367,7 +375,7 @@ class DiagramGenerationTests(unittest.TestCase):
         self.assertEqual(metadata["transcript_summaries"][0]["top_rules"], ["Validate vendor"])
 
     def test_sort_artifacts_orders_by_meeting_and_created_timestamps(self) -> None:
-        stage_module = load_stage_module(OUTPUT_STAGES_PATH)
+        stage_module = load_stage_module(SCREENSHOT_DERIVATION_PATH)
         meeting_late = type(
             "Meeting",
             (),

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from app.models.draft_session import DraftSessionModel
+    from worker.services.draft_generation.stage_context import DraftGenerationContext
 
 
 class WorkerUnitOfWork(Protocol):
@@ -16,19 +20,19 @@ WorkerUnitOfWorkFactory = Callable[[], WorkerUnitOfWork]
 
 
 class DraftSessionRepository(Protocol):
-    def load_draft_session(self, db: Any, session_id: str) -> Any: ...
+    def load_draft_session(self, db: Any, session_id: str) -> DraftSessionModel: ...
 
 
 class DraftContextLoader(Protocol):
-    def __call__(self, db: Any, session: Any) -> Any: ...
+    def __call__(self, db: Any, session: DraftSessionModel) -> DraftGenerationContext: ...
 
 
 class DraftPipelineStage(Protocol):
-    def run(self, db: Any, context: Any) -> None: ...
+    def run(self, db: Any, context: DraftGenerationContext) -> None: ...
 
 
 class DraftResultPersister(Protocol):
-    def persist(self, db: Any, context: Any) -> dict[str, int | str]: ...
+    def persist(self, db: Any, context: DraftGenerationContext) -> dict[str, int | str]: ...
 
 
 class FailureRecorder(Protocol):
@@ -36,15 +40,15 @@ class FailureRecorder(Protocol):
 
 
 class ScreenshotContextBuilder(Protocol):
-    def build(self, db: Any, session: Any) -> Any: ...
+    def build(self, db: Any, session: DraftSessionModel) -> DraftGenerationContext: ...
 
 
 class ScreenshotPipelineStage(Protocol):
-    def run(self, db: Any, context: Any) -> None: ...
+    def run(self, db: Any, context: DraftGenerationContext) -> None: ...
 
 
 class ScreenshotResultPersister(Protocol):
-    def persist(self, db: Any, context: Any) -> dict[str, int | str]: ...
+    def persist(self, db: Any, context: DraftGenerationContext) -> dict[str, int | str]: ...
 
 
 class ScreenshotLockManager(Protocol):
