@@ -8,15 +8,30 @@ from app.core.observability import bind_log_context, get_logger
 from app.models.artifact import ArtifactModel
 from app.services.action_log_service import ActionLogService
 from worker.bootstrap import get_backend_settings
+from worker.services.draft_generation.screenshot_selection import (
+    apply_selected_limit,
+    candidate_timestamps_for_role,
+    score_candidate,
+    select_best_candidate_record,
+    select_screenshot_roles,
+    select_step_screenshot_slots,
+    timestamp_for_role,
+)
+from worker.services.draft_generation.screenshot_timing import (
+    build_candidate_timestamps,
+    candidate_seconds_for_step,
+    coerce_seconds_for_video,
+    effective_span_seconds,
+    fill_points_to_limit,
+    ordered_unique_points,
+    practical_candidate_limit,
+    split_timestamp_parts,
+    window_sampling_is_reliable,
+)
 from worker.services.draft_generation.stage_context import DraftGenerationContext
 from worker.services.orchestration.contracts import WorkerDbSession
 from worker.services.draft_generation.support import (
-    SCREENSHOT_ROLE_LOCAL_OFFSETS,
-    SCREENSHOT_ROLE_ORDER,
     build_pairing_detail,
-    classify_action_type,
-    seconds_to_timestamp,
-    timestamp_to_seconds,
 )
 from worker.services.generation_types import DerivedScreenshotRecord, ScreenshotCandidateRecord, StepRecord
 from worker.services.media.video_frame_extractor import ExtractedFrameCandidate, VideoFrameExtractor
@@ -254,30 +269,7 @@ class ScreenshotDerivationStage:
         return screenshots
 
     def _window_sampling_is_reliable(self, step: StepRecord) -> bool:
-        start_timestamp = str(step.get("start_timestamp") or "").strip()
-        end_timestamp = str(step.get("end_timestamp") or "").strip()
-        display_timestamp = str(step.get("timestamp") or "").strip()
-        if not start_timestamp or not end_timestamp:
-            return False
-
-        start_seconds = timestamp_to_seconds(start_timestamp)
-        end_seconds = timestamp_to_seconds(end_timestamp)
-        if end_seconds < start_seconds:
-            return False
-
-        span_seconds = end_seconds - start_seconds
-        if span_seconds <= 0 or span_seconds > self.settings.screenshot_window_max_seconds:
-            return False
-
-        if not step.get("evidence_references"):
-            return False
-
-        if display_timestamp:
-            display_seconds = timestamp_to_seconds(display_timestamp)
-            if not start_seconds <= display_seconds <= end_seconds:
-                return False
-
-        return True
+        return window_sampling_is_reliable(self.settings, step)
 
     def _effective_span_seconds(
         self,
@@ -285,137 +277,29 @@ class ScreenshotDerivationStage:
         *,
         video_duration_seconds: int | None,
     ) -> tuple[bool, int, int, int, int]:
-        fallback_timestamp = step.get("timestamp") or "00:00:01"
-        start_seconds = self._coerce_seconds_for_video(
-            step.get("start_timestamp") or fallback_timestamp,
-            video_duration_seconds=video_duration_seconds,
-        )
-        end_seconds = max(
-            start_seconds,
-            self._coerce_seconds_for_video(
-                step.get("end_timestamp") or fallback_timestamp,
-                video_duration_seconds=video_duration_seconds,
-            ),
-        )
-        display_seconds = self._coerce_seconds_for_video(
-            fallback_timestamp,
-            video_duration_seconds=video_duration_seconds,
-        )
-        return (
-            self._window_sampling_is_reliable(step),
-            max(0, end_seconds - start_seconds),
-            start_seconds,
-            end_seconds,
-            display_seconds,
-        )
+        return effective_span_seconds(self.settings, step, video_duration_seconds=video_duration_seconds)
 
     def _ordered_unique_points(self, points: list[int]) -> list[int]:
-        ordered: list[int] = []
-        seen: set[int] = set()
-        for point in points:
-            normalized = max(1, point)
-            if normalized in seen:
-                continue
-            seen.add(normalized)
-            ordered.append(normalized)
-        return ordered
+        return ordered_unique_points(points)
 
     def _fill_points_to_limit(self, base_points: list[int], *, anchor_seconds: int, limit: int) -> list[int]:
-        ordered = self._ordered_unique_points(base_points)
-        if len(ordered) >= limit:
-            return ordered[:limit]
-
-        padding = max(1, self.settings.screenshot_anchor_padding_seconds)
-        step_distance = 1
-        while len(ordered) < limit:
-            for direction in (-1, 1):
-                candidate = anchor_seconds + (direction * padding * step_distance)
-                candidate_points = self._ordered_unique_points(ordered + [candidate])
-                if len(candidate_points) != len(ordered):
-                    ordered = candidate_points
-                if len(ordered) >= limit:
-                    break
-            step_distance += 1
-        return ordered[:limit]
+        return fill_points_to_limit(self.settings, base_points, anchor_seconds=anchor_seconds, limit=limit)
 
     @staticmethod
     def _split_timestamp_parts(value: str) -> tuple[int, int, int] | None:
-        parts = str(value or "").split(":")
-        if len(parts) != 3:
-            return None
-        try:
-            return int(parts[0]), int(parts[1]), int(parts[2])
-        except ValueError:
-            return None
+        return split_timestamp_parts(value)
 
     def _coerce_seconds_for_video(self, timestamp_value: str, *, video_duration_seconds: int | None) -> int:
-        parsed_seconds = timestamp_to_seconds(timestamp_value or "00:00:01")
-        if not video_duration_seconds or parsed_seconds <= video_duration_seconds:
-            return parsed_seconds
-
-        parts = self._split_timestamp_parts(timestamp_value)
-        if parts is not None:
-            first, second, third = parts
-            if third == 0:
-                recovered_mmss_seconds = (first * 60) + second
-                if 1 <= recovered_mmss_seconds <= video_duration_seconds:
-                    logger.info(
-                        "Recovered malformed step timestamp for screenshot extraction",
-                        extra={
-                            "event": "draft_generation.screenshot_timestamp_recovered",
-                            "original_timestamp": timestamp_value,
-                            "recovered_timestamp": seconds_to_timestamp(recovered_mmss_seconds),
-                            "video_duration_seconds": video_duration_seconds,
-                        },
-                    )
-                    return recovered_mmss_seconds
-
-        logger.info(
-            "Clamped out-of-range step timestamp for screenshot extraction",
-            extra={
-                "event": "draft_generation.screenshot_timestamp_clamped",
-                "original_timestamp": timestamp_value,
-                "clamped_timestamp": seconds_to_timestamp(video_duration_seconds),
-                "video_duration_seconds": video_duration_seconds,
-            },
-        )
-        return video_duration_seconds
+        return coerce_seconds_for_video(self.settings, timestamp_value, video_duration_seconds=video_duration_seconds)
 
     def _practical_candidate_limit(self, *, reliable_window: bool, span_seconds: int) -> int:
-        configured_max = max(1, self.settings.screenshot_candidate_count)
-        if not reliable_window:
-            return min(configured_max, max(1, self.settings.screenshot_anchor_candidate_cap))
-        if span_seconds <= self.settings.screenshot_short_window_seconds:
-            return min(configured_max, max(1, self.settings.screenshot_short_window_candidate_cap))
-        if span_seconds <= self.settings.screenshot_medium_window_seconds:
-            return min(configured_max, max(1, self.settings.screenshot_medium_window_candidate_cap))
-        if span_seconds <= self.settings.screenshot_long_window_seconds:
-            return min(configured_max, max(1, self.settings.screenshot_long_window_candidate_cap))
-        return min(configured_max, max(1, self.settings.screenshot_extended_window_candidate_cap))
+        return practical_candidate_limit(self.settings, reliable_window=reliable_window, span_seconds=span_seconds)
 
     def _candidate_seconds_for_step(self, step: StepRecord, *, video_duration_seconds: int | None) -> list[int]:
-        reliable_window, span_seconds, start_seconds, end_seconds, display_seconds = self._effective_span_seconds(
-            step,
-            video_duration_seconds=video_duration_seconds,
-        )
-        limit = self._practical_candidate_limit(reliable_window=reliable_window, span_seconds=span_seconds)
-
-        if reliable_window:
-            midpoint = start_seconds + ((end_seconds - start_seconds) // 2)
-            return self._fill_points_to_limit(
-                [start_seconds, midpoint, end_seconds],
-                anchor_seconds=midpoint,
-                limit=limit,
-            )
-
-        anchor_seconds = display_seconds or start_seconds or end_seconds
-        return self._fill_points_to_limit([anchor_seconds], anchor_seconds=anchor_seconds, limit=limit)
+        return candidate_seconds_for_step(self.settings, step, video_duration_seconds=video_duration_seconds)
 
     def _build_candidate_timestamps(self, step: StepRecord, *, video_duration_seconds: int | None) -> list[str]:
-        return [
-            seconds_to_timestamp(point)
-            for point in self._candidate_seconds_for_step(step, video_duration_seconds=video_duration_seconds)
-        ]
+        return build_candidate_timestamps(self.settings, step, video_duration_seconds=video_duration_seconds)
 
     def _derive_candidate_screenshot_pool(
         self,
@@ -463,143 +347,23 @@ class ScreenshotDerivationStage:
         return screenshot_candidates
 
     def _select_step_screenshot_slots(self, *, step: StepRecord, candidate_screenshots: list[ScreenshotCandidateRecord]) -> list[DerivedScreenshotRecord]:
-        if not candidate_screenshots:
-            return []
-
-        roles = self._select_screenshot_roles(step)
-        roles = self._apply_selected_limit(roles)
-        screenshots: list[DerivedScreenshotRecord] = []
-        used_artifact_ids: set[str] = set()
-        for sequence_number, role in enumerate(roles, start=1):
-            target_timestamp = self._timestamp_for_role(step, role)
-            candidate_timestamps = self._candidate_timestamps_for_role(target_timestamp, role)
-            candidate_timestamp_set = set(candidate_timestamps)
-            scoped_candidates = [
-                candidate
-                for candidate in candidate_screenshots
-                if candidate["artifact"].id not in used_artifact_ids and candidate["timestamp"] in candidate_timestamp_set
-            ]
-            if not scoped_candidates:
-                scoped_candidates = [candidate for candidate in candidate_screenshots if candidate["artifact"].id not in used_artifact_ids]
-
-            best_candidate = self._select_best_candidate_record(step, scoped_candidates)
-            if best_candidate is None:
-                continue
-
-            used_artifact_ids.add(best_candidate["artifact"].id)
-            screenshots.append(
-                {
-                    "artifact": best_candidate["artifact"],
-                    "role": role,
-                    "sequence_number": sequence_number,
-                    "timestamp": best_candidate["timestamp"],
-                    "selection_method": "span-sequence",
-                    "is_primary": role == "during" or (role == roles[0] and "during" not in roles),
-                }
-            )
-        if screenshots and not any(item["is_primary"] for item in screenshots):
-            screenshots[0]["is_primary"] = True
-        return screenshots
+        return select_step_screenshot_slots(self.settings, step=step, candidate_screenshots=candidate_screenshots)
 
     def _apply_selected_limit(self, roles: list[str]) -> list[str]:
-        if not roles:
-            return []
-
-        max_selected = max(1, self.settings.screenshot_selected_count)
-        if max_selected >= len(roles):
-            return roles
-        if max_selected == 1:
-            return ["during"] if "during" in roles else [roles[-1]]
-        if max_selected == 2:
-            if "before" in roles and "after" in roles and "during" not in roles:
-                return ["before", "after"]
-            prioritized = [role for role in ("during", "after", "before") if role in roles]
-            return prioritized[:2]
-        prioritized = [role for role in ("before", "during", "after") if role in roles]
-        return prioritized[:max_selected]
+        return apply_selected_limit(self.settings, roles)
 
     def _select_best_candidate_record(self, step: StepRecord, candidates: list[ScreenshotCandidateRecord]) -> ScreenshotCandidateRecord | None:
-        if not candidates:
-            return None
-
-        action_type = classify_action_type(step.get("action_text", ""))
-        best_candidate: ScreenshotCandidateRecord | None = None
-        best_score = float("-inf")
-        for candidate in candidates:
-            frame_candidate = ExtractedFrameCandidate(
-                output_path=candidate["artifact"].storage_path,
-                timestamp=candidate["timestamp"],
-                offset_seconds=candidate.get("offset_seconds", 0),
-                file_size=candidate.get("file_size", candidate["artifact"].size_bytes),
-            )
-            score = self._score_candidate(action_type, frame_candidate, step)
-            if score > best_score:
-                best_score = score
-                best_candidate = candidate
-        return best_candidate
+        return select_best_candidate_record(step, candidates)
 
     def _select_screenshot_roles(self, step: StepRecord) -> list[str]:
-        span_seconds = max(
-            0,
-            timestamp_to_seconds(step.get("end_timestamp") or step.get("timestamp") or "00:00:01")
-            - timestamp_to_seconds(step.get("start_timestamp") or step.get("timestamp") or "00:00:01"),
-        )
-        action_type = classify_action_type(step.get("action_text", ""))
-        if span_seconds <= 2:
-            return ["during"]
-        if span_seconds <= 6:
-            if action_type in {"navigate", "submit"}:
-                return ["before", "after"]
-            return ["during", "after"]
-        return list(SCREENSHOT_ROLE_ORDER)
+        return select_screenshot_roles(step)
 
     def _timestamp_for_role(self, step: StepRecord, role: str) -> str:
-        start_seconds = timestamp_to_seconds(step.get("start_timestamp") or step.get("timestamp") or "00:00:01")
-        end_seconds = max(start_seconds, timestamp_to_seconds(step.get("end_timestamp") or step.get("timestamp") or "00:00:01"))
-        if role == "before":
-            return seconds_to_timestamp(start_seconds)
-        if role == "after":
-            return seconds_to_timestamp(end_seconds)
-        midpoint = start_seconds + ((end_seconds - start_seconds) // 2)
-        return seconds_to_timestamp(midpoint)
+        return timestamp_for_role(step, role)
 
     def _candidate_timestamps_for_role(self, base_timestamp: str, role: str) -> list[str]:
-        base_seconds = timestamp_to_seconds(base_timestamp)
-        offsets = SCREENSHOT_ROLE_LOCAL_OFFSETS.get(role, [0])
-        points = [max(1, base_seconds + offset) for offset in offsets]
-        ordered: list[int] = []
-        seen: set[int] = set()
-        for point in points:
-            if point in seen:
-                continue
-            seen.add(point)
-            ordered.append(point)
-        return [seconds_to_timestamp(point) for point in ordered]
+        return candidate_timestamps_for_role(base_timestamp, role)
 
     @staticmethod
     def _score_candidate(action_type: str, candidate: ExtractedFrameCandidate, step: StepRecord) -> float:
-        quality_score = min(candidate.file_size / 10_000, 10.0)
-        display_seconds = timestamp_to_seconds(step.get("timestamp") or candidate.timestamp)
-        start_seconds = timestamp_to_seconds(step.get("start_timestamp") or step.get("timestamp") or candidate.timestamp)
-        end_seconds = timestamp_to_seconds(step.get("end_timestamp") or step.get("timestamp") or candidate.timestamp)
-        candidate_seconds = timestamp_to_seconds(candidate.timestamp)
-        timing_penalty = abs(candidate_seconds - display_seconds)
-        score = quality_score - timing_penalty
-
-        if start_seconds <= candidate_seconds <= end_seconds:
-            score += 3.0
-
-        if action_type == "navigate" and candidate.offset_seconds >= 1:
-            score += 2.5
-        elif action_type == "data_entry" and 0 <= candidate.offset_seconds <= 2:
-            score += 2.5
-        elif action_type == "copy" and -2 <= candidate.offset_seconds <= 0:
-            score += 2.0
-        elif action_type == "submit" and candidate.offset_seconds >= 1:
-            score += 2.5
-        elif action_type == "default" and -1 <= candidate.offset_seconds <= 2:
-            score += 1.5
-
-        if candidate.file_size < 4_000:
-            score -= 3.0
-        return score
+        return score_candidate(action_type, candidate, step)

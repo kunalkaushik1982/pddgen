@@ -16,6 +16,8 @@ class ServicePackageLayoutTests(unittest.TestCase):
             SERVICES_DIR / "draft_generation" / "worker.py",
             SERVICES_DIR / "draft_generation" / "input_stages.py",
             SERVICES_DIR / "draft_generation" / "screenshot_derivation.py",
+            SERVICES_DIR / "draft_generation" / "screenshot_selection.py",
+            SERVICES_DIR / "draft_generation" / "screenshot_timing.py",
             SERVICES_DIR / "draft_generation" / "diagram_assembly.py",
             SERVICES_DIR / "draft_generation" / "persistence.py",
             SERVICES_DIR / "draft_generation" / "failure.py",
