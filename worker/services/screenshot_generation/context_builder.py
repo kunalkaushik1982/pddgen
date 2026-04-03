@@ -9,7 +9,7 @@ from app.models.artifact import ArtifactModel
 from app.models.process_step import ProcessStepModel
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
-from worker.services.draft_generation_stage_context import DraftGenerationContext
+from worker.services.draft_generation.stage_context import DraftGenerationContext
 from worker.services.generation_types import StepRecord
 
 

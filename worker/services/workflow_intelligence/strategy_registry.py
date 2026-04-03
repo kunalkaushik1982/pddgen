@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TypeVar
 
-from worker.services.workflow_strategy_interfaces import (
+from worker.services.workflow_intelligence.strategy_interfaces import (
     SegmentEnrichmentStrategy,
     TranscriptSegmentationStrategy,
     WorkflowBoundaryStrategy,

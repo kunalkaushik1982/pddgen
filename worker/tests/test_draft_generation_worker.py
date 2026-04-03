@@ -7,8 +7,8 @@ import types
 import unittest
 from unittest.mock import Mock
 
-DRAFT_WORKER_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation_worker.py"
-SCREENSHOT_WORKER_PATH = Path(__file__).resolve().parents[1] / "services" / "screenshot_generation_worker.py"
+DRAFT_WORKER_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation" / "worker.py"
+SCREENSHOT_WORKER_PATH = Path(__file__).resolve().parents[1] / "services" / "screenshot_generation" / "worker.py"
 WORKER_ROOT = Path(__file__).resolve().parents[1]
 SERVICES_ROOT = WORKER_ROOT / "services"
 
@@ -38,7 +38,7 @@ def _install_worker_test_stubs() -> None:
     worker_services_module = types.ModuleType("worker.services")
     worker_services_module.__path__ = [str(SERVICES_ROOT)]  # type: ignore[attr-defined]
     bootstrap_module = types.ModuleType("worker.bootstrap")
-    composition_module = types.ModuleType("worker.services.worker_composition")
+    composition_module = types.ModuleType("worker.services.orchestration.composition")
     composition_module.build_draft_generation_use_case = lambda **kwargs: None
     composition_module.build_screenshot_generation_use_case = lambda **kwargs: None
 
@@ -49,7 +49,7 @@ def _install_worker_test_stubs() -> None:
     sys.modules["worker"] = worker_module
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["worker.services"] = worker_services_module
-    sys.modules["worker.services.worker_composition"] = composition_module
+    sys.modules["worker.services.orchestration.composition"] = composition_module
 
 
 def load_draft_worker_module():
@@ -77,9 +77,7 @@ class WorkerAdapterTests(unittest.TestCase):
         module = load_draft_worker_module()
         use_case = Mock()
         use_case.run.return_value = {"session_id": "session-1", "steps_created": 2}
-        package_worker_module = sys.modules["worker.services.draft_generation.worker"]
         module.build_draft_generation_use_case = Mock(return_value=use_case)
-        package_worker_module.build_draft_generation_use_case = module.build_draft_generation_use_case
 
         worker = module.DraftGenerationWorker(task_id="task-1")
         result = worker.run("session-1")
@@ -92,9 +90,7 @@ class WorkerAdapterTests(unittest.TestCase):
         module = load_screenshot_worker_module()
         use_case = Mock()
         use_case.run.return_value = {"session_id": "session-2", "screenshots_created": 4}
-        package_worker_module = sys.modules["worker.services.screenshot_generation.worker"]
         module.build_screenshot_generation_use_case = Mock(return_value=use_case)
-        package_worker_module.build_screenshot_generation_use_case = module.build_screenshot_generation_use_case
 
         worker = module.ScreenshotGenerationWorker(task_id="task-2")
         result = worker.run("session-2")

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from worker.services.worker_contracts import (
+from worker.services.orchestration.contracts import (
     DraftContextLoader,
     DraftPipelineStage,
     DraftResultPersister,
@@ -14,7 +14,7 @@ from worker.services.worker_contracts import (
     ScreenshotResultPersister,
     WorkerUnitOfWorkFactory,
 )
-from worker.services.worker_pipeline import OrderedStageRunner
+from worker.services.orchestration.pipeline import OrderedStageRunner
 
 
 class DraftGenerationUseCase:

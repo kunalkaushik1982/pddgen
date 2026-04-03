@@ -18,10 +18,10 @@ from app.services.action_log_service import ActionLogService
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
-from worker.services.draft_generation_stage_context import DraftGenerationContext
+from worker.services.draft_generation.stage_context import DraftGenerationContext
 from worker.services.generation_types import NoteRecord, StepRecord
-from worker.services.evidence_segmentation_service import EvidenceSegmentationService
-from worker.services.transcript_normalizer import TranscriptNormalizer
+from worker.services.workflow_intelligence.segmentation_service import EvidenceSegmentationService
+from worker.services.media.transcript_normalizer import TranscriptNormalizer
 
 logger = get_logger(__name__)
 
@@ -97,7 +97,7 @@ class TranscriptInterpretationStage:
         self.action_log_service = action_log_service or ActionLogService()
 
     def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
-        from worker.services.draft_generation_support import extract_transcript_timestamps, timestamp_to_seconds
+        from worker.services.draft_generation.support import extract_transcript_timestamps, timestamp_to_seconds
 
         with bind_log_context(stage="transcript_interpretation"):
             self.action_log_service.record(

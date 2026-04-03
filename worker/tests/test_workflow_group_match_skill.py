@@ -24,7 +24,7 @@ SKILL_PATH = (
 CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "client.py"
 RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
 REGISTRY_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "registry.py"
-PROCESS_GROUPING_PATH = Path(__file__).resolve().parents[1] / "services" / "process_grouping_service.py"
+PROCESS_GROUPING_PATH = Path(__file__).resolve().parents[1] / "services" / "workflow_intelligence" / "grouping_service.py"
 
 
 def load_module(name: str, path: Path):

@@ -22,8 +22,8 @@ SKILL_PATH = (
 )
 CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "client.py"
 RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
-WORKFLOW_INTELLIGENCE_PATH = Path(__file__).resolve().parents[1] / "services" / "workflow_intelligence.py"
-EVIDENCE_SEGMENTATION_PATH = Path(__file__).resolve().parents[1] / "services" / "evidence_segmentation_service.py"
+WORKFLOW_INTELLIGENCE_PATH = Path(__file__).resolve().parents[1] / "services" / "workflow_intelligence" / "__init__.py"
+EVIDENCE_SEGMENTATION_PATH = Path(__file__).resolve().parents[1] / "services" / "workflow_intelligence" / "segmentation_service.py"
 SEMANTIC_SCHEMAS_PATH = (
     Path(__file__).resolve().parents[1]
     / "services"
@@ -126,12 +126,12 @@ def load_evidence_segmentation_module():
 
     ai_transcript_module.AITranscriptInterpreter = FakeInterpreter
 
-    draft_support_module = types.ModuleType("worker.services.draft_generation_support")
+    draft_support_module = types.ModuleType("worker.services.draft_generation.support")
     draft_support_module.ACTION_VERB_PATTERNS = {"review": ("review",), "create": ("create",)}
     draft_support_module.TIMESTAMP_PATTERN = None
     draft_support_module.classify_action_type = lambda text: "review"
 
-    strategy_interfaces_module = types.ModuleType("worker.services.workflow_strategy_interfaces")
+    strategy_interfaces_module = types.ModuleType("worker.services.workflow_intelligence.strategy_interfaces")
     strategy_interfaces_module.WorkflowIntelligenceStrategySet = object
 
     workflow_intelligence_module = load_workflow_intelligence_module()
@@ -148,8 +148,8 @@ def load_evidence_segmentation_module():
     sys.modules["worker.services.ai_skills.semantic_enrichment.skill"] = load_semantic_skill_module()
     sys.modules["worker.services.ai_skills.workflow_boundary_detection.schemas"] = load_schemas_module()
     sys.modules["worker.services.ai_skills.workflow_boundary_detection.skill"] = load_skill_module()
-    sys.modules["worker.services.draft_generation_support"] = draft_support_module
-    sys.modules["worker.services.workflow_strategy_interfaces"] = strategy_interfaces_module
+    sys.modules["worker.services.draft_generation.support"] = draft_support_module
+    sys.modules["worker.services.workflow_intelligence.strategy_interfaces"] = strategy_interfaces_module
     sys.modules["worker.services.workflow_intelligence"] = workflow_intelligence_module
 
     spec = importlib.util.spec_from_file_location("evidence_segmentation_boundary", EVIDENCE_SEGMENTATION_PATH)

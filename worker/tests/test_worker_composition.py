@@ -6,7 +6,7 @@ import sys
 import types
 import unittest
 
-COMPOSITION_PATH = Path(__file__).resolve().parents[1] / "services" / "worker_composition.py"
+COMPOSITION_PATH = Path(__file__).resolve().parents[1] / "services" / "orchestration" / "composition.py"
 WORKER_ROOT = Path(__file__).resolve().parents[1]
 SERVICES_ROOT = WORKER_ROOT / "services"
 
@@ -39,35 +39,35 @@ def load_worker_composition_module():
         def __init__(self, *, segmentation_service=None) -> None:
             self.segmentation_service = segmentation_service
 
-    input_stages_module = types.ModuleType("worker.services.draft_generation_input_stages")
+    input_stages_module = types.ModuleType("worker.services.draft_generation.input_stages")
     input_stages_module.EvidenceSegmentationStage = FakeEvidenceSegmentationStage
     input_stages_module.SessionPreparationStage = type("SessionPreparationStage", (), {"load_and_prepare": lambda self, db, session: object()})
     input_stages_module.TranscriptInterpretationStage = type("TranscriptInterpretationStage", (), {})
 
-    process_stages_module = types.ModuleType("worker.services.draft_generation_process_stages")
+    process_stages_module = types.ModuleType("worker.services.draft_generation.process_stages")
     process_stages_module.CanonicalMergeStage = type("CanonicalMergeStage", (), {})
     process_stages_module.ProcessGroupingStage = type("ProcessGroupingStage", (), {})
 
-    output_stages_module = types.ModuleType("worker.services.draft_generation_output_stages")
+    output_stages_module = types.ModuleType("worker.services.draft_generation.output_stages")
     output_stages_module.DiagramAssemblyStage = type("DiagramAssemblyStage", (), {})
     output_stages_module.FailureStage = type("FailureStage", (), {"mark_failed": lambda self, db, session_id, detail=None: None})
     output_stages_module.PersistenceStage = type("PersistenceStage", (), {"run": lambda self, db, context: {}, "_persist_step_screenshots": lambda self, db, step_models, all_steps: None})
     output_stages_module.ScreenshotDerivationStage = type("ScreenshotDerivationStage", (), {})
 
-    screenshot_context_builder_module = types.ModuleType("worker.services.screenshot_context_builder")
+    screenshot_context_builder_module = types.ModuleType("worker.services.screenshot_generation.context_builder")
     screenshot_context_builder_module.DefaultScreenshotContextBuilder = type("DefaultScreenshotContextBuilder", (), {})
 
-    worker_repositories_module = types.ModuleType("worker.services.worker_repositories")
+    worker_repositories_module = types.ModuleType("worker.services.orchestration.repositories")
     worker_repositories_module.SqlAlchemyDraftSessionRepository = type("SqlAlchemyDraftSessionRepository", (), {})
 
-    worker_uow_module = types.ModuleType("worker.services.worker_uow")
+    worker_uow_module = types.ModuleType("worker.services.orchestration.uow")
     worker_uow_module.SqlAlchemyWorkerUnitOfWork = type("SqlAlchemyWorkerUnitOfWork", (), {})
 
-    worker_use_cases_module = types.ModuleType("worker.services.worker_use_cases")
+    worker_use_cases_module = types.ModuleType("worker.services.orchestration.use_cases")
     worker_use_cases_module.DraftGenerationUseCase = type("DraftGenerationUseCase", (), {"__init__": lambda self, **kwargs: setattr(self, "kwargs", kwargs)})
     worker_use_cases_module.ScreenshotGenerationUseCase = type("ScreenshotGenerationUseCase", (), {"__init__": lambda self, **kwargs: setattr(self, "kwargs", kwargs)})
 
-    workflow_registry_module = types.ModuleType("worker.services.workflow_strategy_registry")
+    workflow_registry_module = types.ModuleType("worker.services.workflow_intelligence.strategy_registry")
 
     class FakeRegistry:
         def register_segmenter(self, key, factory) -> None:
@@ -84,7 +84,7 @@ def load_worker_composition_module():
 
     workflow_registry_module.WorkflowIntelligenceStrategyRegistry = FakeRegistry
 
-    evidence_segmentation_module = types.ModuleType("worker.services.evidence_segmentation_service")
+    evidence_segmentation_module = types.ModuleType("worker.services.workflow_intelligence.segmentation_service")
     evidence_segmentation_module.AISemanticEnrichmentStrategy = type("AISemanticEnrichmentStrategy", (), {"strategy_key": "ai_semantic"})
     evidence_segmentation_module.AIWorkflowBoundaryStrategy = type("AIWorkflowBoundaryStrategy", (), {"strategy_key": "ai_boundary"})
     evidence_segmentation_module.EvidenceSegmentationService = type(
@@ -103,15 +103,15 @@ def load_worker_composition_module():
     sys.modules["worker"] = worker_module
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["worker.services"] = services_module
-    sys.modules["worker.services.draft_generation_input_stages"] = input_stages_module
-    sys.modules["worker.services.draft_generation_process_stages"] = process_stages_module
-    sys.modules["worker.services.draft_generation_output_stages"] = output_stages_module
-    sys.modules["worker.services.screenshot_context_builder"] = screenshot_context_builder_module
-    sys.modules["worker.services.worker_repositories"] = worker_repositories_module
-    sys.modules["worker.services.worker_uow"] = worker_uow_module
-    sys.modules["worker.services.worker_use_cases"] = worker_use_cases_module
-    sys.modules["worker.services.workflow_strategy_registry"] = workflow_registry_module
-    sys.modules["worker.services.evidence_segmentation_service"] = evidence_segmentation_module
+    sys.modules["worker.services.draft_generation.input_stages"] = input_stages_module
+    sys.modules["worker.services.draft_generation.process_stages"] = process_stages_module
+    sys.modules["worker.services.draft_generation.output_stages"] = output_stages_module
+    sys.modules["worker.services.screenshot_generation.context_builder"] = screenshot_context_builder_module
+    sys.modules["worker.services.orchestration.repositories"] = worker_repositories_module
+    sys.modules["worker.services.orchestration.uow"] = worker_uow_module
+    sys.modules["worker.services.orchestration.use_cases"] = worker_use_cases_module
+    sys.modules["worker.services.workflow_intelligence.strategy_registry"] = workflow_registry_module
+    sys.modules["worker.services.workflow_intelligence.segmentation_service"] = evidence_segmentation_module
 
     spec = importlib.util.spec_from_file_location("worker_composition_test", COMPOSITION_PATH)
     module = importlib.util.module_from_spec(spec)

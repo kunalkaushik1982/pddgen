@@ -51,9 +51,13 @@ def _install_task_test_stubs() -> None:
     celery_app_module.celery_app = _FakeCeleryApp()
     services_module = types.ModuleType("worker.services")
     services_module.__path__ = []  # type: ignore[attr-defined]
-    draft_worker_module = types.ModuleType("worker.services.draft_generation_worker")
+    draft_generation_package = types.ModuleType("worker.services.draft_generation")
+    draft_generation_package.__path__ = []  # type: ignore[attr-defined]
+    screenshot_generation_package = types.ModuleType("worker.services.screenshot_generation")
+    screenshot_generation_package.__path__ = []  # type: ignore[attr-defined]
+    draft_worker_module = types.ModuleType("worker.services.draft_generation.worker")
     draft_worker_module.DraftGenerationWorker = type("DraftGenerationWorker", (), {})
-    screenshot_worker_module = types.ModuleType("worker.services.screenshot_generation_worker")
+    screenshot_worker_module = types.ModuleType("worker.services.screenshot_generation.worker")
     screenshot_worker_module.ScreenshotGenerationWorker = type("ScreenshotGenerationWorker", (), {})
 
     sys.modules["app"] = app_module
@@ -63,8 +67,10 @@ def _install_task_test_stubs() -> None:
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["worker.celery_app"] = celery_app_module
     sys.modules["worker.services"] = services_module
-    sys.modules["worker.services.draft_generation_worker"] = draft_worker_module
-    sys.modules["worker.services.screenshot_generation_worker"] = screenshot_worker_module
+    sys.modules["worker.services.draft_generation"] = draft_generation_package
+    sys.modules["worker.services.screenshot_generation"] = screenshot_generation_package
+    sys.modules["worker.services.draft_generation.worker"] = draft_worker_module
+    sys.modules["worker.services.screenshot_generation.worker"] = screenshot_worker_module
 
 
 def load_draft_task_module():

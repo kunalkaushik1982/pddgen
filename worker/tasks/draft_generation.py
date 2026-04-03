@@ -5,7 +5,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\worker\tasks\draft_generatio
 
 from worker.celery_app import celery_app
 from app.core.observability import bind_log_context, get_logger
-from worker.services.draft_generation_worker import DraftGenerationWorker
+from worker.services.draft_generation.worker import DraftGenerationWorker
 
 logger = get_logger(__name__)
 

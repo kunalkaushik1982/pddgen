@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
-from worker.services.worker_composition import build_screenshot_generation_use_case
+from worker.services.orchestration.composition import build_screenshot_generation_use_case
 
 logger = get_logger(__name__)
 

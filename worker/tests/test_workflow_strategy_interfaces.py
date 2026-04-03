@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "services" / "workflow_strategy_interfaces.py"
+MODULE_PATH = Path(__file__).resolve().parents[1] / "services" / "workflow_intelligence" / "strategy_interfaces.py"
 
 
 class WorkflowStrategyInterfacesTests(unittest.TestCase):

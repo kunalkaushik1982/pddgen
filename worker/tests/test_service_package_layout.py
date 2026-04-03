@@ -26,18 +26,42 @@ class ServicePackageLayoutTests(unittest.TestCase):
 
         self.assertEqual(missing_files, [])
 
-    def test_legacy_entry_modules_are_compatibility_shims(self) -> None:
-        legacy_files = {
-            SERVICES_DIR / "worker_composition.py": "worker.services.orchestration.composition",
-            SERVICES_DIR / "draft_generation_worker.py": "worker.services.draft_generation.worker",
-            SERVICES_DIR / "screenshot_generation_worker.py": "worker.services.screenshot_generation.worker",
-            SERVICES_DIR / "draft_generation_input_stages.py": "worker.services.draft_generation.input_stages",
-            SERVICES_DIR / "evidence_segmentation_service.py": "worker.services.workflow_intelligence.segmentation_service",
-            SERVICES_DIR / "video_frame_extractor.py": "worker.services.media.video_frame_extractor",
-        }
+    def test_internal_only_shims_have_been_removed(self) -> None:
+        removed_internal_shims = [
+            SERVICES_DIR / "worker_composition.py",
+            SERVICES_DIR / "worker_contracts.py",
+            SERVICES_DIR / "worker_pipeline.py",
+            SERVICES_DIR / "worker_repositories.py",
+            SERVICES_DIR / "worker_uow.py",
+            SERVICES_DIR / "worker_use_cases.py",
+            SERVICES_DIR / "canonical_process_merge.py",
+            SERVICES_DIR / "draft_generation_input_stages.py",
+            SERVICES_DIR / "draft_generation_output_stages.py",
+            SERVICES_DIR / "draft_generation_process_stages.py",
+            SERVICES_DIR / "draft_generation_stage_context.py",
+            SERVICES_DIR / "draft_generation_support.py",
+            SERVICES_DIR / "transcript_normalizer.py",
+            SERVICES_DIR / "video_frame_extractor.py",
+            SERVICES_DIR / "workflow_strategy_interfaces.py",
+            SERVICES_DIR / "workflow_strategy_registry.py",
+        ]
 
-        for path, target_import in legacy_files.items():
-            self.assertIn(target_import, path.read_text(encoding="utf-8"), msg=str(path))
+        remaining_shims = [str(path) for path in removed_internal_shims if path.exists()]
+
+        self.assertEqual(remaining_shims, [])
+
+    def test_second_pass_flat_service_entrypoints_have_been_removed(self) -> None:
+        removed_second_pass_shims = [
+            SERVICES_DIR / "draft_generation_worker.py",
+            SERVICES_DIR / "screenshot_generation_worker.py",
+            SERVICES_DIR / "process_grouping_service.py",
+            SERVICES_DIR / "evidence_segmentation_service.py",
+            SERVICES_DIR / "workflow_intelligence.py",
+        ]
+
+        remaining_shims = [str(path) for path in removed_second_pass_shims if path.exists()]
+
+        self.assertEqual(remaining_shims, [])
 
 
 if __name__ == "__main__":

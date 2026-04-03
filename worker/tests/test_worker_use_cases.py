@@ -8,9 +8,9 @@ import unittest
 
 SERVICES_ROOT = Path(__file__).resolve().parents[1] / "services"
 WORKER_ROOT = Path(__file__).resolve().parents[1]
-CONTRACTS_PATH = SERVICES_ROOT / "worker_contracts.py"
-PIPELINE_PATH = SERVICES_ROOT / "worker_pipeline.py"
-USE_CASES_PATH = SERVICES_ROOT / "worker_use_cases.py"
+CONTRACTS_PATH = SERVICES_ROOT / "orchestration" / "contracts.py"
+PIPELINE_PATH = SERVICES_ROOT / "orchestration" / "pipeline.py"
+USE_CASES_PATH = SERVICES_ROOT / "orchestration" / "use_cases.py"
 
 
 def load_worker_contracts_module():
@@ -38,8 +38,8 @@ def load_worker_use_cases_module():
     worker_services_module.__path__ = [str(SERVICES_ROOT)]  # type: ignore[attr-defined]
     sys.modules["worker"] = worker_module
     sys.modules["worker.services"] = worker_services_module
-    sys.modules["worker.services.worker_contracts"] = load_worker_contracts_module()
-    sys.modules["worker.services.worker_pipeline"] = load_worker_pipeline_module()
+    sys.modules["worker.services.orchestration.contracts"] = load_worker_contracts_module()
+    sys.modules["worker.services.orchestration.pipeline"] = load_worker_pipeline_module()
 
     spec = importlib.util.spec_from_file_location("worker_use_cases_test", USE_CASES_PATH)
     module = importlib.util.module_from_spec(spec)

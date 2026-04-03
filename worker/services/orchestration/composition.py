@@ -4,21 +4,21 @@ from app.core.observability import get_logger
 from app.models.action_log import ActionLogModel
 from app.services.job_dispatcher import JobDispatcherService
 from worker import bootstrap as _bootstrap  # noqa: F401
-from worker.services.draft_generation_input_stages import EvidenceSegmentationStage, SessionPreparationStage, TranscriptInterpretationStage
-from worker.services.draft_generation_output_stages import DiagramAssemblyStage, FailureStage, PersistenceStage, ScreenshotDerivationStage
-from worker.services.draft_generation_process_stages import CanonicalMergeStage, ProcessGroupingStage
-from worker.services.evidence_segmentation_service import (
+from worker.services.draft_generation.input_stages import EvidenceSegmentationStage, SessionPreparationStage, TranscriptInterpretationStage
+from worker.services.draft_generation.output_stages import DiagramAssemblyStage, FailureStage, PersistenceStage, ScreenshotDerivationStage
+from worker.services.draft_generation.process_stages import CanonicalMergeStage, ProcessGroupingStage
+from worker.services.workflow_intelligence.segmentation_service import (
     AISemanticEnrichmentStrategy,
     AIWorkflowBoundaryStrategy,
     EvidenceSegmentationService,
     HeuristicSemanticEnrichmentStrategy,
     ParagraphTranscriptSegmentationStrategy,
 )
-from worker.services.screenshot_context_builder import DefaultScreenshotContextBuilder
-from worker.services.worker_repositories import SqlAlchemyDraftSessionRepository
-from worker.services.worker_uow import SqlAlchemyWorkerUnitOfWork
-from worker.services.worker_use_cases import DraftGenerationUseCase, ScreenshotGenerationUseCase
-from worker.services.workflow_strategy_registry import WorkflowIntelligenceStrategyRegistry
+from worker.services.screenshot_generation.context_builder import DefaultScreenshotContextBuilder
+from worker.services.orchestration.repositories import SqlAlchemyDraftSessionRepository
+from worker.services.orchestration.uow import SqlAlchemyWorkerUnitOfWork
+from worker.services.orchestration.use_cases import DraftGenerationUseCase, ScreenshotGenerationUseCase
+from worker.services.workflow_intelligence.strategy_registry import WorkflowIntelligenceStrategyRegistry
 
 logger = get_logger(__name__)
 

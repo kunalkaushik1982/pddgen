@@ -14,8 +14,8 @@ from worker.services.ai_skills.semantic_enrichment.schemas import SemanticEnrich
 from worker.services.ai_skills.semantic_enrichment.skill import SemanticEnrichmentSkill
 from worker.services.ai_skills.workflow_boundary_detection.schemas import WorkflowBoundaryDetectionRequest
 from worker.services.ai_skills.workflow_boundary_detection.skill import WorkflowBoundaryDetectionSkill
-from worker.services.draft_generation_support import ACTION_VERB_PATTERNS, TIMESTAMP_PATTERN, classify_action_type
-from worker.services.workflow_strategy_interfaces import WorkflowIntelligenceStrategySet
+from worker.services.draft_generation.support import ACTION_VERB_PATTERNS, TIMESTAMP_PATTERN, classify_action_type
+from worker.services.workflow_intelligence.strategy_interfaces import WorkflowIntelligenceStrategySet
 from worker.services.workflow_intelligence import EvidenceSegment, SemanticEnrichment, WorkflowBoundaryDecision
 
 logger = logging.getLogger(__name__)

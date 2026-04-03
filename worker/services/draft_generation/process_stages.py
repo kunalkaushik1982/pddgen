@@ -6,9 +6,9 @@ from collections import Counter
 from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 from app.services.action_log_service import ActionLogService
-from worker.services.canonical_process_merge import CanonicalProcessMergeService
-from worker.services.draft_generation_stage_context import DraftGenerationContext
-from worker.services.process_grouping_service import ProcessGroupingService
+from worker.services.workflow_intelligence.canonical_merge import CanonicalProcessMergeService
+from worker.services.draft_generation.stage_context import DraftGenerationContext
+from worker.services.workflow_intelligence.grouping_service import ProcessGroupingService
 
 logger = get_logger(__name__)
 

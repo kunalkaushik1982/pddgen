@@ -38,11 +38,8 @@ class StageModuleSplitTests(unittest.TestCase):
 
         self.assertTrue(OUTPUT_STAGE_CLASS_NAMES.isdisjoint(legacy_class_names))
 
-    def test_legacy_output_stage_module_is_a_shim(self) -> None:
-        self.assertIn(
-            "worker.services.draft_generation.output_stages",
-            LEGACY_OUTPUT_STAGE_PATH.read_text(encoding="utf-8"),
-        )
+    def test_legacy_output_stage_module_has_been_removed(self) -> None:
+        self.assertFalse(LEGACY_OUTPUT_STAGE_PATH.exists())
 
 
 if __name__ == "__main__":

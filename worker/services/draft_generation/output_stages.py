@@ -21,9 +21,9 @@ from worker.bootstrap import get_backend_settings
 from worker.services.ai_skills.diagram_generation.schemas import DiagramGenerationRequest
 from worker.services.ai_skills.registry import build_default_ai_skill_registry
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
-from worker.services.draft_generation_stage_context import DraftGenerationContext
+from worker.services.draft_generation.stage_context import DraftGenerationContext
 from worker.services.generation_types import DerivedScreenshotRecord, NoteRecord, ScreenshotCandidateRecord, StepRecord
-from worker.services.draft_generation_support import (
+from worker.services.draft_generation.support import (
     SCREENSHOT_ROLE_LOCAL_OFFSETS,
     SCREENSHOT_ROLE_ORDER,
     build_pairing_detail,
@@ -31,7 +31,7 @@ from worker.services.draft_generation_support import (
     seconds_to_timestamp,
     timestamp_to_seconds,
 )
-from worker.services.video_frame_extractor import ExtractedFrameCandidate, VideoFrameExtractor
+from worker.services.media.video_frame_extractor import ExtractedFrameCandidate, VideoFrameExtractor
 
 logger = get_logger(__name__)
 

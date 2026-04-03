@@ -8,7 +8,7 @@ import sys
 import types
 import unittest
 
-BUILDER_PATH = Path(__file__).resolve().parents[1] / "services" / "screenshot_context_builder.py"
+BUILDER_PATH = Path(__file__).resolve().parents[1] / "services" / "screenshot_generation" / "context_builder.py"
 WORKER_ROOT = Path(__file__).resolve().parents[1]
 SERVICES_ROOT = WORKER_ROOT / "services"
 
@@ -23,7 +23,7 @@ def load_builder_module():
     services_module = types.ModuleType("worker.services")
     services_module.__path__ = [str(SERVICES_ROOT)]  # type: ignore[attr-defined]
     bootstrap_module = types.ModuleType("worker.bootstrap")
-    context_module = types.ModuleType("worker.services.draft_generation_stage_context")
+    context_module = types.ModuleType("worker.services.draft_generation.stage_context")
     generation_types_module = types.ModuleType("worker.services.generation_types")
     sqlalchemy_module = types.ModuleType("sqlalchemy")
 
@@ -71,7 +71,7 @@ def load_builder_module():
     sys.modules["worker"] = worker_module
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["worker.services"] = services_module
-    sys.modules["worker.services.draft_generation_stage_context"] = context_module
+    sys.modules["worker.services.draft_generation.stage_context"] = context_module
     sys.modules["worker.services.generation_types"] = generation_types_module
 
     spec = importlib.util.spec_from_file_location("screenshot_context_builder_test", BUILDER_PATH)
