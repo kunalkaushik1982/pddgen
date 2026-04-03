@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
-from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 
 from app.models.artifact import ArtifactModel
 from app.services.action_log_service import ActionLogService
 from worker.bootstrap import get_backend_settings
 from worker.services.draft_generation.stage_context import DraftGenerationContext
+from worker.services.orchestration.contracts import WorkerDbSession
 from worker.services.draft_generation.support import (
     SCREENSHOT_ROLE_LOCAL_OFFSETS,
     SCREENSHOT_ROLE_ORDER,
@@ -38,7 +38,7 @@ class ScreenshotDerivationStage:
         )
         self.action_log_service = action_log_service or ActionLogService()
 
-    def run(self, db: Any, context: DraftGenerationContext) -> None:
+    def run(self, db: WorkerDbSession, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="screenshot_derivation"):
             if not context.video_artifacts:
                 logger.info(

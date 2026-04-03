@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from worker import bootstrap as _bootstrap  # noqa: F401
 from sqlalchemy import delete
 
 from app.models.artifact import ArtifactModel
@@ -12,13 +11,14 @@ from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
 from worker.services.draft_generation.stage_context import DraftGenerationContext
 from worker.services.generation_types import StepRecord
+from worker.services.orchestration.contracts import WorkerDbSession
 
 if TYPE_CHECKING:
     from app.models.draft_session import DraftSessionModel
 
 
 class DefaultScreenshotContextBuilder:
-    def build(self, db: Any, session: DraftSessionModel) -> DraftGenerationContext:
+    def build(self, db: WorkerDbSession, session: DraftSessionModel) -> DraftGenerationContext:
         transcript_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "transcript"]
         video_artifacts = [artifact for artifact in session.artifacts if artifact.kind == "video"]
         if not transcript_artifacts:

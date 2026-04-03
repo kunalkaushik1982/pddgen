@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from worker import bootstrap as _bootstrap  # noqa: F401
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
+from worker.services.orchestration.contracts import WorkerDbSession
 
 
 class SqlAlchemyDraftSessionRepository:
-    def load_draft_session(self, db, session_id: str) -> DraftSessionModel:  # type: ignore[no-untyped-def]
+    def load_draft_session(self, db: WorkerDbSession, session_id: str) -> DraftSessionModel:
         statement = (
             select(DraftSessionModel)
             .where(DraftSessionModel.id == session_id)

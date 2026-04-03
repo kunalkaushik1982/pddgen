@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from typing import Any
 
-from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 from app.services.action_log_service import ActionLogService
 from worker.services.workflow_intelligence.canonical_merge import CanonicalProcessMergeService
 from worker.services.draft_generation.stage_context import DraftGenerationContext
+from worker.services.orchestration.contracts import WorkerDbSession
 from worker.services.workflow_intelligence.grouping_service import ProcessGroupingService
 
 logger = get_logger(__name__)
@@ -21,7 +20,7 @@ class CanonicalMergeStage:
         self.merge_service = merge_service or CanonicalProcessMergeService()
         self.action_log_service = action_log_service or ActionLogService()
 
-    def run(self, db: Any, context: DraftGenerationContext) -> None:
+    def run(self, db: WorkerDbSession, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="canonical_merge"):
             self.action_log_service.record(
                 db,
@@ -57,7 +56,7 @@ class ProcessGroupingStage:
         self.grouping_service = grouping_service or ProcessGroupingService()
         self.action_log_service = action_log_service or ActionLogService()
 
-    def run(self, db: Any, context: DraftGenerationContext) -> None:
+    def run(self, db: WorkerDbSession, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="process_grouping"):
             action_log = self.action_log_service.record(
                 db,

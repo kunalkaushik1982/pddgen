@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
-from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 
 from app.services.action_log_service import ActionLogService
@@ -11,6 +9,7 @@ from worker.services.ai_skills.diagram_generation.schemas import DiagramGenerati
 from worker.services.ai_skills.registry import build_default_ai_skill_registry
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
 from worker.services.draft_generation.stage_context import DraftGenerationContext
+from worker.services.orchestration.contracts import WorkerDbSession
 
 logger = get_logger(__name__)
 
@@ -24,7 +23,7 @@ class DiagramAssemblyStage:
         self._ai_skill_registry = build_default_ai_skill_registry()
         self._diagram_generation_skill = None
 
-    def run(self, db: Any, context: DraftGenerationContext) -> None:
+    def run(self, db: WorkerDbSession, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="diagram_assembly"):
             self.action_log_service.record(
                 db,

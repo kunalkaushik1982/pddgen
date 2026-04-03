@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
-
-from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 
 from app.models.action_log import ActionLogModel
+from worker.services.orchestration.contracts import WorkerDbSession
 
 logger = get_logger(__name__)
 
@@ -14,7 +12,7 @@ class FailureStage:
     """Persist failure state for background generation errors."""
 
     @staticmethod
-    def mark_failed(db: Any, session_id: str, detail: str | None = None) -> None:
+    def mark_failed(db: WorkerDbSession, session_id: str, detail: str | None = None) -> None:
         from app.models.draft_session import DraftSessionModel
 
         with bind_log_context(stage="failure"):

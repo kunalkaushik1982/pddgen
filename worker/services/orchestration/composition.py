@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from app.core.observability import get_logger
 from app.models.action_log import ActionLogModel
 from app.services.job_dispatcher import JobDispatcherService
-from worker import bootstrap as _bootstrap  # noqa: F401
 from worker.services.draft_generation.input_stages import EvidenceSegmentationStage, SessionPreparationStage, TranscriptInterpretationStage
 from worker.services.draft_generation.diagram_assembly import DiagramAssemblyStage
 from worker.services.draft_generation.failure import FailureStage
@@ -20,6 +19,7 @@ from worker.services.workflow_intelligence.segmentation_service import (
     ParagraphTranscriptSegmentationStrategy,
 )
 from worker.services.screenshot_generation.context_builder import DefaultScreenshotContextBuilder
+from worker.services.orchestration.contracts import WorkerDbSession
 from worker.services.orchestration.repositories import SqlAlchemyDraftSessionRepository
 from worker.services.orchestration.uow import SqlAlchemyWorkerUnitOfWork
 from worker.services.orchestration.use_cases import DraftGenerationUseCase, ScreenshotGenerationUseCase
@@ -51,7 +51,7 @@ class DraftPersistenceAdapter:
     def __init__(self, stage: PersistenceStage | None = None) -> None:
         self._stage = stage or PersistenceStage()
 
-    def persist(self, db: Any, context: DraftGenerationContext) -> dict[str, int | str]:
+    def persist(self, db: WorkerDbSession, context: DraftGenerationContext) -> dict[str, int | str]:
         return self._stage.run(db, context)
 
 
@@ -59,7 +59,7 @@ class FailureRecorderAdapter:
     def __init__(self, stage: FailureStage | None = None) -> None:
         self._stage = stage or FailureStage()
 
-    def record_failure(self, db: Any, session_id: str, detail: str | None = None) -> None:
+    def record_failure(self, db: WorkerDbSession, session_id: str, detail: str | None = None) -> None:
         self._stage.mark_failed(db, session_id, detail)
 
 
@@ -75,7 +75,7 @@ class ScreenshotPersistenceAdapter:
     def __init__(self, stage: PersistenceStage | None = None) -> None:
         self._stage = stage or PersistenceStage()
 
-    def persist(self, db: Any, context: DraftGenerationContext) -> dict[str, int | str]:
+    def persist(self, db: WorkerDbSession, context: DraftGenerationContext) -> dict[str, int | str]:
         self._stage._persist_step_screenshots(db, context.persisted_step_models, context.all_steps)
         selected_screenshot_count = sum(len(step.get("_derived_screenshots", [])) for step in context.all_steps)
         db.add(

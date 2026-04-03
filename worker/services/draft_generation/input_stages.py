@@ -5,7 +5,6 @@ from collections import Counter
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Mapping, TypedDict, cast
 
-from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 from sqlalchemy import delete, select
 
@@ -21,6 +20,7 @@ from app.services.transcript_intelligence import TranscriptIntelligenceService
 from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
 from worker.services.draft_generation.stage_context import DraftGenerationContext
 from worker.services.generation_types import NoteRecord, StepRecord
+from worker.services.orchestration.contracts import WorkerDbSession
 from worker.services.workflow_intelligence.segmentation_service import EvidenceSegmentationService
 from worker.services.media.transcript_normalizer import TranscriptNormalizer
 
@@ -42,7 +42,7 @@ class _TranscriptSummaryBuckets(TypedDict):
 class SessionPreparationStage:
     """Load session inputs and clear stale generated entities."""
 
-    def load_and_prepare(self, db: Any, session: DraftSessionModel) -> DraftGenerationContext:
+    def load_and_prepare(self, db: WorkerDbSession, session: DraftSessionModel) -> DraftGenerationContext:
         with bind_log_context(stage="session_preparation"):
             session.status = "processing"
             db.commit()
@@ -100,7 +100,7 @@ class TranscriptInterpretationStage:
         self.note_extractor = note_extractor or TranscriptIntelligenceService()
         self.action_log_service = action_log_service or ActionLogService()
 
-    def run(self, db: Any, context: DraftGenerationContext) -> None:
+    def run(self, db: WorkerDbSession, context: DraftGenerationContext) -> None:
         from worker.services.draft_generation.support import extract_transcript_timestamps, timestamp_to_seconds
 
         with bind_log_context(stage="transcript_interpretation"):
@@ -203,7 +203,7 @@ class EvidenceSegmentationStage:
         self.segmentation_service = segmentation_service
         self.action_log_service = action_log_service or ActionLogService()
 
-    def run(self, db: Any, context: DraftGenerationContext) -> None:
+    def run(self, db: WorkerDbSession, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="evidence_segmentation"):
             action_log = self.action_log_service.record(
                 db,

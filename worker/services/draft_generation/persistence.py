@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 from uuid import uuid4
 
-from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 from sqlalchemy import select
 
@@ -16,6 +14,7 @@ from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
 from worker.services.draft_generation.stage_context import DraftGenerationContext
 from worker.services.generation_types import NoteRecord, StepRecord
+from worker.services.orchestration.contracts import WorkerDbSession
 
 logger = get_logger(__name__)
 
@@ -23,7 +22,7 @@ logger = get_logger(__name__)
 class PersistenceStage:
     """Persist generated steps, notes, screenshots, and final status."""
 
-    def run(self, db: Any, context: DraftGenerationContext) -> dict[str, int | str]:
+    def run(self, db: WorkerDbSession, context: DraftGenerationContext) -> dict[str, int | str]:
         with bind_log_context(stage="persistence"):
             selected_screenshot_count = sum(len(step.get("_derived_screenshots", [])) for step in context.all_steps)
             context.session.overview_diagram_json = context.overview_diagram_json
@@ -87,7 +86,7 @@ class PersistenceStage:
             )
         step["evidence_references"] = json.dumps(evidence_references)
 
-    def _persist_step_screenshots(self, db: Any, step_models: list[ProcessStepModel], step_candidates: list[StepRecord]) -> None:
+    def _persist_step_screenshots(self, db: WorkerDbSession, step_models: list[ProcessStepModel], step_candidates: list[StepRecord]) -> None:
         relations: list[ProcessStepScreenshotModel] = []
         candidate_relations: list[ProcessStepScreenshotCandidateModel] = []
         for step_model, step_candidate in zip(step_models, step_candidates):
