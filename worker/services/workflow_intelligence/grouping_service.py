@@ -29,6 +29,7 @@ from worker.services.workflow_intelligence.grouping_ai_adapters import (
     InterpreterWorkflowGroupMatchSkill,
     InterpreterWorkflowTitleResolutionSkill,
 )
+from worker.services.workflow_intelligence.grouping_assignment_flow import assign_groups as assign_groups_flow
 from worker.services.workflow_intelligence.grouping_identity_resolution import (
     application_alignment_score,
     build_ai_group_match_decision,
@@ -46,6 +47,11 @@ from worker.services.workflow_intelligence.grouping_models import (
     HeuristicGroupMatchResult,
     ProcessGroupingResult,
     TranscriptWorkflowProfile,
+)
+from worker.services.workflow_intelligence.grouping_profiles import (
+    build_transcript_profiles,
+    build_workflow_summary,
+    sort_transcripts,
 )
 from worker.services.workflow_intelligence.grouping_capability_support import (
     fallback_capability_tags,
@@ -185,119 +191,15 @@ class ProcessGroupingService:
         evidence_segments: list[EvidenceSegment] | None = None,
         workflow_boundary_decisions: list[WorkflowBoundaryDecision] | None = None,
     ) -> ProcessGroupingResult:
-        process_groups: list[ProcessGroupModel] = []
-        transcript_group_ids: dict[str, str] = {}
-        assignment_details: list[dict[str, object]] = []
-        workflow_profiles = self._build_transcript_profiles(
-            evidence_segments=evidence_segments or [],
-            workflow_boundary_decisions=workflow_boundary_decisions or [],
-            steps_by_transcript=steps_by_transcript,
-        )
-        sorted_transcripts = self._sort_transcripts(transcript_artifacts)
-
-        for index, transcript in enumerate(sorted_transcripts):
-            transcript_steps = steps_by_transcript.get(transcript.id, [])
-            transcript_notes = notes_by_transcript.get(transcript.id, [])
-            workflow_profile = workflow_profiles.get(
-                transcript.id,
-                TranscriptWorkflowProfile(
-                    transcript_artifact_id=transcript.id,
-                    top_actors=[],
-                    top_objects=[],
-                    top_systems=[],
-                    top_applications=[],
-                    top_actions=[],
-                    top_goals=[],
-                    top_rules=[],
-                    top_domain_terms=[],
-                ),
-            )
-            previous_transcript = sorted_transcripts[index - 1] if index > 0 else None
-            previous_group = process_groups[-1] if process_groups else None
-            previous_workflow_profile = workflow_profiles.get(previous_transcript.id) if previous_transcript is not None else None
-            resolution = self._resolve_group_identity(
-                transcript=transcript,
-                steps=transcript_steps,
-                notes=transcript_notes,
-                existing_groups=process_groups,
-                workflow_profile=workflow_profile,
-                previous_workflow_profile=previous_workflow_profile,
-                previous_group=previous_group,
-            )
-            matched_group = resolution.matched_group
-
-            if matched_group is None:
-                matched_group = self.process_group_service.create_process_group(
-                    db,
-                    session=session,
-                    title=resolution.inferred_title,
-                    canonical_slug=resolution.inferred_slug,
-                    display_order=len(process_groups) + 1,
-                )
-                process_groups.append(matched_group)
-
-            matched_group.summary_text = self._group_summary_seed(
-                inferred_title=resolution.inferred_title,
-                steps=transcript_steps,
-                notes=transcript_notes,
-                workflow_profile=workflow_profile,
-            )
-            db.commit()
-
-            transcript_group_ids[transcript.id] = matched_group.id
-            assignment_details.append(
-                {
-                    "transcript_name": transcript.name,
-                    "inferred_workflow": resolution.inferred_title,
-                    "assigned_group_id": matched_group.id,
-                    "assigned_group_title": matched_group.title,
-                    "decision": resolution.decision,
-                    "decision_confidence": resolution.confidence,
-                    "decision_source": resolution.decision_source,
-                    "is_ambiguous": resolution.is_ambiguous,
-                    "rationale": resolution.rationale,
-                    "candidate_matches": resolution.candidate_matches,
-                    "supporting_signals": resolution.supporting_signals,
-                    "heuristic_decision": resolution.heuristic_decision,
-                    "heuristic_confidence": resolution.heuristic_confidence,
-                    "ai_decision": resolution.ai_decision,
-                    "ai_confidence": resolution.ai_confidence,
-                    "conflict_detected": resolution.conflict_detected,
-                    "top_goals": workflow_profile.top_goals,
-                    "top_objects": workflow_profile.top_objects,
-                    "top_systems": workflow_profile.top_systems,
-                    "top_applications": workflow_profile.top_applications,
-                    "top_actors": workflow_profile.top_actors,
-                    "top_rules": workflow_profile.top_rules,
-                    "capability_tags": self._parse_capability_tags(getattr(matched_group, "capability_tags_json", "[]")),
-                }
-            )
-            for step in transcript_steps:
-                step["process_group_id"] = matched_group.id
-            for note in transcript_notes:
-                note["process_group_id"] = matched_group.id
-
-        self._refresh_group_summaries(
-            process_groups=process_groups,
-            transcript_group_ids=transcript_group_ids,
+        return assign_groups_flow(
+            service=self,
+            db=db,
+            session=session,
+            transcript_artifacts=transcript_artifacts,
             steps_by_transcript=steps_by_transcript,
             notes_by_transcript=notes_by_transcript,
-            workflow_profiles=workflow_profiles,
-            document_type=getattr(session, "document_type", "pdd"),
-        )
-        capability_tags_by_group = {
-            group.id: self._parse_capability_tags(getattr(group, "capability_tags_json", "[]"))
-            for group in process_groups
-        }
-        for assignment in assignment_details:
-            assigned_group_id = str(assignment.get("assigned_group_id", "") or "")
-            if assigned_group_id:
-                assignment["capability_tags"] = capability_tags_by_group.get(assigned_group_id, [])
-
-        return ProcessGroupingResult(
-            process_groups=process_groups,
-            transcript_group_ids=transcript_group_ids,
-            assignment_details=assignment_details,
+            evidence_segments=evidence_segments or [],
+            workflow_boundary_decisions=workflow_boundary_decisions or [],
         )
 
     def _resolve_group_identity(
@@ -867,26 +769,12 @@ class ProcessGroupingService:
         steps: list[StepRecord],
         notes: list[NoteRecord],
     ) -> dict[str, object]:
-        return {
-            "suggested_title": title,
-            "top_actors": workflow_profile.top_actors,
-            "top_objects": workflow_profile.top_objects,
-            "top_systems": workflow_profile.top_systems,
-            "top_applications": workflow_profile.top_applications,
-            "top_actions": workflow_profile.top_actions,
-            "top_goals": workflow_profile.top_goals,
-            "top_rules": workflow_profile.top_rules,
-            "top_domain_terms": workflow_profile.top_domain_terms,
-            "operational_signature": self._operation_signature_from_steps(steps),
-            "step_samples": [
-                {
-                    "action_text": str(step.get("action_text", "") or ""),
-                    "supporting_transcript_text": str(step.get("supporting_transcript_text", "") or ""),
-                }
-                for step in steps[:8]
-            ],
-            "note_samples": [str(note.get("text", "") or "") for note in notes[:4]],
-        }
+        return build_workflow_summary(
+            title=title,
+            workflow_profile=workflow_profile,
+            steps=steps,
+            notes=notes,
+        )
 
     def _signature_tokens(self, steps: list[StepRecord]) -> set[str]:
         return signature_tokens(steps)
@@ -908,23 +796,7 @@ class ProcessGroupingService:
 
     @staticmethod
     def _sort_transcripts(transcript_artifacts: list[ArtifactModel]) -> list[ArtifactModel]:
-        return sorted(
-            transcript_artifacts,
-            key=lambda artifact: (
-                meeting.order_index
-                if (meeting := getattr(artifact, "meeting", None)) is not None and meeting.order_index is not None
-                else 1_000_000,
-                meeting_date.isoformat()
-                if (meeting := getattr(artifact, "meeting", None)) is not None
-                and (meeting_date := getattr(meeting, "meeting_date", None)) is not None
-                else "",
-                uploaded_at.isoformat()
-                if (meeting := getattr(artifact, "meeting", None)) is not None
-                and (uploaded_at := getattr(meeting, "uploaded_at", None)) is not None
-                else "",
-                artifact.id,
-            ),
-        )
+        return sort_transcripts(transcript_artifacts)
 
     @staticmethod
     def _normalize_text(value: str) -> str:
@@ -941,73 +813,11 @@ class ProcessGroupingService:
         workflow_boundary_decisions: list[WorkflowBoundaryDecision],
         steps_by_transcript: dict[str, list[StepRecord]],
     ) -> dict[str, TranscriptWorkflowProfile]:
-        segments_by_id = {segment.id: segment for segment in evidence_segments}
-        object_counts: dict[str, Counter[str]] = defaultdict(Counter)
-        actor_counts: dict[str, Counter[str]] = defaultdict(Counter)
-        system_counts: dict[str, Counter[str]] = defaultdict(Counter)
-        application_counts: dict[str, Counter[str]] = defaultdict(Counter)
-        action_counts: dict[str, Counter[str]] = defaultdict(Counter)
-        goal_counts: dict[str, Counter[str]] = defaultdict(Counter)
-        rule_counts: dict[str, Counter[str]] = defaultdict(Counter)
-        domain_term_counts: dict[str, Counter[str]] = defaultdict(Counter)
-
-        for segment in evidence_segments:
-            enrichment = segment.enrichment
-            if enrichment is None:
-                continue
-            transcript_id = segment.transcript_artifact_id
-            if enrichment.actor:
-                actor_counts[transcript_id][enrichment.actor] += 1
-            if enrichment.business_object:
-                object_counts[transcript_id][enrichment.business_object] += 1
-            if enrichment.system_name:
-                system_counts[transcript_id][enrichment.system_name] += 1
-            if enrichment.action_verb:
-                action_counts[transcript_id][enrichment.action_verb] += 1
-            if enrichment.workflow_goal:
-                goal_counts[transcript_id][enrichment.workflow_goal] += 1
-            for rule_hint in enrichment.rule_hints:
-                rule_counts[transcript_id][rule_hint] += 1
-            for domain_term in enrichment.domain_terms:
-                domain_term_counts[transcript_id][domain_term] += 1
-        for transcript_id, steps in steps_by_transcript.items():
-            for step in steps:
-                application_name = str(step.get("application_name", "") or "").strip()
-                if application_name:
-                    application_counts[transcript_id][application_name] += 1
-                action_text = str(step.get("action_text", "") or "").strip()
-                leading_action = extract_leading_action_verb(action_text)
-                if leading_action:
-                    action_counts[transcript_id][leading_action] += 1
-
-        boundary_map: dict[str, tuple[str, str]] = {}
-        for decision in workflow_boundary_decisions:
-            left_segment = segments_by_id.get(decision.left_segment_id)
-            right_segment = segments_by_id.get(decision.right_segment_id)
-            if left_segment is None or right_segment is None:
-                continue
-            if left_segment.transcript_artifact_id == right_segment.transcript_artifact_id:
-                continue
-            boundary_map[left_segment.transcript_artifact_id] = (decision.decision, decision.confidence)
-
-        transcript_ids = {segment.transcript_artifact_id for segment in evidence_segments} | set(steps_by_transcript)
-        profiles: dict[str, TranscriptWorkflowProfile] = {}
-        for transcript_id in transcript_ids:
-            boundary = boundary_map.get(transcript_id)
-            profiles[transcript_id] = TranscriptWorkflowProfile(
-                transcript_artifact_id=transcript_id,
-                top_actors=[value for value, _ in actor_counts[transcript_id].most_common(3)],
-                top_objects=[value for value, _ in object_counts[transcript_id].most_common(3)],
-                top_systems=[value for value, _ in system_counts[transcript_id].most_common(3)],
-                top_applications=[value for value, _ in application_counts[transcript_id].most_common(3)],
-                top_actions=[value for value, _ in action_counts[transcript_id].most_common(3)],
-                top_goals=[value for value, _ in goal_counts[transcript_id].most_common(3)],
-                top_rules=[value for value, _ in rule_counts[transcript_id].most_common(2)],
-                top_domain_terms=[value for value, _ in domain_term_counts[transcript_id].most_common(4)],
-                boundary_to_next=boundary[0] if boundary else None,
-                boundary_to_next_confidence=boundary[1] if boundary else None,
-            )
-        return profiles
+        return build_transcript_profiles(
+            evidence_segments=evidence_segments,
+            workflow_boundary_decisions=workflow_boundary_decisions,
+            steps_by_transcript=steps_by_transcript,
+        )
 
     def _profile_tokens(self, profile: TranscriptWorkflowProfile) -> set[str]:
         return profile_tokens(profile)

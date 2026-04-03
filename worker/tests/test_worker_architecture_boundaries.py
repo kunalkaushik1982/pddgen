@@ -11,7 +11,7 @@ CONTRACTS_PATH = SERVICES_DIR / "orchestration" / "contracts.py"
 PIPELINE_PATH = SERVICES_DIR / "orchestration" / "pipeline.py"
 AI_SKILL_BASE_PATH = SERVICES_DIR / "ai_skills" / "base.py"
 GROUPING_SERVICE_PATH = SERVICES_DIR / "workflow_intelligence" / "grouping_service.py"
-AI_TRANSCRIPT_INTERPRETER_PATH = SERVICES_DIR / "ai_transcript_interpreter.py"
+AI_TRANSCRIPT_INTERPRETER_PATH = SERVICES_DIR / "ai_transcript" / "interpreter.py"
 SCREENSHOT_DERIVATION_PATH = SERVICES_DIR / "draft_generation" / "screenshot_derivation.py"
 SEGMENTATION_SERVICE_PATH = SERVICES_DIR / "workflow_intelligence" / "segmentation_service.py"
 SEGMENTATION_AI_STRATEGIES_PATH = SERVICES_DIR / "workflow_intelligence" / "segmentation_ai_strategies.py"
@@ -127,6 +127,8 @@ class WorkerArchitectureBoundaryTests(unittest.TestCase):
             if isinstance(node, ast.ImportFrom) and node.module is not None
         }
         self.assertIn("worker.services.workflow_intelligence.grouping_models", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_profiles", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_assignment_flow", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_ai_adapters", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_title_resolution", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_identity_resolution", imported_modules)
@@ -140,11 +142,11 @@ class WorkerArchitectureBoundaryTests(unittest.TestCase):
             for node in module.body
             if isinstance(node, ast.ImportFrom) and node.module is not None
         }
-        self.assertIn("worker.services.ai_transcript_models", imported_modules)
-        self.assertIn("worker.services.ai_transcript_normalization", imported_modules)
-        self.assertIn("worker.services.ai_transcript_client", imported_modules)
-        self.assertIn("worker.services.ai_transcript_diagrams", imported_modules)
-        self.assertIn("worker.services.ai_transcript_workflows", imported_modules)
+        self.assertIn("worker.services.ai_transcript.models", imported_modules)
+        self.assertIn("worker.services.ai_transcript.normalization", imported_modules)
+        self.assertIn("worker.services.ai_transcript.client", imported_modules)
+        self.assertIn("worker.services.ai_transcript.diagrams", imported_modules)
+        self.assertIn("worker.services.ai_transcript.workflows", imported_modules)
 
     def test_screenshot_derivation_delegates_to_split_modules(self) -> None:
         module = _parse(SCREENSHOT_DERIVATION_PATH)
