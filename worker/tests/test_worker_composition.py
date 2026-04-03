@@ -7,6 +7,8 @@ import types
 import unittest
 
 COMPOSITION_PATH = Path(__file__).resolve().parents[1] / "services" / "worker_composition.py"
+WORKER_ROOT = Path(__file__).resolve().parents[1]
+SERVICES_ROOT = WORKER_ROOT / "services"
 
 
 def load_worker_composition_module():
@@ -27,26 +29,30 @@ def load_worker_composition_module():
     )
 
     worker_module = types.ModuleType("worker")
-    worker_module.__path__ = []  # type: ignore[attr-defined]
+    worker_module.__path__ = [str(WORKER_ROOT)]  # type: ignore[attr-defined]
     bootstrap_module = types.ModuleType("worker.bootstrap")
     worker_module.bootstrap = bootstrap_module
     services_module = types.ModuleType("worker.services")
-    services_module.__path__ = []  # type: ignore[attr-defined]
+    services_module.__path__ = [str(SERVICES_ROOT)]  # type: ignore[attr-defined]
 
     class FakeEvidenceSegmentationStage:
         def __init__(self, *, segmentation_service=None) -> None:
             self.segmentation_service = segmentation_service
 
-    stage_services_module = types.ModuleType("worker.services.draft_generation_stage_services")
-    stage_services_module.CanonicalMergeStage = type("CanonicalMergeStage", (), {})
-    stage_services_module.DiagramAssemblyStage = type("DiagramAssemblyStage", (), {})
-    stage_services_module.EvidenceSegmentationStage = FakeEvidenceSegmentationStage
-    stage_services_module.FailureStage = type("FailureStage", (), {"mark_failed": lambda self, db, session_id, detail=None: None})
-    stage_services_module.PersistenceStage = type("PersistenceStage", (), {"run": lambda self, db, context: {}, "_persist_step_screenshots": lambda self, db, step_models, all_steps: None})
-    stage_services_module.ProcessGroupingStage = type("ProcessGroupingStage", (), {})
-    stage_services_module.SessionPreparationStage = type("SessionPreparationStage", (), {"load_and_prepare": lambda self, db, session: object()})
-    stage_services_module.ScreenshotDerivationStage = type("ScreenshotDerivationStage", (), {})
-    stage_services_module.TranscriptInterpretationStage = type("TranscriptInterpretationStage", (), {})
+    input_stages_module = types.ModuleType("worker.services.draft_generation_input_stages")
+    input_stages_module.EvidenceSegmentationStage = FakeEvidenceSegmentationStage
+    input_stages_module.SessionPreparationStage = type("SessionPreparationStage", (), {"load_and_prepare": lambda self, db, session: object()})
+    input_stages_module.TranscriptInterpretationStage = type("TranscriptInterpretationStage", (), {})
+
+    process_stages_module = types.ModuleType("worker.services.draft_generation_process_stages")
+    process_stages_module.CanonicalMergeStage = type("CanonicalMergeStage", (), {})
+    process_stages_module.ProcessGroupingStage = type("ProcessGroupingStage", (), {})
+
+    output_stages_module = types.ModuleType("worker.services.draft_generation_output_stages")
+    output_stages_module.DiagramAssemblyStage = type("DiagramAssemblyStage", (), {})
+    output_stages_module.FailureStage = type("FailureStage", (), {"mark_failed": lambda self, db, session_id, detail=None: None})
+    output_stages_module.PersistenceStage = type("PersistenceStage", (), {"run": lambda self, db, context: {}, "_persist_step_screenshots": lambda self, db, step_models, all_steps: None})
+    output_stages_module.ScreenshotDerivationStage = type("ScreenshotDerivationStage", (), {})
 
     screenshot_context_builder_module = types.ModuleType("worker.services.screenshot_context_builder")
     screenshot_context_builder_module.DefaultScreenshotContextBuilder = type("DefaultScreenshotContextBuilder", (), {})
@@ -97,7 +103,9 @@ def load_worker_composition_module():
     sys.modules["worker"] = worker_module
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["worker.services"] = services_module
-    sys.modules["worker.services.draft_generation_stage_services"] = stage_services_module
+    sys.modules["worker.services.draft_generation_input_stages"] = input_stages_module
+    sys.modules["worker.services.draft_generation_process_stages"] = process_stages_module
+    sys.modules["worker.services.draft_generation_output_stages"] = output_stages_module
     sys.modules["worker.services.screenshot_context_builder"] = screenshot_context_builder_module
     sys.modules["worker.services.worker_repositories"] = worker_repositories_module
     sys.modules["worker.services.worker_uow"] = worker_uow_module

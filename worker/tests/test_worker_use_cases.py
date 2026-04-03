@@ -7,6 +7,7 @@ import types
 import unittest
 
 SERVICES_ROOT = Path(__file__).resolve().parents[1] / "services"
+WORKER_ROOT = Path(__file__).resolve().parents[1]
 CONTRACTS_PATH = SERVICES_ROOT / "worker_contracts.py"
 PIPELINE_PATH = SERVICES_ROOT / "worker_pipeline.py"
 USE_CASES_PATH = SERVICES_ROOT / "worker_use_cases.py"
@@ -32,9 +33,9 @@ def load_worker_pipeline_module():
 
 def load_worker_use_cases_module():
     worker_module = types.ModuleType("worker")
-    worker_module.__path__ = []  # type: ignore[attr-defined]
+    worker_module.__path__ = [str(WORKER_ROOT)]  # type: ignore[attr-defined]
     worker_services_module = types.ModuleType("worker.services")
-    worker_services_module.__path__ = []  # type: ignore[attr-defined]
+    worker_services_module.__path__ = [str(SERVICES_ROOT)]  # type: ignore[attr-defined]
     sys.modules["worker"] = worker_module
     sys.modules["worker.services"] = worker_services_module
     sys.modules["worker.services.worker_contracts"] = load_worker_contracts_module()

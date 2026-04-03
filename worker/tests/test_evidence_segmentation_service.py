@@ -1,7 +1,23 @@
 from __future__ import annotations
 
+import sys
+import types
 import unittest
 from unittest.mock import Mock
+
+bootstrap_module = types.ModuleType("worker.bootstrap")
+
+
+class _FakeSettings:
+    ai_enabled = False
+    ai_api_key = ""
+    ai_base_url = ""
+    ai_model = ""
+    ai_timeout_seconds = 30
+
+
+bootstrap_module.get_backend_settings = lambda: _FakeSettings()
+sys.modules.setdefault("worker.bootstrap", bootstrap_module)
 
 from worker.services.evidence_segmentation_service import (
     AISemanticEnrichmentStrategy,

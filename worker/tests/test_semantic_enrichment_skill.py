@@ -245,9 +245,9 @@ class SemanticEnrichmentSchemaTests(unittest.TestCase):
 
         result = strategy.enrich(segment)
 
-        self.assertIsInstance(result, workflow_module.SemanticEnrichment)
         self.assertEqual(result.system_name, "SAP")
         self.assertEqual(result.enrichment_source, "ai")
+        self.assertEqual(type(result).__name__, "SemanticEnrichment")
 
 
 if __name__ == "__main__":

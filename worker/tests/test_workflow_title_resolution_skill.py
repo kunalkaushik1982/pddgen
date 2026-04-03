@@ -257,9 +257,9 @@ class WorkflowTitleResolutionTests(unittest.TestCase):
             fallback_title="Fallback Title",
         )
 
-        self.assertIsInstance(result, ai_module.WorkflowTitleInterpretation)
         self.assertEqual(result.workflow_title, "Vendor Creation")
         self.assertEqual(result.canonical_slug, "vendor-creation")
+        self.assertEqual(type(result).__name__, "WorkflowTitleInterpretation")
 
     def test_default_registry_creates_workflow_title_resolution_skill(self) -> None:
         registry_module = load_registry_module()

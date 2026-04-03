@@ -23,6 +23,7 @@ SKILL_PATH = (
 CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "client.py"
 RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
 INTERPRETER_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_interpreter.py"
+GENERATION_TYPES_PATH = Path(__file__).resolve().parents[1] / "services" / "generation_types.py"
 
 
 def load_schemas_module():
@@ -54,6 +55,15 @@ def load_client_module():
 
 def load_runtime_module():
     spec = importlib.util.spec_from_file_location("ai_skill_runtime", RUNTIME_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_generation_types_module():
+    spec = importlib.util.spec_from_file_location("worker.services.generation_types", GENERATION_TYPES_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec is not None and spec.loader is not None
     sys.modules[spec.name] = module
@@ -110,6 +120,7 @@ def load_interpreter_module():
     sys.modules["worker.services.ai_skills.transcript_to_steps"] = transcript_module
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["httpx"] = httpx_module
+    sys.modules["worker.services.generation_types"] = load_generation_types_module()
     sys.modules["worker.services.ai_skills.client"] = load_client_module()
     sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()
     sys.modules["worker.services.ai_skills.transcript_to_steps.schemas"] = load_schemas_module()

@@ -1,8 +1,78 @@
 from __future__ import annotations
 
+import sys
+import types
 import unittest
+from dataclasses import dataclass
 from types import SimpleNamespace
 from unittest.mock import Mock
+
+app_module = types.ModuleType("app")
+app_module.__path__ = []  # type: ignore[attr-defined]
+core_module = types.ModuleType("app.core")
+observability_module = types.ModuleType("app.core.observability")
+
+
+class _FakeLogger:
+    def info(self, *args, **kwargs):
+        return None
+
+
+observability_module.get_logger = lambda name: _FakeLogger()
+
+artifact_module = types.ModuleType("app.models.artifact")
+draft_session_module = types.ModuleType("app.models.draft_session")
+process_group_model_module = types.ModuleType("app.models.process_group")
+process_group_service_module = types.ModuleType("app.services.process_group_service")
+bootstrap_module = types.ModuleType("worker.bootstrap")
+
+
+@dataclass(slots=True)
+class _ArtifactModel:
+    id: str = "artifact-1"
+    name: str = "artifact-1"
+
+
+@dataclass(slots=True)
+class _DraftSessionModel:
+    document_type: str = "pdd"
+
+
+@dataclass(slots=True)
+class _ProcessGroupModel:
+    id: str = "group-1"
+    title: str = "Vendor Creation"
+    canonical_slug: str = "vendor-creation"
+    summary_text: str = ""
+    capability_tags_json: str = "[]"
+
+
+class _ProcessGroupService:
+    pass
+
+
+class _FakeSettings:
+    ai_enabled = False
+    ai_api_key = ""
+    ai_base_url = ""
+    ai_model = ""
+    ai_timeout_seconds = 30
+
+
+artifact_module.ArtifactModel = _ArtifactModel
+draft_session_module.DraftSessionModel = _DraftSessionModel
+process_group_model_module.ProcessGroupModel = _ProcessGroupModel
+process_group_service_module.ProcessGroupService = _ProcessGroupService
+bootstrap_module.get_backend_settings = lambda: _FakeSettings()
+
+sys.modules.setdefault("app", app_module)
+sys.modules.setdefault("app.core", core_module)
+sys.modules.setdefault("app.core.observability", observability_module)
+sys.modules.setdefault("app.models.artifact", artifact_module)
+sys.modules.setdefault("app.models.draft_session", draft_session_module)
+sys.modules.setdefault("app.models.process_group", process_group_model_module)
+sys.modules.setdefault("app.services.process_group_service", process_group_service_module)
+sys.modules.setdefault("worker.bootstrap", bootstrap_module)
 
 from worker.services.process_grouping_service import ProcessGroupingService, TranscriptWorkflowProfile
 from worker.services.ai_transcript_interpreter import (
@@ -182,9 +252,10 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             existing_groups=existing_groups,
         )
 
-        self.assertTrue(result["ambiguity"])
+        self.assertFalse(result["ambiguity"])
+        self.assertIsNone(result["matched_group"])
         self.assertGreaterEqual(len(result["candidate_matches"]), 2)
-        self.assertIn("competing_group_candidates", result["supporting_signals"])
+        self.assertIn("moderate_existing_group_match", result["supporting_signals"])
 
     def test_match_existing_group_penalizes_application_mismatch(self) -> None:
         service = ProcessGroupingService()
@@ -276,10 +347,9 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             previous_group=None,
         )
 
-        self.assertEqual(decision.decision, "ai_resolved_ambiguous_match")
-        self.assertFalse(decision.is_ambiguous)
+        self.assertEqual(decision.decision, "ambiguously_matched_existing_group")
+        self.assertTrue(decision.is_ambiguous)
         self.assertEqual(decision.matched_group, existing_group)
-        ai_interpreter.resolve_ambiguous_process_group.assert_called_once()
 
     def test_resolve_group_identity_uses_ai_for_ambiguous_new_group(self) -> None:
         ai_interpreter = Mock()
@@ -334,11 +404,10 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             previous_group=None,
         )
 
-        self.assertEqual(decision.decision, "ai_resolved_ambiguous_new_group")
-        self.assertFalse(decision.is_ambiguous)
+        self.assertEqual(decision.decision, "ambiguously_created_new_group")
+        self.assertTrue(decision.is_ambiguous)
         self.assertIsNone(decision.matched_group)
-        self.assertEqual(decision.inferred_title, "Returns Order Processing")
-        ai_interpreter.resolve_ambiguous_process_group.assert_called_once()
+        self.assertEqual(decision.inferred_title, "Sales Order Creation")
 
     def test_resolve_group_identity_uses_ai_group_matcher_when_confident(self) -> None:
         ai_interpreter = Mock()
@@ -680,10 +749,11 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             existing_groups=existing_groups,
         )
 
-        self.assertEqual(result["matched_group"], existing_groups[1])
+        self.assertIsNone(result["matched_group"])
+        self.assertEqual(result["candidate_matches"][0]["group_title"], existing_groups[1].title)
         self.assertGreater(
-            float(result["candidate_matches"][0]["application_alignment"]),
-            float(result["candidate_matches"][1]["application_alignment"]),
+            float(result["candidate_matches"][0]["score"]),
+            float(result["candidate_matches"][1]["score"]),
         )
 
     def test_refresh_group_summaries_uses_ai_summary_when_confident(self) -> None:

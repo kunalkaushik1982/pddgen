@@ -28,6 +28,8 @@ CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "
 RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
 REGISTRY_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "registry.py"
 STAGE_SERVICES_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation_stage_services.py"
+WORKER_DIR = Path(__file__).resolve().parents[1]
+SERVICES_DIR = WORKER_DIR / "services"
 
 
 def load_module(name: str, path: Path):
@@ -60,6 +62,18 @@ def load_registry_module():
 
 
 def load_stage_module():
+    for module_name in (
+        "worker",
+        "worker.bootstrap",
+        "worker.services",
+        "worker.services.draft_generation_stage_services",
+        "worker.services.draft_generation_input_stages",
+        "worker.services.draft_generation_process_stages",
+        "worker.services.draft_generation_output_stages",
+        "worker.services.draft_generation_stage_context",
+    ):
+        sys.modules.pop(module_name, None)
+
     app_module = types.ModuleType("app")
     app_module.__path__ = []  # type: ignore[attr-defined]
     core_module = types.ModuleType("app.core")
@@ -110,9 +124,9 @@ def load_stage_module():
     transcript_intelligence_module.TranscriptIntelligenceService = type("TranscriptIntelligenceService", (), {})
 
     worker_module = types.ModuleType("worker")
-    worker_module.__path__ = []  # type: ignore[attr-defined]
+    worker_module.__path__ = [str(WORKER_DIR)]  # type: ignore[attr-defined]
     worker_services_module = types.ModuleType("worker.services")
-    worker_services_module.__path__ = []  # type: ignore[attr-defined]
+    worker_services_module.__path__ = [str(SERVICES_DIR)]  # type: ignore[attr-defined]
     ai_skills_module = types.ModuleType("worker.services.ai_skills")
     ai_skills_module.__path__ = []  # type: ignore[attr-defined]
     diagram_pkg = types.ModuleType("worker.services.ai_skills.diagram_generation")

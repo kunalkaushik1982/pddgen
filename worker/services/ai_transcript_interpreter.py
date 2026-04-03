@@ -12,11 +12,15 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
-import httpx
+try:
+    import httpx
+except ModuleNotFoundError:  # pragma: no cover - dependency-light test environments
+    httpx = None
 
 from worker.bootstrap import get_backend_settings
 from worker.services.ai_skills.transcript_to_steps.schemas import TranscriptToStepsRequest, TranscriptToStepsResponse
 from worker.services.ai_skills.transcript_to_steps.skill import TranscriptToStepsSkill
+from worker.services.generation_types import NoteRecord, StepRecord
 
 TIMESTAMP_PATTERN = re.compile(r"\b(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b")
 logger = logging.getLogger(__name__)
@@ -26,8 +30,8 @@ logger = logging.getLogger(__name__)
 class TranscriptInterpretation:
     """Structured AI interpretation output."""
 
-    steps: list[dict[str, Any]]
-    notes: list[dict[str, Any]]
+    steps: list[StepRecord]
+    notes: list[NoteRecord]
 
 
 @dataclass
@@ -197,8 +201,8 @@ class AITranscriptInterpreter:
         *,
         session_title: str,
         diagram_type: str,
-        steps: list[dict[str, Any]],
-        notes: list[dict[str, Any]],
+        steps: Sequence[Mapping[str, Any]],
+        notes: Sequence[Mapping[str, Any]],
     ) -> DiagramInterpretation | None:
         """Call the configured AI provider and return structured overview and detailed diagram models."""
         if not self.is_enabled() or diagram_type.lower() != "flowchart":
@@ -296,8 +300,8 @@ class AITranscriptInterpreter:
         self,
         *,
         transcript_name: str,
-        steps: list[dict[str, Any]],
-        notes: list[dict[str, Any]],
+        steps: Sequence[Mapping[str, Any]],
+        notes: Sequence[Mapping[str, Any]],
         existing_titles: list[str],
     ) -> ProcessGroupInterpretation | None:
         """Infer a stable business process title and whether it matches an existing process group."""
@@ -375,8 +379,8 @@ class AITranscriptInterpreter:
         transcript_name: str,
         inferred_title: str,
         candidate_matches: Sequence[Mapping[str, Any]],
-        steps: list[dict[str, Any]],
-        notes: list[dict[str, Any]],
+        steps: Sequence[Mapping[str, Any]],
+        notes: Sequence[Mapping[str, Any]],
     ) -> AmbiguousProcessGroupResolution | None:
         """Use AI only for low-confidence process-group tie-break cases."""
         if not self.is_enabled():
@@ -757,8 +761,8 @@ class AITranscriptInterpreter:
         *,
         process_title: str,
         workflow_summary: dict[str, Any],
-        steps: list[dict[str, Any]],
-        notes: list[dict[str, Any]],
+        steps: Sequence[Mapping[str, Any]],
+        notes: Sequence[Mapping[str, Any]],
         document_type: str,
     ) -> ProcessSummaryInterpretation | None:
         """Generate a concise business summary for one resolved workflow/process group."""
@@ -928,6 +932,8 @@ class AITranscriptInterpreter:
         context: str,
     ) -> dict[str, Any]:
         """POST to the configured OpenAI-compatible endpoint and normalize retryable failures."""
+        if httpx is None:
+            raise RuntimeError("AI HTTP client dependency 'httpx' is not installed.")
         timeout = httpx.Timeout(self.settings.ai_timeout_seconds)
         try:
             with httpx.Client(timeout=timeout) as client:

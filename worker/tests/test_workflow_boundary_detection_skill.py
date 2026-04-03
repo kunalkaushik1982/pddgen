@@ -254,9 +254,9 @@ class WorkflowBoundaryDetectionSchemaTests(unittest.TestCase):
 
         result = strategy.decide(left, right)
 
-        self.assertIsInstance(result, workflow_module.WorkflowBoundaryDecision)
         self.assertEqual(result.decision, "same_workflow")
         self.assertEqual(result.decision_source, "ai")
+        self.assertEqual(type(result).__name__, "WorkflowBoundaryDecision")
 
     def test_ai_boundary_strategy_serializes_segment_ids_for_skill_logging(self) -> None:
         evidence_module, workflow_module = load_evidence_segmentation_module()

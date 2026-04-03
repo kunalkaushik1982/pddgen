@@ -1,0 +1,1 @@
+"""Screenshot-generation worker package."""

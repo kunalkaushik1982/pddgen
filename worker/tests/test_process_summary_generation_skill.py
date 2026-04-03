@@ -246,8 +246,20 @@ class ProcessSummaryGenerationTests(unittest.TestCase):
                     rationale="clear evidence",
                 )
 
+        class StubCapabilitySkill:
+            skill_id = "workflow_capability_tagging"
+            version = "1.0"
+
+            def run(self, input: object):
+                return type(
+                    "CapabilityResult",
+                    (),
+                    {"capability_tags": [], "confidence": "high", "rationale": "no distinct tags"},
+                )()
+
         service = grouping_module.ProcessGroupingService()
         service._process_summary_generation_skill = StubSummarySkill()
+        service._workflow_capability_tagging_skill = StubCapabilitySkill()
         process_group = grouping_module.ProcessGroupModel(id="group-1", title="Vendor Creation", canonical_slug="vendor-creation")
         profile = grouping_module.TranscriptWorkflowProfile(
             transcript_artifact_id="artifact-1",
