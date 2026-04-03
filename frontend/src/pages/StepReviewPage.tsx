@@ -252,6 +252,7 @@ export function StepReviewPage({
                     key={group.id}
                     type="button"
                     role="tab"
+                    title={group.title}
                     aria-selected={activeProcessGroup?.id === group.id}
                     className={`process-group-pill ${activeProcessGroup?.id === group.id ? "process-group-pill-active" : ""}`}
                     onClick={() => setSelectedProcessGroupId(group.id)}

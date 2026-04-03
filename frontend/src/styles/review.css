@@ -75,12 +75,17 @@
 }
 
 .process-group-pill {
+  display: inline-block;
   border: 1px solid var(--accent-border);
   border-radius: 999px;
   padding: 10px 16px;
   background: var(--surface-soft);
   color: var(--app-muted);
   font-weight: 700;
+  max-width: min(100%, 32rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .process-group-pill-active {
