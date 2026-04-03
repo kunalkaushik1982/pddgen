@@ -129,6 +129,8 @@ class WorkerArchitectureBoundaryTests(unittest.TestCase):
         self.assertIn("worker.services.workflow_intelligence.grouping_ai_adapters", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_title_resolution", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_identity_resolution", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_summary_support", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_capability_support", imported_modules)
 
     def test_ai_transcript_interpreter_delegates_to_split_modules(self) -> None:
         module = _parse(AI_TRANSCRIPT_INTERPRETER_PATH)

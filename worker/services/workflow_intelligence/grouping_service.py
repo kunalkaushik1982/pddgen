@@ -47,6 +47,18 @@ from worker.services.workflow_intelligence.grouping_models import (
     ProcessGroupingResult,
     TranscriptWorkflowProfile,
 )
+from worker.services.workflow_intelligence.grouping_capability_support import (
+    fallback_capability_tags,
+    normalize_capability_tags,
+    parse_capability_tags,
+    to_capability_label,
+)
+from worker.services.workflow_intelligence.grouping_summary_support import (
+    build_group_workflow_summary,
+    build_process_summary_fallback,
+    merge_profile_lists,
+    refresh_group_summaries,
+)
 from worker.services.workflow_intelligence.grouping_title_resolution import (
     STOPWORDS,
     extract_leading_action_verb,
@@ -748,73 +760,19 @@ class ProcessGroupingService:
         workflow_profiles: dict[str, TranscriptWorkflowProfile],
         document_type: str,
     ) -> None:
-        if not process_groups:
-            return
-
-        transcript_ids_by_group: dict[str, list[str]] = defaultdict(list)
-        for transcript_id, group_id in transcript_group_ids.items():
-            transcript_ids_by_group[group_id].append(transcript_id)
-
-        for process_group in process_groups:
-            transcript_ids = transcript_ids_by_group.get(process_group.id, [])
-            group_steps = [
-                cast(StepRecord, dict(step))
-                for transcript_id in transcript_ids
-                for step in steps_by_transcript.get(transcript_id, [])
-            ]
-            group_notes = [
-                cast(NoteRecord, dict(note))
-                for transcript_id in transcript_ids
-                for note in notes_by_transcript.get(transcript_id, [])
-            ]
-            group_profiles = [
-                workflow_profiles[transcript_id]
-                for transcript_id in transcript_ids
-                if transcript_id in workflow_profiles
-            ]
-            fallback_summary = self._build_process_summary_fallback(
-                process_title=process_group.title,
-                workflow_profiles=group_profiles,
-                steps=group_steps,
-                notes=group_notes,
-            )
-            workflow_summary = self._build_group_workflow_summary(
-                title=process_group.title,
-                workflow_profiles=group_profiles,
-                steps=group_steps,
-                notes=group_notes,
-            )
-            if self._process_summary_generation_skill is None:
-                self._process_summary_generation_skill = self._ai_skill_registry.create("process_summary_generation")
-            logger.info(
-                "Delegating process summary generation to AI skill.",
-                extra={
-                    "skill_id": "process_summary_generation",
-                    "skill_version": getattr(self._process_summary_generation_skill, "version", "unknown"),
-                    "process_title": process_group.title,
-                },
-            )
-            ai_summary = self._process_summary_generation_skill.run(
-                ProcessSummaryGenerationRequest(
-                    process_title=process_group.title,
-                    workflow_summary=workflow_summary,
-                    steps=group_steps[:12],
-                    notes=group_notes[:6],
-                    document_type=document_type,
-                )
-            )
-            if ai_summary is not None and ai_summary.confidence in self._ACCEPTED_AI_CONFIDENCE:
-                process_group.summary_text = ai_summary.summary_text
-            else:
-                process_group.summary_text = fallback_summary
-            process_group.capability_tags_json = json.dumps(
-                self._resolve_capability_tags(
-                    process_title=process_group.title,
-                    workflow_summary=workflow_summary,
-                    workflow_profiles=group_profiles,
-                    document_type=document_type,
-                )
-            )
+        if self._process_summary_generation_skill is None:
+            self._process_summary_generation_skill = self._ai_skill_registry.create("process_summary_generation")
+        refresh_group_summaries(
+            process_groups=process_groups,
+            transcript_group_ids=transcript_group_ids,
+            steps_by_transcript=steps_by_transcript,
+            notes_by_transcript=notes_by_transcript,
+            workflow_profiles=workflow_profiles,
+            document_type=document_type,
+            ai_skill=self._process_summary_generation_skill,
+            accepted_ai_confidence=self._ACCEPTED_AI_CONFIDENCE,
+            resolve_capability_tags=self._resolve_capability_tags,
+        )
 
     def _build_group_workflow_summary(
         self,
@@ -824,32 +782,12 @@ class ProcessGroupingService:
         steps: list[StepRecord],
         notes: list[NoteRecord],
     ) -> dict[str, object]:
-        actors = self._merge_profile_lists(workflow_profiles, "top_actors", limit=4)
-        objects = self._merge_profile_lists(workflow_profiles, "top_objects", limit=4)
-        systems = self._merge_profile_lists(workflow_profiles, "top_systems", limit=4)
-        actions = self._merge_profile_lists(workflow_profiles, "top_actions", limit=4)
-        goals = self._merge_profile_lists(workflow_profiles, "top_goals", limit=4)
-        rules = self._merge_profile_lists(workflow_profiles, "top_rules", limit=4)
-        return {
-            "suggested_title": title,
-            "top_actors": actors,
-            "top_objects": objects,
-            "top_systems": systems,
-            "top_applications": self._merge_profile_lists(workflow_profiles, "top_applications", limit=4),
-            "top_actions": actions,
-            "top_goals": goals,
-            "top_rules": rules,
-            "top_domain_terms": self._merge_profile_lists(workflow_profiles, "top_domain_terms", limit=6),
-            "operational_signature": self._operation_signature_from_steps(steps),
-            "step_samples": [
-                {
-                    "action_text": str(step.get("action_text", "") or ""),
-                    "supporting_transcript_text": str(step.get("supporting_transcript_text", "") or ""),
-                }
-                for step in steps[:10]
-            ],
-            "note_samples": [str(note.get("text", "") or "") for note in notes[:6]],
-        }
+        return build_group_workflow_summary(
+            title=title,
+            workflow_profiles=workflow_profiles,
+            steps=steps,
+            notes=notes,
+        )
 
     def _build_process_summary_fallback(
         self,
@@ -859,37 +797,12 @@ class ProcessGroupingService:
         steps: list[StepRecord],
         notes: list[NoteRecord],
     ) -> str:
-        top_goals = self._merge_profile_lists(workflow_profiles, "top_goals", limit=2)
-        top_objects = self._merge_profile_lists(workflow_profiles, "top_objects", limit=3)
-        top_systems = self._merge_profile_lists(workflow_profiles, "top_systems", limit=2)
-        top_rules = self._merge_profile_lists(workflow_profiles, "top_rules", limit=2)
-        summary_parts = [f"{process_title} covers the workflow"]
-        if top_goals:
-            summary_parts.append(f"focused on {', '.join(top_goals)}")
-        elif top_objects:
-            summary_parts.append(f"focused on {', '.join(top_objects)}")
-        if top_systems:
-            summary_parts.append(f"using {', '.join(top_systems)}")
-        sentence_one = " ".join(summary_parts).strip().rstrip(".") + "."
-
-        key_actions = [
-            str(step.get("action_text", "") or "").strip()
-            for step in steps[:3]
-            if str(step.get("action_text", "") or "").strip()
-        ]
-        sentence_two = ""
-        if key_actions:
-            sentence_two = f"Key business actions include {', '.join(key_actions)}."
-
-        sentence_three = ""
-        if top_rules:
-            sentence_three = f"Important workflow considerations include {', '.join(top_rules)}."
-        elif notes:
-            note_text = str(notes[0].get("text", "") or "").strip()
-            if note_text:
-                sentence_three = f"Supporting process context includes {note_text}."
-
-        return " ".join(part for part in (sentence_one, sentence_two, sentence_three) if part).strip()
+        return build_process_summary_fallback(
+            process_title=process_title,
+            workflow_profiles=workflow_profiles,
+            steps=steps,
+            notes=notes,
+        )
 
     def _resolve_capability_tags(
         self,
@@ -917,19 +830,14 @@ class ProcessGroupingService:
             )
         )
         if ai_capabilities is not None and ai_capabilities.confidence in self._ACCEPTED_AI_CONFIDENCE and ai_capabilities.capability_tags:
-            normalized_tags = self._normalize_capability_tags(
-                ai_capabilities.capability_tags,
-                process_title=process_title,
-            )
+            normalized_tags = self._normalize_capability_tags(ai_capabilities.capability_tags, process_title=process_title)
             if normalized_tags:
                 return normalized_tags
         fallback_tags = self._fallback_capability_tags(workflow_profiles=workflow_profiles)
         return fallback_tags if fallback_tags else [process_title]
 
     def _fallback_capability_tags(self, *, workflow_profiles: list[TranscriptWorkflowProfile]) -> list[str]:
-        ordered = self._merge_profile_lists(workflow_profiles, "top_domain_terms", limit=3)
-        fallback = [self._to_capability_label(value) for value in ordered if value]
-        return self._normalize_capability_tags(fallback, process_title="")
+        return fallback_capability_tags(workflow_profiles=workflow_profiles, merge_profile_lists=self._merge_profile_lists)
 
     @staticmethod
     def _merge_profile_lists(
@@ -938,46 +846,18 @@ class ProcessGroupingService:
         *,
         limit: int,
     ) -> list[str]:
-        ordered: list[str] = []
-        seen: set[str] = set()
-        for profile in workflow_profiles:
-            for value in getattr(profile, attribute_name):
-                if value in seen:
-                    continue
-                seen.add(value)
-                ordered.append(value)
-                if len(ordered) >= limit:
-                    return ordered
-        return ordered
+        return merge_profile_lists(workflow_profiles, attribute_name, limit=limit)
 
     @staticmethod
     def _to_capability_label(value: str) -> str:
-        return " ".join(part.capitalize() for part in value.split())
+        return to_capability_label(value)
 
     def _normalize_capability_tags(self, tags: list[str], *, process_title: str) -> list[str]:
-        normalized_process_title = self._normalize_text(process_title)
-        normalized_tags: list[str] = []
-        seen: set[str] = set()
-        for tag in tags:
-            cleaned = re.sub(r"\s+", " ", str(tag or "").strip())
-            if not cleaned:
-                continue
-            normalized_key = self._normalize_text(cleaned)
-            if not normalized_key or normalized_key == normalized_process_title or normalized_key in seen:
-                continue
-            seen.add(normalized_key)
-            normalized_tags.append(cleaned)
-            if len(normalized_tags) >= 3:
-                break
-        return normalized_tags
+        return normalize_capability_tags(tags, process_title=process_title)
 
     @staticmethod
     def _parse_capability_tags(value: str) -> list[str]:
-        try:
-            parsed = json.loads(value or "[]")
-        except json.JSONDecodeError:
-            return []
-        return [item for item in parsed if isinstance(item, str)]
+        return parse_capability_tags(value)
 
     def _build_workflow_summary(
         self,
