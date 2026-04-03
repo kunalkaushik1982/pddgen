@@ -130,6 +130,7 @@ class WorkerArchitectureBoundaryTests(unittest.TestCase):
         self.assertIn("worker.services.workflow_intelligence.grouping_models", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_profiles", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_assignment_flow", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_ai_resolution", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_ai_adapters", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_title_resolution", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_identity_resolution", imported_modules)
