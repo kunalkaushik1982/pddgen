@@ -558,6 +558,8 @@ class ProcessGroupingService:
                 existing_groups=serialized_existing_groups,
             )
         )
+        if ai_skill_result is None:
+            return None
         if not ai_skill_result.recommended_title and ai_skill_result.matched_existing_title is None:
             return None
         ai_match = WorkflowGroupMatchInterpretation(

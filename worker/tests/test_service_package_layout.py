@@ -26,6 +26,11 @@ class ServicePackageLayoutTests(unittest.TestCase):
             SERVICES_DIR / "ai_transcript" / "diagrams.py",
             SERVICES_DIR / "ai_transcript" / "diagram_interpreter.py",
             SERVICES_DIR / "ai_transcript" / "transcript_adaptation.py",
+            SERVICES_DIR / "ai_transcript" / "workflow_prompts.py",
+            SERVICES_DIR / "ai_transcript" / "workflow_grouping.py",
+            SERVICES_DIR / "ai_transcript" / "workflow_titles.py",
+            SERVICES_DIR / "ai_transcript" / "workflow_enrichment.py",
+            SERVICES_DIR / "ai_transcript" / "workflow_summaries.py",
             SERVICES_DIR / "ai_transcript" / "workflows.py",
             SERVICES_DIR / "media" / "video_frame_extractor.py",
         ]
