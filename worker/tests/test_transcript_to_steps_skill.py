@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
@@ -69,7 +69,7 @@ def load_runtime_module():
 
 
 def load_generation_types_module():
-    spec = importlib.util.spec_from_file_location("worker.services.generation_types", GENERATION_TYPES_PATH)
+    spec = importlib.util.spec_from_file_location("worker.pipeline.types", GENERATION_TYPES_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec is not None and spec.loader is not None
     sys.modules[spec.name] = module
@@ -95,7 +95,7 @@ def load_interpreter_module():
     ai_skills_module.__path__ = []  # type: ignore[attr-defined]
     ai_transcript_module = types.ModuleType("worker.services.ai_transcript")
     ai_transcript_module.__path__ = []  # type: ignore[attr-defined]
-    transcript_module = types.ModuleType("worker.services.ai_skills.transcript_to_steps")
+    transcript_module = types.ModuleType("worker.ai_skills.transcript_to_steps")
     transcript_module.__path__ = []  # type: ignore[attr-defined]
     bootstrap_module = types.ModuleType("worker.bootstrap")
 
@@ -135,20 +135,20 @@ def load_interpreter_module():
     sys.modules["worker.services"] = services_module
     sys.modules["worker.services.ai_skills"] = ai_skills_module
     sys.modules["worker.services.ai_transcript"] = ai_transcript_module
-    sys.modules["worker.services.ai_skills.transcript_to_steps"] = transcript_module
+    sys.modules["worker.ai_skills.transcript_to_steps"] = transcript_module
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["httpx"] = httpx_module
-    sys.modules["worker.services.generation_types"] = load_generation_types_module()
-    _load_service_module("worker.services.ai_transcript.client", AI_TRANSCRIPT_CLIENT_PATH)
-    _load_service_module("worker.services.ai_transcript.models", AI_TRANSCRIPT_MODELS_PATH)
-    _load_service_module("worker.services.ai_transcript.normalization", AI_TRANSCRIPT_NORMALIZATION_PATH)
-    _load_service_module("worker.services.ai_transcript.diagrams", AI_TRANSCRIPT_DIAGRAMS_PATH)
-    _load_service_module("worker.services.ai_transcript.workflows", AI_TRANSCRIPT_WORKFLOWS_PATH)
+    sys.modules["worker.pipeline.types"] = load_generation_types_module()
+    _load_service_module("worker.ai_skills.transcript_interpreter.client", AI_TRANSCRIPT_CLIENT_PATH)
+    _load_service_module("worker.ai_skills.transcript_interpreter.models", AI_TRANSCRIPT_MODELS_PATH)
+    _load_service_module("worker.ai_skills.transcript_interpreter.normalization", AI_TRANSCRIPT_NORMALIZATION_PATH)
+    _load_service_module("worker.ai_skills.transcript_interpreter.diagrams", AI_TRANSCRIPT_DIAGRAMS_PATH)
+    _load_service_module("worker.ai_skills.transcript_interpreter.workflows", AI_TRANSCRIPT_WORKFLOWS_PATH)
     _load_service_module("worker.services.ai_transcript", AI_TRANSCRIPT_INIT_PATH)
-    sys.modules["worker.services.ai_skills.client"] = load_client_module()
-    sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()
-    sys.modules["worker.services.ai_skills.transcript_to_steps.schemas"] = load_schemas_module()
-    sys.modules["worker.services.ai_skills.transcript_to_steps.skill"] = load_skill_module()
+    sys.modules["worker.ai_skills.client"] = load_client_module()
+    sys.modules["worker.ai_skills.runtime"] = load_runtime_module()
+    sys.modules["worker.ai_skills.transcript_to_steps.schemas"] = load_schemas_module()
+    sys.modules["worker.ai_skills.transcript_to_steps.skill"] = load_skill_module()
 
     spec = importlib.util.spec_from_file_location("ai_transcript_interpreter", INTERPRETER_PATH)
     module = importlib.util.module_from_spec(spec)

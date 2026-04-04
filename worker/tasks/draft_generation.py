@@ -1,11 +1,11 @@
-r"""
+﻿r"""
 Purpose: Background task for long-running draft generation work.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\tasks\draft_generation.py
 """
 
 from worker.celery_app import celery_app
 from app.core.observability import bind_log_context, get_logger
-from worker.services.draft_generation.worker import DraftGenerationWorker
+from worker.pipeline.stages.worker import DraftGenerationWorker
 
 logger = get_logger(__name__)
 

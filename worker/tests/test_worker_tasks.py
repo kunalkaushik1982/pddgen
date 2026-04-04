@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
@@ -55,9 +55,9 @@ def _install_task_test_stubs() -> None:
     draft_generation_package.__path__ = []  # type: ignore[attr-defined]
     screenshot_generation_package = types.ModuleType("worker.services.screenshot_generation")
     screenshot_generation_package.__path__ = []  # type: ignore[attr-defined]
-    draft_worker_module = types.ModuleType("worker.services.draft_generation.worker")
+    draft_worker_module = types.ModuleType("worker.pipeline.stages.worker")
     draft_worker_module.DraftGenerationWorker = type("DraftGenerationWorker", (), {})
-    screenshot_worker_module = types.ModuleType("worker.services.screenshot_generation.worker")
+    screenshot_worker_module = types.ModuleType("worker.screenshot.worker")
     screenshot_worker_module.ScreenshotGenerationWorker = type("ScreenshotGenerationWorker", (), {})
 
     sys.modules["app"] = app_module
@@ -69,8 +69,8 @@ def _install_task_test_stubs() -> None:
     sys.modules["worker.services"] = services_module
     sys.modules["worker.services.draft_generation"] = draft_generation_package
     sys.modules["worker.services.screenshot_generation"] = screenshot_generation_package
-    sys.modules["worker.services.draft_generation.worker"] = draft_worker_module
-    sys.modules["worker.services.screenshot_generation.worker"] = screenshot_worker_module
+    sys.modules["worker.pipeline.stages.worker"] = draft_worker_module
+    sys.modules["worker.screenshot.worker"] = screenshot_worker_module
 
 
 def load_draft_task_module():

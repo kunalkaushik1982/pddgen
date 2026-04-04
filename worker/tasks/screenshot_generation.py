@@ -1,4 +1,4 @@
-r"""
+﻿r"""
 Purpose: Background task for screenshot-only generation work.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\tasks\screenshot_generation.py
 """
@@ -6,7 +6,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\worker\tasks\screenshot_gene
 from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 from worker.celery_app import celery_app
-from worker.services.screenshot_generation.worker import ScreenshotGenerationWorker
+from worker.screenshot.worker import ScreenshotGenerationWorker
 
 logger = get_logger(__name__)
 

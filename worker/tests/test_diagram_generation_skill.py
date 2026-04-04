@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -67,10 +67,10 @@ def load_stage_module(path: Path):
         "worker",
         "worker.bootstrap",
         "worker.services",
-        "worker.services.draft_generation.input_stages",
-        "worker.services.draft_generation.process_stages",
-        "worker.services.draft_generation.output_stages",
-        "worker.services.draft_generation.stage_context",
+        "worker.pipeline.stages.input_stages",
+        "worker.pipeline.stages.process_stages",
+        "worker.pipeline.stages.output_stages",
+        "worker.pipeline.stages.stage_context",
     ):
         sys.modules.pop(module_name, None)
 
@@ -129,12 +129,12 @@ def load_stage_module(path: Path):
     worker_services_module.__path__ = [str(SERVICES_DIR)]  # type: ignore[attr-defined]
     ai_skills_module = types.ModuleType("worker.services.ai_skills")
     ai_skills_module.__path__ = []  # type: ignore[attr-defined]
-    diagram_pkg = types.ModuleType("worker.services.ai_skills.diagram_generation")
+    diagram_pkg = types.ModuleType("worker.ai_skills.diagram_generation")
     diagram_pkg.__path__ = []  # type: ignore[attr-defined]
 
     bootstrap_module = types.ModuleType("worker.bootstrap")
     bootstrap_module.get_backend_settings = lambda: None
-    canonical_merge_module = types.ModuleType("worker.services.workflow_intelligence.canonical_merge")
+    canonical_merge_module = types.ModuleType("worker.grouping.canonical_merge")
     canonical_merge_module.CanonicalProcessMergeService = type("CanonicalProcessMergeService", (), {})
 
     ai_transcript_module = types.ModuleType("worker.services.ai_transcript_interpreter")
@@ -144,7 +144,7 @@ def load_stage_module(path: Path):
 
     ai_transcript_module.AITranscriptInterpreter = AITranscriptInterpreter
 
-    draft_context_module = types.ModuleType("worker.services.draft_generation.stage_context")
+    draft_context_module = types.ModuleType("worker.pipeline.stages.stage_context")
 
     @dataclass(slots=True)
     class DraftGenerationContext:
@@ -158,14 +158,14 @@ def load_stage_module(path: Path):
 
     draft_context_module.DraftGenerationContext = DraftGenerationContext
 
-    evidence_module = types.ModuleType("worker.services.workflow_intelligence.segmentation_service")
+    evidence_module = types.ModuleType("worker.grouping.segmentation_service")
     evidence_module.AISemanticEnrichmentStrategy = type("AISemanticEnrichmentStrategy", (), {})
     evidence_module.AIWorkflowBoundaryStrategy = type("AIWorkflowBoundaryStrategy", (), {})
     evidence_module.EvidenceSegmentationService = type("EvidenceSegmentationService", (), {})
     evidence_module.HeuristicSemanticEnrichmentStrategy = type("HeuristicSemanticEnrichmentStrategy", (), {})
     evidence_module.ParagraphTranscriptSegmentationStrategy = type("ParagraphTranscriptSegmentationStrategy", (), {})
 
-    support_module = types.ModuleType("worker.services.draft_generation.support")
+    support_module = types.ModuleType("worker.pipeline.stages.support")
     support_module.ACTION_OFFSET_WINDOWS = {}
     support_module.SCREENSHOT_ROLE_LOCAL_OFFSETS = {}
     support_module.SCREENSHOT_ROLE_ORDER = []
@@ -175,14 +175,14 @@ def load_stage_module(path: Path):
     support_module.seconds_to_timestamp = lambda *args, **kwargs: "00:00:00"
     support_module.timestamp_to_seconds = lambda *args, **kwargs: 0
 
-    process_grouping_module = types.ModuleType("worker.services.workflow_intelligence.grouping_service")
+    process_grouping_module = types.ModuleType("worker.grouping.grouping_service")
     process_grouping_module.ProcessGroupingService = type("ProcessGroupingService", (), {})
-    normalizer_module = types.ModuleType("worker.services.media.transcript_normalizer")
+    normalizer_module = types.ModuleType("worker.media.transcript_normalizer")
     normalizer_module.TranscriptNormalizer = type("TranscriptNormalizer", (), {})
-    video_module = types.ModuleType("worker.services.media.video_frame_extractor")
+    video_module = types.ModuleType("worker.media.video_frame_extractor")
     video_module.ExtractedFrameCandidate = type("ExtractedFrameCandidate", (), {})
     video_module.VideoFrameExtractor = type("VideoFrameExtractor", (), {})
-    workflow_registry_module = types.ModuleType("worker.services.workflow_intelligence.strategy_registry")
+    workflow_registry_module = types.ModuleType("worker.grouping.strategy_registry")
     workflow_registry_module.WorkflowIntelligenceStrategyRegistry = type("WorkflowIntelligenceStrategyRegistry", (), {})
 
     sys.modules["app"] = app_module
@@ -203,22 +203,22 @@ def load_stage_module(path: Path):
     sys.modules["worker"] = worker_module
     sys.modules["worker.services"] = worker_services_module
     sys.modules["worker.services.ai_skills"] = ai_skills_module
-    sys.modules["worker.services.ai_skills.diagram_generation"] = diagram_pkg
+    sys.modules["worker.ai_skills.diagram_generation"] = diagram_pkg
     sys.modules["worker.bootstrap"] = bootstrap_module
-    sys.modules["worker.services.workflow_intelligence.canonical_merge"] = canonical_merge_module
+    sys.modules["worker.grouping.canonical_merge"] = canonical_merge_module
     sys.modules["worker.services.ai_transcript_interpreter"] = ai_transcript_module
-    sys.modules["worker.services.draft_generation.stage_context"] = draft_context_module
-    sys.modules["worker.services.workflow_intelligence.segmentation_service"] = evidence_module
-    sys.modules["worker.services.draft_generation.support"] = support_module
-    sys.modules["worker.services.workflow_intelligence.grouping_service"] = process_grouping_module
-    sys.modules["worker.services.media.transcript_normalizer"] = normalizer_module
-    sys.modules["worker.services.media.video_frame_extractor"] = video_module
-    sys.modules["worker.services.workflow_intelligence.strategy_registry"] = workflow_registry_module
-    sys.modules["worker.services.ai_skills.client"] = load_client_module()
-    sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()
-    sys.modules["worker.services.ai_skills.diagram_generation.schemas"] = load_schemas_module()
-    sys.modules["worker.services.ai_skills.diagram_generation.skill"] = load_skill_module()
-    sys.modules["worker.services.ai_skills.registry"] = load_registry_module()
+    sys.modules["worker.pipeline.stages.stage_context"] = draft_context_module
+    sys.modules["worker.grouping.segmentation_service"] = evidence_module
+    sys.modules["worker.pipeline.stages.support"] = support_module
+    sys.modules["worker.grouping.grouping_service"] = process_grouping_module
+    sys.modules["worker.media.transcript_normalizer"] = normalizer_module
+    sys.modules["worker.media.video_frame_extractor"] = video_module
+    sys.modules["worker.grouping.strategy_registry"] = workflow_registry_module
+    sys.modules["worker.ai_skills.client"] = load_client_module()
+    sys.modules["worker.ai_skills.runtime"] = load_runtime_module()
+    sys.modules["worker.ai_skills.diagram_generation.schemas"] = load_schemas_module()
+    sys.modules["worker.ai_skills.diagram_generation.skill"] = load_skill_module()
+    sys.modules["worker.ai_skills.registry"] = load_registry_module()
 
     return load_module(f"draft_stage_{path.stem}_test", path)
 

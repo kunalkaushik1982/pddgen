@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import sys
 import types
@@ -19,7 +19,7 @@ class _FakeSettings:
 bootstrap_module.get_backend_settings = lambda: _FakeSettings()
 sys.modules.setdefault("worker.bootstrap", bootstrap_module)
 
-from worker.services.workflow_intelligence.segmentation_service import (
+from worker.grouping.segmentation_service import (
     AISemanticEnrichmentStrategy,
     AIWorkflowBoundaryStrategy,
     HeuristicSemanticEnrichmentStrategy,
