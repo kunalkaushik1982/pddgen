@@ -24,6 +24,7 @@ from worker.services.workflow_intelligence.grouping_models import (
 from worker.services.workflow_intelligence.grouping_summaries import build_workflow_summary
 from worker.services.workflow_intelligence.grouping_summary_refresh import serialize_existing_groups_for_ai
 from worker.services.workflow_intelligence.grouping_text import slugify
+from worker.services.workflow_intelligence.grouping_title_support import normalize_workflow_title
 
 logger = get_logger(__name__)
 
@@ -164,7 +165,7 @@ def resolve_title_with_ai(
             confidence="medium",
             rationale="",
         )
-    normalized_title = service._normalize_workflow_title(
+    normalized_title = normalize_workflow_title(
         base_title=ai_resolution.workflow_title.strip() or fallback_title,
         steps=steps,
         workflow_profile=workflow_profile,

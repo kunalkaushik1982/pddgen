@@ -6,6 +6,7 @@ from app.services.job_dispatcher import JobDispatcherService
 from worker import bootstrap as _bootstrap  # noqa: F401
 from worker.services.draft_generation.input_stages import EvidenceSegmentationStage, SessionPreparationStage, TranscriptInterpretationStage
 from worker.services.draft_generation.output_stages import DiagramAssemblyStage, FailureStage, PersistenceStage, ScreenshotDerivationStage
+from worker.services.draft_generation.persistence_screenshots import persist_step_screenshots
 from worker.services.draft_generation.process_stages import CanonicalMergeStage, ProcessGroupingStage
 from worker.services.workflow_intelligence.segmentation_service import (
     AISemanticEnrichmentStrategy,
@@ -68,7 +69,7 @@ class ScreenshotPersistenceAdapter:
         self._stage = stage or PersistenceStage()
 
     def persist(self, db, context) -> dict[str, int | str]:  # type: ignore[no-untyped-def]
-        self._stage._persist_step_screenshots(db, context.persisted_step_models, context.all_steps)
+        persist_step_screenshots(db, step_models=context.persisted_step_models, step_candidates=context.all_steps)
         selected_screenshot_count = sum(len(step.get("_derived_screenshots", [])) for step in context.all_steps)
         db.add(
             ActionLogModel(
