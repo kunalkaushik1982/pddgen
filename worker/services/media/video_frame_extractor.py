@@ -3,11 +3,14 @@ Purpose: Extract candidate screenshot frames from video artifacts using ffmpeg.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\video_frame_extractor.py
 """
 
-from dataclasses import dataclass
-from pathlib import Path
 import shutil
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
 from app.core.observability import get_logger
+from worker.services.media.ffmpeg_runtime import find_tool, run_command
+from worker.services.media.frame_time_utils import seconds_to_timestamp, timestamp_to_seconds
 
 
 logger = get_logger(__name__)
@@ -27,8 +30,8 @@ class VideoFrameExtractor:
     """Extract timestamp-aligned frames from videos for BA review."""
 
     def __init__(self, *, timeout_seconds: float | None = None) -> None:
-        self.ffmpeg_path = shutil.which("ffmpeg")
-        self.ffprobe_path = shutil.which("ffprobe")
+        self.ffmpeg_path = find_tool("ffmpeg")
+        self.ffprobe_path = find_tool("ffprobe")
         self.timeout_seconds = timeout_seconds
 
     def is_available(self) -> bool:
@@ -54,13 +57,7 @@ class VideoFrameExtractor:
             output_path,
         ]
         try:
-            subprocess.run(
-                command,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout_seconds,
-            )
+            run_command(command, timeout_seconds=self.timeout_seconds)
         except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
             logger.info(
                 "ffmpeg frame extraction failed",
@@ -89,12 +86,12 @@ class VideoFrameExtractor:
 
         output_root = Path(output_dir)
         output_root.mkdir(parents=True, exist_ok=True)
-        base_seconds = self._timestamp_to_seconds(base_timestamp or "00:00:01")
+        base_seconds = timestamp_to_seconds(base_timestamp or "00:00:01")
         candidates: list[ExtractedFrameCandidate] = []
 
         for offset in offsets_seconds:
             sample_seconds = max(1, base_seconds + offset)
-            sample_timestamp = self._seconds_to_timestamp(sample_seconds)
+            sample_timestamp = seconds_to_timestamp(sample_seconds)
             output_path = output_root / f"{filename_prefix}_{offset:+d}.png"
             extracted = self.extract_frame(
                 video_path=video_path,
@@ -130,7 +127,7 @@ class VideoFrameExtractor:
         output_root.mkdir(parents=True, exist_ok=True)
         candidates: list[ExtractedFrameCandidate] = []
         timestamp_list = timestamps or ["00:00:01"]
-        base_seconds = self._timestamp_to_seconds(timestamp_list[0])
+        base_seconds = timestamp_to_seconds(timestamp_list[0])
 
         for index, sample_timestamp in enumerate(timestamp_list):
             output_path = output_root / f"{filename_prefix}_{index:02d}.png"
@@ -142,7 +139,7 @@ class VideoFrameExtractor:
             if not extracted:
                 continue
 
-            sample_seconds = self._timestamp_to_seconds(sample_timestamp)
+            sample_seconds = timestamp_to_seconds(sample_timestamp)
             candidates.append(
                 ExtractedFrameCandidate(
                     output_path=str(output_path),
@@ -169,13 +166,7 @@ class VideoFrameExtractor:
             video_path,
         ]
         try:
-            completed = subprocess.run(
-                command,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout_seconds,
-            )
+            completed = run_command(command, timeout_seconds=self.timeout_seconds)
         except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
             return None
 
@@ -183,21 +174,3 @@ class VideoFrameExtractor:
             return max(1, int(float((completed.stdout or "").strip())))
         except ValueError:
             return None
-
-    @staticmethod
-    def _timestamp_to_seconds(timestamp: str) -> int:
-        """Convert HH:MM:SS into total seconds."""
-        parts = [int(part) for part in timestamp.split(":")]
-        while len(parts) < 3:
-            parts.insert(0, 0)
-        hours, minutes, seconds = parts[-3:]
-        return (hours * 3600) + (minutes * 60) + seconds
-
-    @staticmethod
-    def _seconds_to_timestamp(total_seconds: int) -> str:
-        """Convert total seconds into HH:MM:SS."""
-        hours = total_seconds // 3600
-        remainder = total_seconds % 3600
-        minutes = remainder // 60
-        seconds = remainder % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"

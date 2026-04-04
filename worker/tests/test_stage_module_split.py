@@ -9,7 +9,7 @@ SERVICES_DIR = Path(__file__).resolve().parents[1] / "services"
 LEGACY_OUTPUT_STAGE_PATH = SERVICES_DIR / "draft_generation_output_stages.py"
 OUTPUT_STAGE_PATH = SERVICES_DIR / "draft_generation" / "output_stages.py"
 
-OUTPUT_STAGE_CLASS_NAMES = {
+OUTPUT_STAGE_EXPORT_NAMES = {
     "ScreenshotDerivationStage",
     "DiagramAssemblyStage",
     "PersistenceStage",
@@ -26,11 +26,21 @@ def _defined_class_names(path: Path) -> set[str]:
     }
 
 
-class StageModuleSplitTests(unittest.TestCase):
-    def test_output_stage_module_owns_output_stage_classes(self) -> None:
-        output_class_names = _defined_class_names(OUTPUT_STAGE_PATH)
+def _imported_names(path: Path) -> set[str]:
+    module = ast.parse(path.read_text(encoding="utf-8"))
+    names: set[str] = set()
+    for node in module.body:
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                names.add(alias.asname or alias.name)
+    return names
 
-        self.assertTrue(OUTPUT_STAGE_CLASS_NAMES.issubset(output_class_names))
+
+class StageModuleSplitTests(unittest.TestCase):
+    def test_output_stage_module_exports_output_stage_classes(self) -> None:
+        imported_names = _imported_names(OUTPUT_STAGE_PATH)
+
+        self.assertTrue(OUTPUT_STAGE_EXPORT_NAMES.issubset(imported_names))
 
     def test_legacy_stage_module_has_been_removed(self) -> None:
         self.assertFalse((SERVICES_DIR / "draft_generation_stage_services.py").exists())
