@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 import importlib.util
@@ -106,7 +106,7 @@ def load_process_grouping_module():
     worker_services_module.__path__ = []  # type: ignore[attr-defined]
     ai_skills_module = types.ModuleType("worker.services.ai_skills")
     ai_skills_module.__path__ = []  # type: ignore[attr-defined]
-    process_summary_pkg = types.ModuleType("worker.services.ai_skills.process_summary_generation")
+    process_summary_pkg = types.ModuleType("worker.ai_skills.process_summary_generation")
     process_summary_pkg.__path__ = []  # type: ignore[attr-defined]
 
     ai_transcript_module = types.ModuleType("worker.services.ai_transcript_interpreter")
@@ -145,7 +145,7 @@ def load_process_grouping_module():
     workflow_intelligence_module.EvidenceSegment = type("EvidenceSegment", (), {})
     workflow_intelligence_module.WorkflowBoundaryDecision = type("WorkflowBoundaryDecision", (), {})
 
-    title_schema_module = types.ModuleType("worker.services.ai_skills.workflow_title_resolution.schemas")
+    title_schema_module = types.ModuleType("worker.ai_skills.workflow_title_resolution.schemas")
 
     @dataclass(slots=True)
     class WorkflowTitleResolutionRequest:
@@ -154,7 +154,7 @@ def load_process_grouping_module():
 
     title_schema_module.WorkflowTitleResolutionRequest = WorkflowTitleResolutionRequest
 
-    group_schema_module = types.ModuleType("worker.services.ai_skills.workflow_group_match.schemas")
+    group_schema_module = types.ModuleType("worker.ai_skills.workflow_group_match.schemas")
 
     @dataclass(slots=True)
     class WorkflowGroupMatchRequest:
@@ -174,16 +174,16 @@ def load_process_grouping_module():
     sys.modules["worker"] = worker_module
     sys.modules["worker.services"] = worker_services_module
     sys.modules["worker.services.ai_skills"] = ai_skills_module
-    sys.modules["worker.services.ai_skills.process_summary_generation"] = process_summary_pkg
-    sys.modules["worker.services.ai_skills.client"] = load_client_module()
-    sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()
-    sys.modules["worker.services.ai_skills.process_summary_generation.schemas"] = load_schemas_module()
-    sys.modules["worker.services.ai_skills.process_summary_generation.skill"] = load_skill_module()
-    sys.modules["worker.services.ai_skills.workflow_title_resolution.schemas"] = title_schema_module
-    sys.modules["worker.services.ai_skills.workflow_group_match.schemas"] = group_schema_module
+    sys.modules["worker.ai_skills.process_summary_generation"] = process_summary_pkg
+    sys.modules["worker.ai_skills.client"] = load_client_module()
+    sys.modules["worker.ai_skills.runtime"] = load_runtime_module()
+    sys.modules["worker.ai_skills.process_summary_generation.schemas"] = load_schemas_module()
+    sys.modules["worker.ai_skills.process_summary_generation.skill"] = load_skill_module()
+    sys.modules["worker.ai_skills.workflow_title_resolution.schemas"] = title_schema_module
+    sys.modules["worker.ai_skills.workflow_group_match.schemas"] = group_schema_module
     sys.modules["worker.services.ai_transcript_interpreter"] = ai_transcript_module
     sys.modules["worker.services.workflow_intelligence"] = workflow_intelligence_module
-    sys.modules["worker.services.ai_skills.registry"] = load_registry_module()
+    sys.modules["worker.ai_skills.registry"] = load_registry_module()
 
     return load_module("process_grouping_summary_test", PROCESS_GROUPING_PATH)
 

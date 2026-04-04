@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import ast
 from pathlib import Path
@@ -133,8 +133,8 @@ class ServicePackageLayoutTests(unittest.TestCase):
             if isinstance(node, ast.ImportFrom) and node.module is not None
         }
 
-        self.assertIn("worker.services.workflow_intelligence.segmentation_heuristics", imported_modules)
-        self.assertIn("worker.services.workflow_intelligence.segmentation_ai_strategies", imported_modules)
+        self.assertIn("worker.grouping.segmentation_heuristics", imported_modules)
+        self.assertIn("worker.grouping.segmentation_ai_strategies", imported_modules)
 
     def test_output_stages_imports_split_modules(self) -> None:
         output_stage_path = SERVICES_DIR / "draft_generation" / "output_stages.py"
@@ -145,10 +145,10 @@ class ServicePackageLayoutTests(unittest.TestCase):
             if isinstance(node, ast.ImportFrom) and node.module is not None
         }
 
-        self.assertIn("worker.services.draft_generation.screenshot_derivation", imported_modules)
-        self.assertIn("worker.services.draft_generation.diagram_assembly", imported_modules)
-        self.assertIn("worker.services.draft_generation.persistence", imported_modules)
-        self.assertIn("worker.services.draft_generation.failure", imported_modules)
+        self.assertIn("worker.pipeline.stages.screenshot_derivation", imported_modules)
+        self.assertIn("worker.pipeline.stages.diagram_assembly", imported_modules)
+        self.assertIn("worker.pipeline.stages.persistence", imported_modules)
+        self.assertIn("worker.pipeline.stages.failure", imported_modules)
 
     def test_grouping_service_imports_split_modules(self) -> None:
         grouping_service_path = SERVICES_DIR / "workflow_intelligence" / "grouping_service.py"
@@ -159,15 +159,15 @@ class ServicePackageLayoutTests(unittest.TestCase):
             if isinstance(node, ast.ImportFrom) and node.module is not None
         }
 
-        self.assertIn("worker.services.workflow_intelligence.grouping_models", imported_modules)
-        self.assertIn("worker.services.workflow_intelligence.grouping_ai_adapters", imported_modules)
-        self.assertIn("worker.services.workflow_intelligence.grouping_assignment_flow", imported_modules)
-        self.assertIn("worker.services.workflow_intelligence.grouping_identity_flow", imported_modules)
-        self.assertIn("worker.services.workflow_intelligence.grouping_decisions", imported_modules)
-        self.assertIn("worker.services.workflow_intelligence.grouping_profiles", imported_modules)
-        self.assertIn("worker.services.workflow_intelligence.grouping_summaries", imported_modules)
-        self.assertIn("worker.services.workflow_intelligence.grouping_summary_refresh", imported_modules)
-        self.assertIn("worker.services.workflow_intelligence.grouping_text", imported_modules)
+        self.assertIn("worker.grouping.grouping_models", imported_modules)
+        self.assertIn("worker.grouping.grouping_ai_adapters", imported_modules)
+        self.assertIn("worker.grouping.grouping_assignment_flow", imported_modules)
+        self.assertIn("worker.grouping.grouping_identity_flow", imported_modules)
+        self.assertIn("worker.grouping.grouping_decisions", imported_modules)
+        self.assertIn("worker.grouping.grouping_profiles", imported_modules)
+        self.assertIn("worker.grouping.grouping_summaries", imported_modules)
+        self.assertIn("worker.grouping.grouping_summary_refresh", imported_modules)
+        self.assertIn("worker.grouping.grouping_text", imported_modules)
 
     def test_grouping_service_is_thin_enough(self) -> None:
         grouping_service_path = SERVICES_DIR / "workflow_intelligence" / "grouping_service.py"
@@ -182,9 +182,9 @@ class ServicePackageLayoutTests(unittest.TestCase):
             for node in module.body
             if isinstance(node, ast.ImportFrom) and node.module is not None
         }
-        self.assertIn("worker.services.draft_generation.session_preparation", imported_modules)
-        self.assertIn("worker.services.draft_generation.transcript_interpretation", imported_modules)
-        self.assertIn("worker.services.draft_generation.evidence_segmentation", imported_modules)
+        self.assertIn("worker.pipeline.stages.session_preparation", imported_modules)
+        self.assertIn("worker.pipeline.stages.transcript_interpretation", imported_modules)
+        self.assertIn("worker.pipeline.stages.evidence_segmentation", imported_modules)
 
 
 if __name__ == "__main__":

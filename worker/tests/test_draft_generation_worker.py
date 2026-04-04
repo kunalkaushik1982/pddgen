@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
@@ -38,7 +38,7 @@ def _install_worker_test_stubs() -> None:
     worker_services_module = types.ModuleType("worker.services")
     worker_services_module.__path__ = [str(SERVICES_ROOT)]  # type: ignore[attr-defined]
     bootstrap_module = types.ModuleType("worker.bootstrap")
-    composition_module = types.ModuleType("worker.services.orchestration.composition")
+    composition_module = types.ModuleType("worker.pipeline.composition")
     composition_module.build_draft_generation_use_case = lambda **kwargs: None
     composition_module.build_screenshot_generation_use_case = lambda **kwargs: None
 
@@ -49,7 +49,7 @@ def _install_worker_test_stubs() -> None:
     sys.modules["worker"] = worker_module
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["worker.services"] = worker_services_module
-    sys.modules["worker.services.orchestration.composition"] = composition_module
+    sys.modules["worker.pipeline.composition"] = composition_module
 
 
 def load_draft_worker_module():

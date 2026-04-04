@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
@@ -110,9 +110,9 @@ def load_evidence_segmentation_module():
     services_module.__path__ = []  # type: ignore[attr-defined]
     ai_skills_module = types.ModuleType("worker.services.ai_skills")
     ai_skills_module.__path__ = []  # type: ignore[attr-defined]
-    semantic_module = types.ModuleType("worker.services.ai_skills.semantic_enrichment")
+    semantic_module = types.ModuleType("worker.ai_skills.semantic_enrichment")
     semantic_module.__path__ = []  # type: ignore[attr-defined]
-    boundary_module = types.ModuleType("worker.services.ai_skills.workflow_boundary_detection")
+    boundary_module = types.ModuleType("worker.ai_skills.workflow_boundary_detection")
     boundary_module.__path__ = []  # type: ignore[attr-defined]
 
     ai_transcript_module = types.ModuleType("worker.services.ai_transcript_interpreter")
@@ -123,12 +123,12 @@ def load_evidence_segmentation_module():
 
     ai_transcript_module.AITranscriptInterpreter = FakeInterpreter
 
-    draft_support_module = types.ModuleType("worker.services.draft_generation.support")
+    draft_support_module = types.ModuleType("worker.pipeline.stages.support")
     draft_support_module.ACTION_VERB_PATTERNS = {"review": ("review",), "create": ("create",)}
     draft_support_module.TIMESTAMP_PATTERN = None
     draft_support_module.classify_action_type = lambda text: "review"
 
-    strategy_interfaces_module = types.ModuleType("worker.services.workflow_intelligence.strategy_interfaces")
+    strategy_interfaces_module = types.ModuleType("worker.grouping.strategy_interfaces")
     strategy_interfaces_module.WorkflowIntelligenceStrategySet = object
 
     workflow_intelligence_module = load_workflow_intelligence_module()
@@ -136,17 +136,17 @@ def load_evidence_segmentation_module():
     sys.modules["worker"] = worker_module
     sys.modules["worker.services"] = services_module
     sys.modules["worker.services.ai_skills"] = ai_skills_module
-    sys.modules["worker.services.ai_skills.semantic_enrichment"] = semantic_module
-    sys.modules["worker.services.ai_skills.workflow_boundary_detection"] = boundary_module
+    sys.modules["worker.ai_skills.semantic_enrichment"] = semantic_module
+    sys.modules["worker.ai_skills.workflow_boundary_detection"] = boundary_module
     sys.modules["worker.services.ai_transcript_interpreter"] = ai_transcript_module
-    sys.modules["worker.services.ai_skills.client"] = load_client_module()
-    sys.modules["worker.services.ai_skills.runtime"] = load_runtime_module()
-    sys.modules["worker.services.ai_skills.semantic_enrichment.schemas"] = load_schemas_module()
-    sys.modules["worker.services.ai_skills.semantic_enrichment.skill"] = load_skill_module()
-    sys.modules["worker.services.ai_skills.workflow_boundary_detection.schemas"] = load_boundary_schemas_module()
-    sys.modules["worker.services.ai_skills.workflow_boundary_detection.skill"] = load_boundary_skill_module()
-    sys.modules["worker.services.draft_generation.support"] = draft_support_module
-    sys.modules["worker.services.workflow_intelligence.strategy_interfaces"] = strategy_interfaces_module
+    sys.modules["worker.ai_skills.client"] = load_client_module()
+    sys.modules["worker.ai_skills.runtime"] = load_runtime_module()
+    sys.modules["worker.ai_skills.semantic_enrichment.schemas"] = load_schemas_module()
+    sys.modules["worker.ai_skills.semantic_enrichment.skill"] = load_skill_module()
+    sys.modules["worker.ai_skills.workflow_boundary_detection.schemas"] = load_boundary_schemas_module()
+    sys.modules["worker.ai_skills.workflow_boundary_detection.skill"] = load_boundary_skill_module()
+    sys.modules["worker.pipeline.stages.support"] = draft_support_module
+    sys.modules["worker.grouping.strategy_interfaces"] = strategy_interfaces_module
     sys.modules["worker.services.workflow_intelligence"] = workflow_intelligence_module
 
     spec = importlib.util.spec_from_file_location("evidence_segmentation_local", EVIDENCE_SEGMENTATION_PATH)

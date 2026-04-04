@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 import importlib.util
@@ -23,8 +23,8 @@ def load_builder_module():
     services_module = types.ModuleType("worker.services")
     services_module.__path__ = [str(SERVICES_ROOT)]  # type: ignore[attr-defined]
     bootstrap_module = types.ModuleType("worker.bootstrap")
-    context_module = types.ModuleType("worker.services.draft_generation.stage_context")
-    generation_types_module = types.ModuleType("worker.services.generation_types")
+    context_module = types.ModuleType("worker.pipeline.stages.stage_context")
+    generation_types_module = types.ModuleType("worker.pipeline.types")
     sqlalchemy_module = types.ModuleType("sqlalchemy")
 
     class _DeleteStatement:
@@ -71,8 +71,8 @@ def load_builder_module():
     sys.modules["worker"] = worker_module
     sys.modules["worker.bootstrap"] = bootstrap_module
     sys.modules["worker.services"] = services_module
-    sys.modules["worker.services.draft_generation.stage_context"] = context_module
-    sys.modules["worker.services.generation_types"] = generation_types_module
+    sys.modules["worker.pipeline.stages.stage_context"] = context_module
+    sys.modules["worker.pipeline.types"] = generation_types_module
 
     spec = importlib.util.spec_from_file_location("screenshot_context_builder_test", BUILDER_PATH)
     module = importlib.util.module_from_spec(spec)
