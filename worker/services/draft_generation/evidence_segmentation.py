@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from typing import TypedDict
 
 from app.core.observability import bind_log_context, get_logger
 from app.services.action_log_service import ActionLogService
@@ -10,6 +11,15 @@ from worker.services.media.transcript_normalizer import TranscriptNormalizer
 from worker.services.workflow_intelligence.segmentation_service import EvidenceSegmentationService
 
 logger = get_logger(__name__)
+
+
+class TranscriptSegmentationSummary(TypedDict):
+    transcript_name: str
+    top_actors: Counter[str]
+    top_objects: Counter[str]
+    top_systems: Counter[str]
+    top_goals: Counter[str]
+    top_rules: Counter[str]
 
 
 class EvidenceSegmentationStage:
@@ -65,7 +75,7 @@ class EvidenceSegmentationStage:
                 },
             )
 
-    def _build_segmentation_metadata(self, context: DraftGenerationContext) -> dict:
+    def _build_segmentation_metadata(self, context: DraftGenerationContext) -> dict[str, object]:
         segment_method_counts = Counter(segment.segmentation_method for segment in context.evidence_segments)
         enrichment_confidence_counts = Counter(segment.enrichment.confidence for segment in context.evidence_segments if segment.enrichment is not None)
         enrichment_source_counts = Counter(segment.enrichment.enrichment_source for segment in context.evidence_segments if segment.enrichment is not None)
@@ -73,7 +83,7 @@ class EvidenceSegmentationStage:
         boundary_confidence_counts = Counter(decision.confidence for decision in context.workflow_boundary_decisions)
         boundary_source_counts = Counter(decision.decision_source for decision in context.workflow_boundary_decisions)
         boundary_conflict_counts = Counter("conflict" if decision.conflict_detected else "non_conflict" for decision in context.workflow_boundary_decisions)
-        transcript_summaries: dict[str, dict[str, object]] = {}
+        transcript_summaries: dict[str, TranscriptSegmentationSummary] = {}
         transcript_names = {artifact.id: artifact.name for artifact in context.transcript_artifacts}
         for segment in context.evidence_segments:
             summary = transcript_summaries.setdefault(

@@ -35,6 +35,8 @@ class ServicePackageLayoutTests(unittest.TestCase):
             SERVICES_DIR / "workflow_intelligence" / "segmentation_ai_boundary.py",
             SERVICES_DIR / "workflow_intelligence" / "grouping_models.py",
             SERVICES_DIR / "workflow_intelligence" / "grouping_ai_adapters.py",
+            SERVICES_DIR / "workflow_intelligence" / "grouping_assignment_flow.py",
+            SERVICES_DIR / "workflow_intelligence" / "grouping_identity_flow.py",
             SERVICES_DIR / "workflow_intelligence" / "grouping_matching.py",
             SERVICES_DIR / "workflow_intelligence" / "grouping_decisions.py",
             SERVICES_DIR / "workflow_intelligence" / "grouping_profiles.py",
@@ -159,6 +161,8 @@ class ServicePackageLayoutTests(unittest.TestCase):
 
         self.assertIn("worker.services.workflow_intelligence.grouping_models", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_ai_adapters", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_assignment_flow", imported_modules)
+        self.assertIn("worker.services.workflow_intelligence.grouping_identity_flow", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_decisions", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_profiles", imported_modules)
         self.assertIn("worker.services.workflow_intelligence.grouping_summaries", imported_modules)
@@ -168,7 +172,7 @@ class ServicePackageLayoutTests(unittest.TestCase):
     def test_grouping_service_is_thin_enough(self) -> None:
         grouping_service_path = SERVICES_DIR / "workflow_intelligence" / "grouping_service.py"
         line_count = len(grouping_service_path.read_text(encoding="utf-8").splitlines())
-        self.assertLessEqual(line_count, 900)
+        self.assertLessEqual(line_count, 500)
 
     def test_input_stages_imports_split_modules(self) -> None:
         input_stage_path = SERVICES_DIR / "draft_generation" / "input_stages.py"
