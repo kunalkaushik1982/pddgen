@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
@@ -7,9 +7,9 @@ import types
 import unittest
 from unittest.mock import Mock
 
-DRAFT_WORKER_PATH = Path(__file__).resolve().parents[1] / "services" / "draft_generation" / "worker.py"
-SCREENSHOT_WORKER_PATH = Path(__file__).resolve().parents[1] / "services" / "screenshot_generation" / "worker.py"
 WORKER_ROOT = Path(__file__).resolve().parents[1]
+DRAFT_WORKER_PATH = WORKER_ROOT / "pipeline" / "stages" / "worker.py"
+SCREENSHOT_WORKER_PATH = WORKER_ROOT / "screenshot" / "worker.py"
 SERVICES_ROOT = WORKER_ROOT / "services"
 
 

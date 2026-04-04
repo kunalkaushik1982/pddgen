@@ -1,4 +1,4 @@
-﻿r"""
+r"""
 Purpose: Deterministic canonical merge for multi-meeting draft generation.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\canonical_process_merge.py
 """
@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import cast
 
 from app.models.artifact import ArtifactModel
-from app.models.process_group import ProcessGroupModel
+from worker.grouping.grouping_models import ProcessGroupWorkItem
 from worker.pipeline.types import NoteRecord, StepRecord
 from worker.grouping.canonical_merge_grouping import (
     group_transcripts_by_process_group,
@@ -36,7 +36,7 @@ class CanonicalProcessMergeService:
         self,
         *,
         transcript_artifacts: list[ArtifactModel],
-        process_groups: list[ProcessGroupModel],
+        process_groups: list[ProcessGroupWorkItem],
         steps_by_transcript: dict[str, list[StepRecord]],
         notes_by_transcript: dict[str, list[NoteRecord]],
     ) -> CanonicalMergeResult:

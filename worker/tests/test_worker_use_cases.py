@@ -1,62 +1,17 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
-import types
 import unittest
 
-SERVICES_ROOT = Path(__file__).resolve().parents[1] / "services"
-WORKER_ROOT = Path(__file__).resolve().parents[1]
-CONTRACTS_PATH = SERVICES_ROOT / "orchestration" / "contracts.py"
-PIPELINE_PATH = SERVICES_ROOT / "orchestration" / "pipeline.py"
-USE_CASES_PATH = SERVICES_ROOT / "orchestration" / "use_cases.py"
-
-
-def load_worker_contracts_module():
-    spec = importlib.util.spec_from_file_location("worker_contracts_test", CONTRACTS_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec is not None and spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def load_worker_pipeline_module():
-    spec = importlib.util.spec_from_file_location("worker_pipeline_test", PIPELINE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec is not None and spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def load_worker_use_cases_module():
-    worker_module = types.ModuleType("worker")
-    worker_module.__path__ = [str(WORKER_ROOT)]  # type: ignore[attr-defined]
-    worker_services_module = types.ModuleType("worker.services")
-    worker_services_module.__path__ = [str(SERVICES_ROOT)]  # type: ignore[attr-defined]
-    sys.modules["worker"] = worker_module
-    sys.modules["worker.services"] = worker_services_module
-    sys.modules["worker.pipeline.contracts"] = load_worker_contracts_module()
-    sys.modules["worker.pipeline.pipeline"] = load_worker_pipeline_module()
-
-    spec = importlib.util.spec_from_file_location("worker_use_cases_test", USE_CASES_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec is not None and spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+import worker.pipeline.use_cases as use_cases
 
 
 class WorkerUseCaseTests(unittest.TestCase):
     def test_draft_use_case_runs_injected_stages_and_persists_result(self) -> None:
-        use_cases = load_worker_use_cases_module()
         events: list[str] = []
 
         class FakeUow:
             def __enter__(self):
-                self.session = "db"
+                self.session = object()
                 events.append("uow_enter")
                 return self
 
@@ -100,12 +55,11 @@ class WorkerUseCaseTests(unittest.TestCase):
         self.assertEqual(events, ["uow_enter", "load:session-1", "segment", "group", "persist", "uow_exit"])
 
     def test_draft_use_case_records_failure_and_reraises(self) -> None:
-        use_cases = load_worker_use_cases_module()
         events: list[str] = []
 
         class FakeUow:
             def __enter__(self):
-                self.session = "db"
+                self.session = object()
                 return self
 
             def __exit__(self, exc_type, exc, tb):
@@ -146,12 +100,11 @@ class WorkerUseCaseTests(unittest.TestCase):
         self.assertEqual(events, ["failure:session-9:boom", "uow_exit:RuntimeError"])
 
     def test_screenshot_use_case_releases_lock_after_run(self) -> None:
-        use_cases = load_worker_use_cases_module()
         events: list[str] = []
 
         class FakeUow:
             def __enter__(self):
-                self.session = "db"
+                self.session = object()
                 return self
 
             def __exit__(self, exc_type, exc, tb):

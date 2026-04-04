@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from worker.ai_skills.transcript_to_steps.schemas import TranscriptToStepsResponse
 from worker.ai_skills.transcript_interpreter.models import TranscriptInterpretation

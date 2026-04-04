@@ -8,6 +8,7 @@ import React, { Suspense, lazy } from "react";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import type { ReviewMode } from "../hooks/useReviewWorkspace";
 import type { ProcessStep } from "../types/process";
+import { sessionHasPersistedScreenshotEvidence } from "../selectors/sessionPresentation";
 import type { DraftSession } from "../types/session";
 
 const StepReviewPage = lazy(async () => {
@@ -83,7 +84,7 @@ export function SessionDetailPage({
     );
   }
 
-  const hasExistingScreenshots = session.processSteps.some((step) => step.screenshots.length > 0);
+  const hasExistingScreenshots = sessionHasPersistedScreenshotEvidence(session);
 
   return (
     <section className="stack">

@@ -1,4 +1,4 @@
-﻿r"""
+r"""
 Purpose: Registry and factory helpers for workflow-intelligence strategies.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\workflow_strategy_registry.py
 """

@@ -1,11 +1,11 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import sys
 import types
 import unittest
 from dataclasses import dataclass
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 app_module = types.ModuleType("app")
 app_module.__path__ = []  # type: ignore[attr-defined]
@@ -45,6 +45,7 @@ class _ProcessGroupModel:
     canonical_slug: str = "vendor-creation"
     summary_text: str = ""
     capability_tags_json: str = "[]"
+    display_order: int = 1
 
 
 class _ProcessGroupService:
@@ -74,14 +75,53 @@ sys.modules.setdefault("app.models.process_group", process_group_model_module)
 sys.modules.setdefault("app.services.process_group_service", process_group_service_module)
 sys.modules.setdefault("worker.bootstrap", bootstrap_module)
 
-from worker.grouping.grouping_service import ProcessGroupingService, TranscriptWorkflowProfile
-from worker.services.ai_transcript_interpreter import (
+from app.services.process_group_service import ProcessGroupService
+from worker.ai_skills.registry import build_default_ai_skill_registry
+from worker.grouping.grouping_service import ProcessGroupingService
+from worker.grouping.grouping_models import TranscriptWorkflowProfile
+from worker.grouping.grouping_titles import fallback_title, normalize_workflow_title
+from worker.grouping.grouping_identity_flow import (
+    resolve_group_identity,
+    resolve_title_with_ai,
+    match_existing_group_with_ai,
+    resolve_ambiguity,
+)
+from worker.grouping.grouping_matching import match_existing_group
+from worker.grouping.grouping_profiles import (
+    build_transcript_profiles,
+    normalize_text,
+    STOPWORDS,
+)
+from worker.grouping.grouping_text import (
+    extract_leading_action_verb,
+    signature_tokens,
+    slugify,
+)
+from worker.grouping.grouping_summaries import (
+    build_workflow_summary,
+    normalize_capability_tags,
+    build_process_summary_fallback,
+)
+from worker.grouping.grouping_summary_refresh import (
+    refresh_group_summaries,
+    serialize_existing_groups_for_ai,
+)
+from worker.ai_skills.transcript_interpreter.interpreter import (
     AITranscriptInterpreter,
     AmbiguousProcessGroupResolution,
     ProcessSummaryInterpretation,
     WorkflowGroupMatchInterpretation,
     WorkflowTitleInterpretation,
 )
+
+
+def _process_grouping_service(*, ai_transcript_interpreter=None):
+    interpreter = ai_transcript_interpreter if ai_transcript_interpreter is not None else AITranscriptInterpreter()
+    return ProcessGroupingService(
+        process_group_service=ProcessGroupService(),
+        ai_transcript_interpreter=interpreter,
+        ai_skill_registry=build_default_ai_skill_registry(),
+    )
 
 
 class ProcessGroupingServiceTests(unittest.TestCase):
@@ -93,7 +133,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="high",
             rationale="AI normalized the workflow title to the business process name.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-1", name="sales-order.txt")
         profile = TranscriptWorkflowProfile(
             transcript_artifact_id="transcript-1",
@@ -105,7 +145,8 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_rules=[],
         )
 
-        title = service._resolve_title_with_ai(  # noqa: SLF001
+        title = resolve_title_with_ai(  # noqa: SLF001
+            service,
             transcript=transcript,
             steps=[{"action_text": "Open sales order in SAP"}],
             workflow_profile=profile,
@@ -123,7 +164,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="low",
             rationale="AI is not sure.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-1", name="sales-order.txt")
         profile = TranscriptWorkflowProfile(
             transcript_artifact_id="transcript-1",
@@ -135,7 +176,8 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_rules=[],
         )
 
-        title = service._resolve_title_with_ai(  # noqa: SLF001
+        title = resolve_title_with_ai(  # noqa: SLF001
+            service,
             transcript=transcript,
             steps=[{"action_text": "Open sales order in SAP"}],
             workflow_profile=profile,
@@ -145,7 +187,6 @@ class ProcessGroupingServiceTests(unittest.TestCase):
         self.assertEqual(title.workflow_title, "Sales Order Creation")
 
     def test_fallback_title_normalizes_open_sales_order_to_business_title(self) -> None:
-        service = ProcessGroupingService()
         transcript = SimpleNamespace(id="transcript-1", name="sales-order.txt")
         profile = TranscriptWorkflowProfile(
             transcript_artifact_id="transcript-1",
@@ -157,16 +198,17 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_rules=[],
         )
 
-        title = service._fallback_title(  # noqa: SLF001
+        title = fallback_title(
             transcript=transcript,
             steps=[{"action_text": "Create sales order in SAP"}],
             workflow_profile=profile,
+            normalize_text_fn=normalize_text,
+            extract_leading_action_verb=extract_leading_action_verb,
         )
 
         self.assertEqual(title, "Sales Order Creation")
 
     def test_fallback_title_normalizes_go_to_purchase_order_to_business_title(self) -> None:
-        service = ProcessGroupingService()
         transcript = SimpleNamespace(id="transcript-2", name="purchase-order.txt")
         profile = TranscriptWorkflowProfile(
             transcript_artifact_id="transcript-2",
@@ -178,10 +220,12 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_rules=[],
         )
 
-        title = service._fallback_title(  # noqa: SLF001
+        title = fallback_title(
             transcript=transcript,
             steps=[{"action_text": "Create purchase order in SAP"}],
             workflow_profile=profile,
+            normalize_text_fn=normalize_text,
+            extract_leading_action_verb=extract_leading_action_verb,
         )
 
         self.assertEqual(title, "Purchase Order Creation")
@@ -194,7 +238,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="high",
             rationale="AI proposed a title from the workflow evidence.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-1", name="sales-order.txt")
         profile = TranscriptWorkflowProfile(
             transcript_artifact_id="transcript-1",
@@ -206,7 +250,8 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_rules=[],
         )
 
-        title = service._resolve_title_with_ai(  # noqa: SLF001
+        title = resolve_title_with_ai(  # noqa: SLF001
+            service,
             transcript=transcript,
             steps=[{"action_text": "Create sales order in SAP"}],
             workflow_profile=profile,
@@ -216,7 +261,6 @@ class ProcessGroupingServiceTests(unittest.TestCase):
         self.assertEqual(title.workflow_title, "Sales Order Creation")
 
     def test_match_existing_group_marks_ambiguity_for_close_candidates(self) -> None:
-        service = ProcessGroupingService()
         workflow_profile = TranscriptWorkflowProfile(
             transcript_artifact_id="transcript-1",
             top_actors=["User"],
@@ -244,12 +288,15 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             ),
         ]
 
-        result = service._match_existing_group(  # noqa: SLF001
+        result = match_existing_group(  # noqa: SLF001
             slug="sales-order-operations",
             title="Sales Order Operations",
             steps=steps,
             workflow_profile=workflow_profile,
             existing_groups=existing_groups,
+            normalize_text=normalize_text,
+            stopwords=STOPWORDS,
+            signature_tokens=signature_tokens,
         )
 
         self.assertFalse(result["ambiguity"])
@@ -258,7 +305,6 @@ class ProcessGroupingServiceTests(unittest.TestCase):
         self.assertIn("moderate_existing_group_match", result["supporting_signals"])
 
     def test_match_existing_group_penalizes_application_mismatch(self) -> None:
-        service = ProcessGroupingService()
         workflow_profile = TranscriptWorkflowProfile(
             transcript_artifact_id="transcript-1",
             top_actors=["Lawyer"],
@@ -283,12 +329,15 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             )
         ]
 
-        result = service._match_existing_group(  # noqa: SLF001
+        result = match_existing_group(  # noqa: SLF001
             slug="contract-review",
             title="Contract Review Workflow",
             steps=steps,
             workflow_profile=workflow_profile,
             existing_groups=existing_groups,
+            normalize_text=normalize_text,
+            stopwords=STOPWORDS,
+            signature_tokens=signature_tokens,
         )
 
         self.assertIsNone(result["matched_group"])
@@ -303,7 +352,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="high",
             rationale="AI confirmed the transcript belongs to the existing sales order creation workflow.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-1", name="sales-order.txt")
         existing_group = SimpleNamespace(
             title="Sales Order Creation",
@@ -324,8 +373,8 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_goals=["Create Sales Order"],
             top_rules=["validate order data"],
         )
-        service._match_existing_group = Mock(  # type: ignore[method-assign]
-            return_value={
+        with patch("worker.grouping.grouping_identity_flow.match_existing_group") as mock_match:
+            mock_match.return_value = {
                 "matched_group": existing_group,
                 "best_score": 0.84,
                 "ambiguity": True,
@@ -335,17 +384,17 @@ class ProcessGroupingServiceTests(unittest.TestCase):
                 ],
                 "supporting_signals": ["strong_existing_group_match", "competing_group_candidates"],
             }
-        )
 
-        decision = service._resolve_group_identity(  # noqa: SLF001
-            transcript=transcript,
-            steps=[{"action_text": "Create sales order and validate order data in SAP"}],
-            notes=[],
-            existing_groups=[existing_group, competing_group],
-            workflow_profile=profile,
-            previous_workflow_profile=None,
-            previous_group=None,
-        )
+            decision = resolve_group_identity(
+                service,
+                transcript=transcript,
+                steps=[{"action_text": "Create sales order and validate order data in SAP"}],
+                notes=[],
+                existing_groups=[existing_group, competing_group],
+                workflow_profile=profile,
+                previous_workflow_profile=None,
+                previous_group=None,
+            )
 
         self.assertEqual(decision.decision, "ambiguously_matched_existing_group")
         self.assertTrue(decision.is_ambiguous)
@@ -360,7 +409,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="medium",
             rationale="AI determined the transcript is materially different from the existing workflows.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-2", name="returns-order.txt")
         existing_group = SimpleNamespace(
             title="Sales Order Creation",
@@ -381,8 +430,8 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_goals=["Create Sales Order"],
             top_rules=["validate order data"],
         )
-        service._match_existing_group = Mock(  # type: ignore[method-assign]
-            return_value={
+        with patch("worker.grouping.grouping_identity_flow.match_existing_group") as mock_match:
+            mock_match.return_value = {
                 "matched_group": None,
                 "best_score": 0.78,
                 "ambiguity": True,
@@ -392,17 +441,17 @@ class ProcessGroupingServiceTests(unittest.TestCase):
                 ],
                 "supporting_signals": ["moderate_existing_group_match", "competing_group_candidates"],
             }
-        )
 
-        decision = service._resolve_group_identity(  # noqa: SLF001
-            transcript=transcript,
-            steps=[{"action_text": "Create sales order and validate order data in SAP"}],
-            notes=[],
-            existing_groups=[existing_group, competing_group],
-            workflow_profile=profile,
-            previous_workflow_profile=None,
-            previous_group=None,
-        )
+            decision = resolve_group_identity(
+                service,
+                transcript=transcript,
+                steps=[{"action_text": "Create sales order and validate order data in SAP"}],
+                notes=[],
+                existing_groups=[existing_group, competing_group],
+                workflow_profile=profile,
+                previous_workflow_profile=None,
+                previous_group=None,
+            )
 
         self.assertEqual(decision.decision, "ambiguously_created_new_group")
         self.assertTrue(decision.is_ambiguous)
@@ -424,7 +473,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="high",
             rationale="AI determined the transcript matches the existing sales order workflow.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-1", name="sales-order.txt")
         existing_group = SimpleNamespace(
             title="Sales Order Creation",
@@ -441,7 +490,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_rules=["validate order data"],
         )
 
-        decision = service._resolve_group_identity(  # noqa: SLF001
+        decision = resolve_group_identity(service,   # noqa: SLF001
             transcript=transcript,
             steps=[{"action_text": "Create sales order and validate order data in SAP"}],
             notes=[],
@@ -470,7 +519,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="low",
             rationale="AI is not sure.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-1", name="sales-order.txt")
         existing_group = SimpleNamespace(
             title="Sales Order Creation",
@@ -487,7 +536,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_rules=["validate order data"],
         )
 
-        decision = service._resolve_group_identity(  # noqa: SLF001
+        decision = resolve_group_identity(service,   # noqa: SLF001
             transcript=transcript,
             steps=[{"action_text": "Create sales order and validate order data in SAP"}],
             notes=[],
@@ -515,7 +564,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="high",
             rationale="AI found the operational sequence aligned to Harvey.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-1", name="contract-review.txt")
         weaker_group = SimpleNamespace(
             title="Legal Document Analysis",
@@ -536,25 +585,25 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_goals=["Review contract obligations"],
             top_rules=["flag legal issues"],
         )
-        service._match_existing_group = Mock(  # type: ignore[method-assign]
-            return_value={
+        with patch("worker.grouping.grouping_identity_flow.match_existing_group") as mock_match:
+            mock_match.return_value = {
                 "matched_group": weaker_group,
                 "best_score": 0.81,
                 "ambiguity": False,
                 "candidate_matches": [{"group_title": weaker_group.title, "score": 0.81}],
                 "supporting_signals": ["moderate_existing_group_match"],
             }
-        )
 
-        decision = service._resolve_group_identity(  # noqa: SLF001
-            transcript=transcript,
-            steps=[{"action_text": "Review contract clauses in Harvey"}],
-            notes=[],
-            existing_groups=[weaker_group, ai_group],
-            workflow_profile=profile,
-            previous_workflow_profile=None,
-            previous_group=None,
-        )
+            decision = resolve_group_identity(
+                service,
+                transcript=transcript,
+                steps=[{"action_text": "Review contract clauses in Harvey"}],
+                notes=[],
+                existing_groups=[weaker_group, ai_group],
+                workflow_profile=profile,
+                previous_workflow_profile=None,
+                previous_group=None,
+            )
 
         self.assertEqual(decision.decision_source, "ai_conflict_override")
         self.assertEqual(decision.matched_group, ai_group)
@@ -577,7 +626,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="medium",
             rationale="AI was not fully sure this should attach to an existing workflow.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-1", name="harvey-review.txt")
         existing_group = SimpleNamespace(
             title="Harvey Contract Review",
@@ -593,25 +642,25 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_goals=["Review contract obligations"],
             top_rules=["flag legal issues"],
         )
-        service._match_existing_group = Mock(  # type: ignore[method-assign]
-            return_value={
+        with patch("worker.grouping.grouping_identity_flow.match_existing_group") as mock_match:
+            mock_match.return_value = {
                 "matched_group": existing_group,
                 "best_score": 0.95,
                 "ambiguity": False,
                 "candidate_matches": [{"group_title": existing_group.title, "score": 0.95}],
                 "supporting_signals": ["strong_existing_group_match"],
             }
-        )
 
-        decision = service._resolve_group_identity(  # noqa: SLF001
-            transcript=transcript,
-            steps=[{"action_text": "Review contract clauses in Harvey"}],
-            notes=[],
-            existing_groups=[existing_group],
-            workflow_profile=profile,
-            previous_workflow_profile=None,
-            previous_group=None,
-        )
+            decision = resolve_group_identity(
+                service,
+                transcript=transcript,
+                steps=[{"action_text": "Review contract clauses in Harvey"}],
+                notes=[],
+                existing_groups=[existing_group],
+                workflow_profile=profile,
+                previous_workflow_profile=None,
+                previous_group=None,
+            )
 
         self.assertEqual(decision.decision_source, "heuristic_fallback")
         self.assertEqual(decision.matched_group, existing_group)
@@ -634,7 +683,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="medium",
             rationale="AI saw enough operational differences to suggest a new workflow.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         transcript = SimpleNamespace(id="transcript-1", name="legal-workflow.txt")
         existing_group = SimpleNamespace(
             title="Harvey Contract Review",
@@ -650,25 +699,25 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_goals=["Review contract obligations"],
             top_rules=["flag legal issues"],
         )
-        service._match_existing_group = Mock(  # type: ignore[method-assign]
-            return_value={
+        with patch("worker.grouping.grouping_identity_flow.match_existing_group") as mock_match:
+            mock_match.return_value = {
                 "matched_group": existing_group,
                 "best_score": 0.84,
                 "ambiguity": False,
                 "candidate_matches": [{"group_title": existing_group.title, "score": 0.84}],
                 "supporting_signals": ["moderate_existing_group_match"],
             }
-        )
 
-        decision = service._resolve_group_identity(  # noqa: SLF001
-            transcript=transcript,
-            steps=[{"action_text": "Review contract clauses in Harvey"}],
-            notes=[],
-            existing_groups=[existing_group],
-            workflow_profile=profile,
-            previous_workflow_profile=None,
-            previous_group=None,
-        )
+            decision = resolve_group_identity(
+                service,
+                transcript=transcript,
+                steps=[{"action_text": "Review contract clauses in Harvey"}],
+                notes=[],
+                existing_groups=[existing_group],
+                workflow_profile=profile,
+                previous_workflow_profile=None,
+                previous_group=None,
+            )
 
         self.assertEqual(decision.decision_source, "conflict_unresolved")
         self.assertTrue(decision.is_ambiguous)
@@ -676,9 +725,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
         self.assertEqual(decision.decision, "ambiguously_matched_existing_group")
 
     def test_normalize_capability_tags_deduplicates_and_excludes_process_title(self) -> None:
-        service = ProcessGroupingService()
-
-        normalized = service._normalize_capability_tags(  # noqa: SLF001
+        normalized = normalize_capability_tags(  # noqa: SLF001
             ["Contract Review", "contract review", "Harvey Contract Review", "Legal Analysis"],
             process_title="Harvey Contract Review",
         )
@@ -695,7 +742,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
         self.assertEqual(calibrated, "low")
 
     def test_build_transcript_profiles_collects_application_names_from_steps(self) -> None:
-        profiles = ProcessGroupingService._build_transcript_profiles(  # noqa: SLF001
+        profiles = build_transcript_profiles(  # noqa: SLF001
             evidence_segments=[],
             workflow_boundary_decisions=[],
             steps_by_transcript={
@@ -710,7 +757,6 @@ class ProcessGroupingServiceTests(unittest.TestCase):
         self.assertEqual(profiles["transcript-1"].top_applications, ["Harvey Workspace", "Microsoft Word"])
 
     def test_match_existing_group_prefers_application_aligned_candidate_for_same_domain(self) -> None:
-        service = ProcessGroupingService()
         workflow_profile = TranscriptWorkflowProfile(
             transcript_artifact_id="transcript-1",
             top_actors=["Lawyer"],
@@ -741,12 +787,15 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             ),
         ]
 
-        result = service._match_existing_group(  # noqa: SLF001
+        result = match_existing_group(  # noqa: SLF001
             slug="contract-review",
             title="Contract Review Workflow",
             steps=steps,
             workflow_profile=workflow_profile,
             existing_groups=existing_groups,
+            normalize_text=normalize_text,
+            stopwords=STOPWORDS,
+            signature_tokens=signature_tokens,
         )
 
         self.assertIsNone(result["matched_group"])
@@ -763,7 +812,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             confidence="high",
             rationale="AI found a clear sales order workflow.",
         )
-        service = ProcessGroupingService(ai_transcript_interpreter=ai_interpreter)
+        service = _process_grouping_service(ai_transcript_interpreter=ai_interpreter)
         process_group = SimpleNamespace(id="group-1", title="Sales Order Creation", summary_text="")
         workflow_profile = TranscriptWorkflowProfile(
             transcript_artifact_id="transcript-1",
@@ -775,7 +824,7 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             top_rules=["validate customer details"],
         )
 
-        service._refresh_group_summaries(  # noqa: SLF001
+        refresh_group_summaries(  # noqa: SLF001
             process_groups=[process_group],
             transcript_group_ids={"transcript-1": "group-1"},
             steps_by_transcript={
@@ -786,6 +835,11 @@ class ProcessGroupingServiceTests(unittest.TestCase):
             notes_by_transcript={"transcript-1": [{"text": "Validate order completeness"}]},
             workflow_profiles={"transcript-1": workflow_profile},
             document_type="pdd",
+            accepted_ai_confidence={"high", "medium"},
+            ai_skill_registry=service._ai_skill_registry,
+            process_summary_generation_skill=service._process_summary_generation_skill,
+            workflow_capability_tagging_skill=service._workflow_capability_tagging_skill,
+            logger=_FakeLogger(),
         )
 
         self.assertIn("sales order", process_group.summary_text.lower())

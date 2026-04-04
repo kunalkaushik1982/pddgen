@@ -1,21 +1,53 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_group import ProcessGroupModel
+from sqlalchemy.orm import Session
 from worker.pipeline.types import NoteRecord, StepRecord
-from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
-from worker.grouping.grouping_models import ProcessGroupingResult, TranscriptWorkflowProfile
+from worker.grouping import EvidenceSegment, WorkflowBoundaryDecision
+from worker.grouping.grouping_identity_flow import GroupingServiceProtocol, resolve_group_identity
+from worker.grouping.grouping_models import (
+    ProcessGroupingResult,
+    TranscriptWorkflowProfile,
+    process_group_model_to_work_item,
+)
 from worker.grouping.grouping_profiles import build_transcript_profiles, sort_transcripts
 from worker.grouping.grouping_summaries import group_summary_seed, parse_capability_tags
+from worker.grouping.grouping_summary_refresh import refresh_group_summaries
+from app.core.observability import get_logger
+
+logger = get_logger(__name__)
+
+
+class ProcessGroupCreationPort(Protocol):
+    """Create a persisted process group row (ORM); used only inside the assignment flow."""
+
+    def create_process_group(
+        self,
+        db: object,
+        *,
+        session: DraftSessionModel,
+        title: str,
+        canonical_slug: str,
+        display_order: int,
+    ) -> ProcessGroupModel: ...
+
+
+class GroupingAssignmentServiceProtocol(GroupingServiceProtocol, Protocol):
+    """Narrow contract for assign_groups: identity-flow deps plus process group persistence."""
+
+    process_group_service: ProcessGroupCreationPort
+    _process_summary_generation_skill: Any
+    _workflow_capability_tagging_skill: Any
 
 
 def assign_groups(
-    service: Any,
+    service: GroupingAssignmentServiceProtocol,
     *,
-    db: Any,
+    db: Session,
     session: DraftSessionModel,
     transcript_artifacts: list[ArtifactModel],
     steps_by_transcript: dict[str, list[StepRecord]],
@@ -53,7 +85,9 @@ def assign_groups(
         previous_transcript = sorted_transcripts[index - 1] if index > 0 else None
         previous_group = process_groups[-1] if process_groups else None
         previous_workflow_profile = workflow_profiles.get(previous_transcript.id) if previous_transcript is not None else None
-        resolution = service._resolve_group_identity(
+        # SRP fix: call identity flow function directly instead of service wrapper.
+        resolution = resolve_group_identity(
+            service,
             transcript=transcript,
             steps=transcript_steps,
             notes=transcript_notes,
@@ -115,13 +149,19 @@ def assign_groups(
         for note in transcript_notes:
             note["process_group_id"] = matched_group.id
 
-    service._refresh_group_summaries(
+    # SRP fix: call refresh flow function directly instead of service wrapper.
+    refresh_group_summaries(
         process_groups=process_groups,
         transcript_group_ids=transcript_group_ids,
         steps_by_transcript=steps_by_transcript,
         notes_by_transcript=notes_by_transcript,
         workflow_profiles=workflow_profiles,
         document_type=getattr(session, "document_type", "pdd"),
+        accepted_ai_confidence={"high", "medium"},
+        ai_skill_registry=service._ai_skill_registry,
+        process_summary_generation_skill=service._process_summary_generation_skill,
+        workflow_capability_tagging_skill=service._workflow_capability_tagging_skill,
+        logger=logger,
     )
     capability_tags_by_group = {
         group.id: parse_capability_tags(getattr(group, "capability_tags_json", "[]"))
@@ -133,7 +173,7 @@ def assign_groups(
             assignment["capability_tags"] = capability_tags_by_group.get(assigned_group_id, [])
 
     return ProcessGroupingResult(
-        process_groups=process_groups,
+        process_groups=[process_group_model_to_work_item(group) for group in process_groups],
         transcript_group_ids=transcript_group_ids,
         assignment_details=assignment_details,
     )

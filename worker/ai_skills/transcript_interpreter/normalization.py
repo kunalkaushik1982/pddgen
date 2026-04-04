@@ -1,4 +1,4 @@
-﻿from worker.ai_skills.transcript_interpreter.confidence import (
+from worker.ai_skills.transcript_interpreter.confidence import (
     calibrate_confidence,
     confidence_from_rank,
     confidence_rank,

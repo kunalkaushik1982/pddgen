@@ -1,10 +1,11 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Protocol
 
 from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
+from sqlalchemy.orm import Session
 from app.models.artifact import ArtifactModel
 from app.services.action_log_service import ActionLogService
 from worker.bootstrap import get_backend_settings
@@ -37,16 +38,14 @@ class ScreenshotDerivationStage:
     are called directly where needed — no value was added by routing through self.
     """
 
-    def __init__(self, *, frame_extractor: VideoFrameExtractor | None = None, action_log_service: ActionLogService | None = None) -> None:
+    def __init__(self, *, frame_extractor: VideoFrameExtractor, action_log_service: ActionLogService) -> None:
         self.settings = get_backend_settings()
-        self.frame_extractor = frame_extractor or VideoFrameExtractor(
-            timeout_seconds=self.settings.screenshot_ffmpeg_timeout_seconds
-        )
-        self.action_log_service = action_log_service or ActionLogService()
+        self.frame_extractor = frame_extractor
+        self.action_log_service = action_log_service
 
-    def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
+    def run(self, db: Session, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="screenshot_derivation"):
-            if not context.video_artifacts:
+            if not context.inputs.video_artifacts:
                 logger.info(
                     "Skipping screenshot derivation because no video artifacts are present",
                     extra={"event": "draft_generation.stage_skipped"},
@@ -55,18 +54,18 @@ class ScreenshotDerivationStage:
 
             self.action_log_service.record(
                 db,
-                session_id=context.session_id,
+                session_id=context.inputs.session_id,
                 event_type="generation_stage",
                 title="Extracting screenshots",
-                detail=build_pairing_detail(context.transcript_artifacts, context.video_artifacts),
+                detail=build_pairing_detail(context.inputs.transcript_artifacts, context.inputs.video_artifacts),
                 actor="system",
             )
             db.commit()
 
             active_transcripts = [
-                transcript for transcript in self._sort_artifacts(context.transcript_artifacts) if context.steps_by_transcript.get(transcript.id)
+                transcript for transcript in self._sort_artifacts(context.inputs.transcript_artifacts) if context.steps_by_transcript.get(transcript.id)
             ]
-            sorted_videos = self._sort_artifacts(context.video_artifacts)
+            sorted_videos = self._sort_artifacts(context.inputs.video_artifacts)
 
             for transcript_index, transcript in enumerate(active_transcripts):
                 transcript_steps = context.steps_by_transcript.get(transcript.id, [])
@@ -93,16 +92,18 @@ class ScreenshotDerivationStage:
                 context.screenshot_artifacts.extend(
                     self._derive_screenshots(
                         db=db,
-                        session_id=context.session_id,
+                        session_id=context.inputs.session_id,
                         video_artifacts=[paired_video],
                         step_candidates=transcript_steps,
                     )
                 )
+            context.selected_screenshot_count = sum(len(step.get("_derived_screenshots", [])) for step in context.all_steps)
             logger.info(
                 "Screenshot derivation completed",
                 extra={
                     "event": "draft_generation.stage_completed",
                     "screenshot_count": len(context.screenshot_artifacts),
+                    "selected_count": context.selected_screenshot_count,
                 },
             )
 

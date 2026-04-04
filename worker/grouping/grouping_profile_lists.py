@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from worker.grouping.grouping_models import TranscriptWorkflowProfile
 

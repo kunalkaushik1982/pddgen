@@ -1,10 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from uuid import uuid4
 
 from worker.pipeline.stages.support import TIMESTAMP_PATTERN
-from worker.services.workflow_intelligence import EvidenceSegment
+from . import EvidenceSegment
 
 
 class ParagraphTranscriptSegmentationStrategy:

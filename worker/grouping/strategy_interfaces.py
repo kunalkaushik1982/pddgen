@@ -1,6 +1,6 @@
 r"""
 Purpose: Typed strategy contracts for workflow-intelligence stage composition.
-Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\workflow_strategy_interfaces.py
+Full filepath: C:\Users\work\Documents\PddGenerator\worker\grouping\strategy_interfaces.py
 """
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from worker.services.workflow_intelligence import EvidenceSegment, SemanticEnrichment, WorkflowBoundaryDecision
+from . import EvidenceSegment, SemanticEnrichment, WorkflowBoundaryDecision
 
 
 class TranscriptSegmentationStrategy(Protocol):

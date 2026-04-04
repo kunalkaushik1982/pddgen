@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from worker.pipeline.stages.support import seconds_to_timestamp, timestamp_to_seconds
 from worker.pipeline.types import StepRecord

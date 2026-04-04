@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
+from worker.ai_skills.transcript_interpreter.interpreter import AITranscriptInterpreter
 
 
 class InterpreterSemanticEnrichmentSkill:

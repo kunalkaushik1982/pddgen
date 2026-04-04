@@ -4,10 +4,10 @@ import importlib.util
 from pathlib import Path
 import unittest
 
-RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
-BASE_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "base.py"
-REGISTRY_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "registry.py"
-CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "client.py"
+RUNTIME_PATH = Path(__file__).resolve().parents[1] / "ai_skills" / "runtime.py"
+BASE_PATH = Path(__file__).resolve().parents[1] / "ai_skills" / "base.py"
+REGISTRY_PATH = Path(__file__).resolve().parents[1] / "ai_skills" / "registry.py"
+CLIENT_PATH = Path(__file__).resolve().parents[1] / "ai_skills" / "client.py"
 
 
 def load_runtime_module():

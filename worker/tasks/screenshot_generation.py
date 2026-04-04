@@ -1,4 +1,4 @@
-﻿r"""
+r"""
 Purpose: Background task for screenshot-only generation work.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\tasks\screenshot_generation.py
 """

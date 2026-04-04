@@ -1,36 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from worker.pipeline.types import NoteRecord, StepRecord
 from worker.grouping.grouping_models import TranscriptWorkflowProfile
 from worker.grouping.grouping_profile_lists import merge_profile_lists
 from worker.grouping.grouping_profiles import STOPWORDS, normalize_text
+from worker.grouping.grouping_text import operation_signature_from_steps, signature_tokens
 
 
-def signature_tokens(steps: list[StepRecord]) -> set[str]:
-    text = " ".join(str(step.get("action_text", "") or "") for step in steps[:12])
-    tokens = [token for token in normalize_text(text).split() if token and token not in STOPWORDS]
-    counts: dict[str, int] = {}
-    for token in tokens:
-        counts[token] = counts.get(token, 0) + 1
-    ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-    return {token for token, _ in ordered[:5]}
-
-
-def operation_signature_from_steps(steps: list[StepRecord]) -> list[str]:
-    signature: list[str] = []
-    seen: set[str] = set()
-    for step in steps[:8]:
-        action_text = str(step.get("action_text", "") or "").strip()
-        if not action_text:
-            continue
-        normalized = normalize_text(action_text)
-        if not normalized or normalized in seen:
-            continue
-        seen.add(normalized)
-        signature.append(action_text)
-        if len(signature) >= 5:
-            break
-    return signature
 
 
 def group_summary_seed(

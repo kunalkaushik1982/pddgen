@@ -1,11 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 
-from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
+from worker.ai_skills.transcript_interpreter.interpreter import AITranscriptInterpreter
 from worker.ai_skills.semantic_enrichment.schemas import SemanticEnrichmentRequest
-from worker.ai_skills.semantic_enrichment.skill import SemanticEnrichmentSkill
-from worker.services.workflow_intelligence import EvidenceSegment, SemanticEnrichment
+from . import EvidenceSegment, SemanticEnrichment
 from worker.grouping.segmentation_enrichment_heuristics import HeuristicSemanticEnrichmentStrategy
 from worker.grouping.segmentation_interpreter_adapters import InterpreterSemanticEnrichmentSkill
 
@@ -20,16 +19,12 @@ class AISemanticEnrichmentStrategy:
     def __init__(
         self,
         *,
-        ai_transcript_interpreter: AITranscriptInterpreter | None = None,
-        fallback_strategy: HeuristicSemanticEnrichmentStrategy | None = None,
+        ai_transcript_interpreter: AITranscriptInterpreter,
+        fallback_strategy: HeuristicSemanticEnrichmentStrategy,
     ) -> None:
-        self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
-        self.fallback_strategy = fallback_strategy or HeuristicSemanticEnrichmentStrategy()
-        self._semantic_enrichment_skill = (
-            InterpreterSemanticEnrichmentSkill(self.ai_transcript_interpreter)
-            if ai_transcript_interpreter is not None
-            else SemanticEnrichmentSkill()
-        )
+        self.ai_transcript_interpreter = ai_transcript_interpreter
+        self.fallback_strategy = fallback_strategy
+        self._semantic_enrichment_skill = InterpreterSemanticEnrichmentSkill(self.ai_transcript_interpreter)
 
     def enrich(self, segment: EvidenceSegment) -> SemanticEnrichment:
         fallback_enrichment = self.fallback_strategy.enrich(segment)

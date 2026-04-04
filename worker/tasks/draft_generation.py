@@ -1,4 +1,4 @@
-﻿r"""
+r"""
 Purpose: Background task for long-running draft generation work.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\tasks\draft_generation.py
 """

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from app.core.observability import bind_log_context, get_logger
 from sqlalchemy import delete, select
@@ -48,10 +48,13 @@ class SessionPreparationStage:
                 },
             )
 
+            from worker.pipeline.stages.stage_context import SessionInputs
             return DraftGenerationContext(
-                session_id=session.id,
-                session=session,
-                document_type=getattr(session, "document_type", "pdd"),
-                transcript_artifacts=transcript_artifacts,
-                video_artifacts=video_artifacts,
+                inputs=SessionInputs(
+                    session_id=session.id,
+                    session=session,
+                    document_type=getattr(session, "document_type", "pdd"),
+                    transcript_artifacts=transcript_artifacts,
+                    video_artifacts=video_artifacts,
+                )
             )

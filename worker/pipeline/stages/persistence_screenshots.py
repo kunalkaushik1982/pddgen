@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from app.models.process_step import ProcessStepModel
 from app.models.process_step_screenshot import ProcessStepScreenshotModel

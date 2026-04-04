@@ -1,6 +1,6 @@
-﻿r"""
+r"""
 Purpose: Background draft-generation coordinator for transcript normalization and screenshot derivation.
-Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\draft_generation_worker.py
+Full filepath: C:\Users\work\Documents\PddGenerator\worker\pipeline\stages\worker.py
 """
 
 from worker import bootstrap as _bootstrap  # noqa: F401

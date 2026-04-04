@@ -1,6 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
+from . import EvidenceSegment, WorkflowBoundaryDecision
 from worker.grouping.segmentation_ai_strategies import (
     AISemanticEnrichmentStrategy,
     AIWorkflowBoundaryStrategy,

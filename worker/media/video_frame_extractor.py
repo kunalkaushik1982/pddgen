@@ -1,4 +1,4 @@
-﻿r"""
+r"""
 Purpose: Extract candidate screenshot frames from video artifacts using ffmpeg.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\video_frame_extractor.py
 """

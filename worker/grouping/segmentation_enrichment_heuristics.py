@@ -1,9 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 
 from worker.pipeline.stages.support import ACTION_VERB_PATTERNS, classify_action_type
-from worker.services.workflow_intelligence import EvidenceSegment, SemanticEnrichment
+from . import EvidenceSegment, SemanticEnrichment
 
 
 class HeuristicSemanticEnrichmentStrategy:

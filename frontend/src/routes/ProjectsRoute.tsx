@@ -10,6 +10,7 @@ import { SessionHistoryPage } from "../pages/SessionHistoryPage";
 import { exportService } from "../services/exportService";
 import { sessionService } from "../services/sessionService";
 import { useToast } from "../providers/ToastProvider";
+import { sessionHasPersistedScreenshotEvidence } from "../selectors/sessionPresentation";
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -147,8 +148,7 @@ export function ProjectsRoute(): React.JSX.Element {
         onOpenExtend={(sessionId) => setExtendingSessionId(sessionId)}
         onGenerateScreenshots={async (sessionId) => {
           const session = await sessionService.getDraftSession(sessionId);
-          const hasExistingScreenshots = session.processSteps.some((step) => step.screenshots.length > 0);
-          if (hasExistingScreenshots) {
+          if (sessionHasPersistedScreenshotEvidence(session)) {
             setConfirmScreenshotSessionId(sessionId);
             return;
           }

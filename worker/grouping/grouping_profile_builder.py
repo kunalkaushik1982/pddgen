@@ -1,9 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import Counter, defaultdict
 
 from worker.pipeline.types import StepRecord
-from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
+from . import EvidenceSegment, WorkflowBoundaryDecision
 from worker.grouping.grouping_models import TranscriptWorkflowProfile
 from worker.grouping.grouping_text import extract_leading_action_verb, normalize_text, STOPWORDS
 

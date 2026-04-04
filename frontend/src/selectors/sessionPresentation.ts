@@ -1,4 +1,4 @@
-import type { DraftSessionListItem } from "../types/session";
+import type { DraftSession, DraftSessionListItem } from "../types/session";
 
 export type SessionProgressTone =
   | "draft"
@@ -16,6 +16,13 @@ export function canOpenSession(status: DraftSessionListItem["status"]): boolean 
 
 export function canExportSession(status: DraftSessionListItem["status"]): boolean {
   return status === "review" || status === "exported";
+}
+
+/** True if any step has selected and/or candidate screenshot rows from the API. */
+export function sessionHasPersistedScreenshotEvidence(session: DraftSession): boolean {
+  return session.processSteps.some(
+    (step) => step.screenshots.length > 0 || step.candidateScreenshots.length > 0,
+  );
 }
 
 export function isSessionActivelyProgressing(session: DraftSessionListItem): boolean {

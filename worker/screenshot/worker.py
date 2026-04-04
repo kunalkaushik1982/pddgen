@@ -1,4 +1,4 @@
-﻿r"""
+r"""
 Purpose: Background worker for screenshot-only generation over persisted canonical steps.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\screenshot_generation_worker.py
 """

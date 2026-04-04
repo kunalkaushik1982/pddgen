@@ -1,6 +1,6 @@
 r"""
 Purpose: Shared constants and deterministic helpers for draft generation.
-Full filepath: C:\Users\work\Documents\PddGenerator\worker\services\draft_generation_support.py
+Full filepath: C:\Users\work\Documents\PddGenerator\worker\pipeline\stages\support.py
 """
 
 import re

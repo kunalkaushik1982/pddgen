@@ -6,6 +6,29 @@ from typing import TypedDict
 from app.models.process_group import ProcessGroupModel
 
 
+@dataclass(slots=True)
+class ProcessGroupWorkItem:
+    """Snapshot of a process group for pipeline stages (worker boundary, no ORM session required)."""
+
+    id: str
+    display_order: int
+    title: str
+    canonical_slug: str
+    summary_text: str = ""
+    capability_tags_json: str = "[]"
+
+
+def process_group_model_to_work_item(model: ProcessGroupModel) -> ProcessGroupWorkItem:
+    return ProcessGroupWorkItem(
+        id=model.id,
+        display_order=int(getattr(model, "display_order", 0)),
+        title=model.title,
+        canonical_slug=model.canonical_slug,
+        summary_text=getattr(model, "summary_text", "") or "",
+        capability_tags_json=getattr(model, "capability_tags_json", None) or "[]",
+    )
+
+
 class CandidateMatchRecord(TypedDict, total=False):
     group_title: str
     score: float | str
@@ -26,7 +49,7 @@ class HeuristicGroupMatchResult(TypedDict):
 
 @dataclass(slots=True)
 class ProcessGroupingResult:
-    process_groups: list[ProcessGroupModel]
+    process_groups: list[ProcessGroupWorkItem]
     transcript_group_ids: dict[str, str]
     assignment_details: list[dict[str, object]]
 

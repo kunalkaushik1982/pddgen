@@ -1,14 +1,15 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import ast
 from pathlib import Path
 import unittest
 
-
-INTERPRETER_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_interpreter.py"
-PACKAGE_INTERPRETER_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "interpreter.py"
-WORKFLOWS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "workflows.py"
-DIAGRAM_INTERPRETER_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "diagram_interpreter.py"
+_ROOT = Path(__file__).resolve().parents[1]
+_TI = _ROOT / "ai_skills" / "transcript_interpreter"
+INTERPRETER_PATH = _ROOT / "ai_skills" / "transcript_interpreter_compat.py"
+PACKAGE_INTERPRETER_PATH = _TI / "interpreter.py"
+WORKFLOWS_PATH = _TI / "workflows.py"
+DIAGRAM_INTERPRETER_PATH = _TI / "diagram_interpreter.py"
 
 
 class AITranscriptPackageLayoutTests(unittest.TestCase):

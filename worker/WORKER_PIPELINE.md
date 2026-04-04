@@ -18,16 +18,16 @@ This file explains the worker flow in simple words.
 
 - `worker/tasks/draft_generation.py`
   Main async task for full draft generation
-- `worker/services/draft_generation/worker.py`
+- `worker/pipeline/stages/worker.py`
   Thin adapter over the draft use case
-- `worker/services/orchestration/composition.py`
+- `worker/pipeline/composition.py`
   Wires together the real dependencies and stage order
-- `worker/services/orchestration/use_cases.py`
+- `worker/pipeline/use_cases.py`
   Runs the orchestration flow
 
 ## What `build_draft_generation_use_case(...)` Does
 
-This function lives in `worker/services/orchestration/composition.py`.
+This function lives in `worker/pipeline/composition.py`.
 
 It does not generate the draft by itself.
 It assembles the full draft-generation pipeline and returns a ready-to-run `DraftGenerationUseCase`.
@@ -204,10 +204,10 @@ flowchart TD
 ## Which Module Calls Which
 
 - `worker/tasks/draft_generation.py`
-  calls `worker.services.draft_generation.worker.DraftGenerationWorker`
-- `worker/services/draft_generation/worker.py`
-  calls `worker.services.orchestration.composition.build_draft_generation_use_case`
-- `worker/services/orchestration/composition.py`
+  calls `worker.pipeline.stages.worker.DraftGenerationWorker`
+- `worker/pipeline/stages/worker.py`
+  calls `worker.pipeline.composition.build_draft_generation_use_case`
+- `worker/pipeline/composition.py`
   wires:
   - `SessionPreparationStage`
   - `EvidenceSegmentationStage`
@@ -216,17 +216,17 @@ flowchart TD
   - `CanonicalMergeStage`
   - `DiagramAssemblyStage`
   - `PersistenceStage`
-- `worker/services/draft_generation/input_stages.py`
+- `worker/pipeline/stages/input_stages.py`
   calls `AITranscriptInterpreter` and `EvidenceSegmentationService`
-- `worker/services/draft_generation/process_stages.py`
+- `worker/pipeline/stages/process_stages.py`
   calls `ProcessGroupingService` and `CanonicalProcessMergeService`
-- `worker/services/draft_generation/output_stages.py`
+- `worker/pipeline/stages/output_stages.py`
   calls diagram skill, screenshot extractor, and persistence logic
-- `worker/services/workflow_intelligence/segmentation_service.py`
+- `worker/grouping/segmentation_service.py`
   handles evidence segmentation and boundary logic
-- `worker/services/workflow_intelligence/grouping_service.py`
+- `worker/grouping/grouping_service.py`
   handles workflow grouping logic
-- `worker/services/workflow_intelligence/canonical_merge.py`
+- `worker/grouping/canonical_merge.py`
   handles canonical merging logic
 
 ## Simple Mental Model
@@ -237,11 +237,11 @@ Think of the worker like this:
   starts background execution
 - `worker adapters`
   thin wrappers only
-- `orchestration/`
+- `orchestration/` (now `pipeline/`)
   decides sequence and dependencies
-- `draft_generation/`
+- `draft_generation/` (now `pipeline/stages/`)
   does the main business pipeline
-- `workflow_intelligence/`
+- `workflow_intelligence/` (now `grouping/`)
   does AI-assisted workflow reasoning
 - `media/`
   handles transcript and video helpers

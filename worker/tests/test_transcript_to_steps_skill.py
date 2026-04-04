@@ -1,35 +1,17 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
 import sys
-import types
 import unittest
 
-SCHEMAS_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "services"
-    / "ai_skills"
-    / "transcript_to_steps"
-    / "schemas.py"
-)
-SKILL_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "services"
-    / "ai_skills"
-    / "transcript_to_steps"
-    / "skill.py"
-)
-CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "client.py"
-RUNTIME_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_skills" / "runtime.py"
-INTERPRETER_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript_interpreter.py"
-GENERATION_TYPES_PATH = Path(__file__).resolve().parents[1] / "services" / "generation_types.py"
-AI_TRANSCRIPT_INIT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "__init__.py"
-AI_TRANSCRIPT_CLIENT_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "client.py"
-AI_TRANSCRIPT_MODELS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "models.py"
-AI_TRANSCRIPT_NORMALIZATION_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "normalization.py"
-AI_TRANSCRIPT_DIAGRAMS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "diagrams.py"
-AI_TRANSCRIPT_WORKFLOWS_PATH = Path(__file__).resolve().parents[1] / "services" / "ai_transcript" / "workflows.py"
+_ROOT = Path(__file__).resolve().parents[1]
+_AI = _ROOT / "ai_skills"
+_TTS = _AI / "transcript_to_steps"
+SCHEMAS_PATH = _TTS / "schemas.py"
+SKILL_PATH = _TTS / "skill.py"
+CLIENT_PATH = _AI / "client.py"
+RUNTIME_PATH = _AI / "runtime.py"
 
 
 def load_schemas_module():
@@ -68,94 +50,13 @@ def load_runtime_module():
     return module
 
 
-def load_generation_types_module():
-    spec = importlib.util.spec_from_file_location("worker.pipeline.types", GENERATION_TYPES_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec is not None and spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def _load_service_module(module_name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    module = importlib.util.module_from_spec(spec)
-    assert spec is not None and spec.loader is not None
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 def load_interpreter_module():
-    worker_module = types.ModuleType("worker")
-    worker_module.__path__ = []  # type: ignore[attr-defined]
-    services_module = types.ModuleType("worker.services")
-    services_module.__path__ = []  # type: ignore[attr-defined]
-    ai_skills_module = types.ModuleType("worker.services.ai_skills")
-    ai_skills_module.__path__ = []  # type: ignore[attr-defined]
-    ai_transcript_module = types.ModuleType("worker.services.ai_transcript")
-    ai_transcript_module.__path__ = []  # type: ignore[attr-defined]
-    transcript_module = types.ModuleType("worker.ai_skills.transcript_to_steps")
-    transcript_module.__path__ = []  # type: ignore[attr-defined]
-    bootstrap_module = types.ModuleType("worker.bootstrap")
+    from worker.tests.import_cleanup import clear_stub_modules_for_integration_tests
 
-    class FakeSettings:
-        ai_enabled = True
-        ai_api_key = "test-key"
-        ai_base_url = "https://example.invalid"
-        ai_model = "test-model"
-        ai_timeout_seconds = 30
+    clear_stub_modules_for_integration_tests()
+    from worker.ai_skills.transcript_interpreter import interpreter
 
-    bootstrap_module.get_backend_settings = lambda: FakeSettings()
-    worker_module.bootstrap = bootstrap_module
-
-    httpx_module = types.ModuleType("httpx")
-
-    class Timeout:
-        def __init__(self, value: object) -> None:
-            self.value = value
-
-    class Client:
-        def __init__(self, timeout: object | None = None) -> None:
-            self.timeout = timeout
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            return None
-
-    httpx_module.Timeout = Timeout
-    httpx_module.Client = Client
-    httpx_module.TimeoutException = Exception
-    httpx_module.HTTPStatusError = Exception
-    httpx_module.HTTPError = Exception
-
-    sys.modules["worker"] = worker_module
-    sys.modules["worker.services"] = services_module
-    sys.modules["worker.services.ai_skills"] = ai_skills_module
-    sys.modules["worker.services.ai_transcript"] = ai_transcript_module
-    sys.modules["worker.ai_skills.transcript_to_steps"] = transcript_module
-    sys.modules["worker.bootstrap"] = bootstrap_module
-    sys.modules["httpx"] = httpx_module
-    sys.modules["worker.pipeline.types"] = load_generation_types_module()
-    _load_service_module("worker.ai_skills.transcript_interpreter.client", AI_TRANSCRIPT_CLIENT_PATH)
-    _load_service_module("worker.ai_skills.transcript_interpreter.models", AI_TRANSCRIPT_MODELS_PATH)
-    _load_service_module("worker.ai_skills.transcript_interpreter.normalization", AI_TRANSCRIPT_NORMALIZATION_PATH)
-    _load_service_module("worker.ai_skills.transcript_interpreter.diagrams", AI_TRANSCRIPT_DIAGRAMS_PATH)
-    _load_service_module("worker.ai_skills.transcript_interpreter.workflows", AI_TRANSCRIPT_WORKFLOWS_PATH)
-    _load_service_module("worker.services.ai_transcript", AI_TRANSCRIPT_INIT_PATH)
-    sys.modules["worker.ai_skills.client"] = load_client_module()
-    sys.modules["worker.ai_skills.runtime"] = load_runtime_module()
-    sys.modules["worker.ai_skills.transcript_to_steps.schemas"] = load_schemas_module()
-    sys.modules["worker.ai_skills.transcript_to_steps.skill"] = load_skill_module()
-
-    spec = importlib.util.spec_from_file_location("ai_transcript_interpreter", INTERPRETER_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec is not None and spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return interpreter
 
 
 class TranscriptToStepsSchemaTests(unittest.TestCase):

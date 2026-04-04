@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from worker.pipeline.stages.stage_context import DraftGenerationContext
 from worker.pipeline.stages.diagram_assembly import DiagramAssemblyStage

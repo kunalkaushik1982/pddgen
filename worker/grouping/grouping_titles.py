@@ -1,12 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from typing import Callable
 
 from app.models.artifact import ArtifactModel
 from worker.pipeline.types import StepRecord
-from worker.grouping.grouping_models import TranscriptWorkflowProfile
-from worker.grouping.grouping_workflow_summary import signature_tokens
+from .grouping_models import TranscriptWorkflowProfile
+from .grouping_text import signature_tokens
 
 WORKFLOW_SUFFIX_BY_ACTION = {
     "create": "Creation",
@@ -96,9 +96,9 @@ def fallback_title(
     transcript: ArtifactModel,
     steps: list[StepRecord],
     workflow_profile: TranscriptWorkflowProfile,
-    normalize_text,
-    extract_leading_action_verb,
-) -> str:  # type: ignore[no-untyped-def]
+    normalize_text_fn: Callable[[str], str],
+    extract_leading_action_verb: Callable[[str], str],
+) -> str:
     if workflow_profile.top_goals:
         normalized_goal_title = normalize_workflow_title(
             base_title=workflow_profile.top_goals[0],
@@ -126,7 +126,7 @@ def fallback_title(
             *[str(step.get("supporting_transcript_text", "") or "") for step in steps[:3]],
         ]
     )
-    normalized = normalize_text(combined)
+    normalized = normalize_text_fn(combined)
     explicit_patterns = [
         r"\b(sales order(?: creation)?)\b",
         r"\b(purchase order(?: creation)?)\b",

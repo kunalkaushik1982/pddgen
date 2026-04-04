@@ -1,3 +1,3 @@
-﻿from worker.grouping.segmentation_boundary_heuristics import HeuristicWorkflowBoundaryStrategy
+from worker.grouping.segmentation_boundary_heuristics import HeuristicWorkflowBoundaryStrategy
 from worker.grouping.segmentation_chunking import ParagraphTranscriptSegmentationStrategy
 from worker.grouping.segmentation_enrichment_heuristics import HeuristicSemanticEnrichmentStrategy

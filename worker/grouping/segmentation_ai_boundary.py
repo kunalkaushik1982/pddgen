@@ -1,11 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 
-from worker.services.ai_transcript_interpreter import AITranscriptInterpreter
+from worker.ai_skills.transcript_interpreter.interpreter import AITranscriptInterpreter
 from worker.ai_skills.workflow_boundary_detection.schemas import WorkflowBoundaryDetectionRequest
-from worker.ai_skills.workflow_boundary_detection.skill import WorkflowBoundaryDetectionSkill
-from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
+from . import EvidenceSegment, WorkflowBoundaryDecision
 from worker.grouping.segmentation_boundary_heuristics import HeuristicWorkflowBoundaryStrategy
 from worker.grouping.segmentation_interpreter_adapters import InterpreterWorkflowBoundarySkill
 
@@ -20,16 +19,12 @@ class AIWorkflowBoundaryStrategy:
     def __init__(
         self,
         *,
-        ai_transcript_interpreter: AITranscriptInterpreter | None = None,
-        fallback_strategy: HeuristicWorkflowBoundaryStrategy | None = None,
+        ai_transcript_interpreter: AITranscriptInterpreter,
+        fallback_strategy: HeuristicWorkflowBoundaryStrategy,
     ) -> None:
-        self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
-        self.fallback_strategy = fallback_strategy or HeuristicWorkflowBoundaryStrategy()
-        self._workflow_boundary_skill = (
-            InterpreterWorkflowBoundarySkill(self.ai_transcript_interpreter)
-            if ai_transcript_interpreter is not None
-            else WorkflowBoundaryDetectionSkill()
-        )
+        self.ai_transcript_interpreter = ai_transcript_interpreter
+        self.fallback_strategy = fallback_strategy
+        self._workflow_boundary_skill = InterpreterWorkflowBoundarySkill(self.ai_transcript_interpreter)
 
     def decide(self, left: EvidenceSegment, right: EvidenceSegment) -> WorkflowBoundaryDecision:
         fallback_decision = self.fallback_strategy.decide(left, right)

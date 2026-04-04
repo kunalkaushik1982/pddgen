@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from worker.services.workflow_intelligence import EvidenceSegment, WorkflowBoundaryDecision
+from . import EvidenceSegment, WorkflowBoundaryDecision
 
 
 class HeuristicWorkflowBoundaryStrategy:

@@ -4,10 +4,10 @@ import ast
 from pathlib import Path
 import unittest
 
-
-SERVICES_DIR = Path(__file__).resolve().parents[1] / "services"
+WORKER_ROOT = Path(__file__).resolve().parents[1]
+SERVICES_DIR = WORKER_ROOT / "services"
 LEGACY_OUTPUT_STAGE_PATH = SERVICES_DIR / "draft_generation_output_stages.py"
-OUTPUT_STAGE_PATH = SERVICES_DIR / "draft_generation" / "output_stages.py"
+OUTPUT_STAGE_PATH = WORKER_ROOT / "pipeline" / "stages" / "output_stages.py"
 
 OUTPUT_STAGE_EXPORT_NAMES = {
     "ScreenshotDerivationStage",

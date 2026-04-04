@@ -1,10 +1,11 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Mapping, cast
 
 from app.core.observability import bind_log_context, get_logger
 from app.services.action_log_service import ActionLogService
+from sqlalchemy.orm import Session
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
 from worker.ai_skills.transcript_interpreter.interpreter import AITranscriptInterpreter
@@ -26,11 +27,11 @@ class FallbackTranscriptExtractor:
     def __init__(
         self,
         *,
-        step_extractor: StepExtractionService | None = None,
-        note_extractor: TranscriptIntelligenceService | None = None,
+        step_extractor: StepExtractionService,
+        note_extractor: TranscriptIntelligenceService,
     ) -> None:
-        self._step_extractor = step_extractor or StepExtractionService()
-        self._note_extractor = note_extractor or TranscriptIntelligenceService()
+        self._step_extractor = step_extractor
+        self._note_extractor = note_extractor
 
     def extract(
         self,
@@ -65,31 +66,31 @@ class TranscriptInterpretationStage:
     def __init__(
         self,
         *,
-        transcript_normalizer: TranscriptNormalizer | None = None,
-        ai_transcript_interpreter: AITranscriptInterpreter | None = None,
-        fallback_extractor: FallbackTranscriptExtractor | None = None,
-        action_log_service: ActionLogService | None = None,
+        transcript_normalizer: TranscriptNormalizer,
+        ai_transcript_interpreter: AITranscriptInterpreter,
+        fallback_extractor: FallbackTranscriptExtractor,
+        action_log_service: ActionLogService,
     ) -> None:
-        self.transcript_normalizer = transcript_normalizer or TranscriptNormalizer()
-        self.ai_transcript_interpreter = ai_transcript_interpreter or AITranscriptInterpreter()
-        self.fallback_extractor = fallback_extractor or FallbackTranscriptExtractor()
-        self.action_log_service = action_log_service or ActionLogService()
+        self.transcript_normalizer = transcript_normalizer
+        self.ai_transcript_interpreter = ai_transcript_interpreter
+        self.fallback_extractor = fallback_extractor
+        self.action_log_service = action_log_service
 
-    def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
+    def run(self, db: Session, context: DraftGenerationContext) -> None:
         from worker.pipeline.stages.support import extract_transcript_timestamps, timestamp_to_seconds
 
         with bind_log_context(stage="transcript_interpretation"):
             self.action_log_service.record(
                 db,
-                session_id=context.session_id,
+                session_id=context.inputs.session_id,
                 event_type="generation_stage",
                 title="Interpreting transcript",
-                detail=f"Processing {len(context.transcript_artifacts)} transcript artifact(s).",
+                detail=f"Processing {len(context.inputs.transcript_artifacts)} transcript artifact(s).",
                 actor="system",
             )
             db.commit()
 
-            for transcript in context.transcript_artifacts:
+            for transcript in context.inputs.transcript_artifacts:
                 normalized_text = context.normalized_transcripts.get(transcript.id)
                 if normalized_text is None:
                     normalized_text = self.transcript_normalizer.normalize(transcript.storage_path, transcript.name)

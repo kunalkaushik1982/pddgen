@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Protocol
 
@@ -21,7 +21,14 @@ from worker.grouping.grouping_models import (
 from worker.grouping.grouping_summaries import build_workflow_summary
 from worker.grouping.grouping_summary_refresh import serialize_existing_groups_for_ai
 from worker.grouping.grouping_text import slugify
-from worker.grouping.grouping_title_support import normalize_workflow_title
+from worker.grouping.grouping_matching import match_existing_group
+from worker.grouping.grouping_titles import fallback_title, normalize_workflow_title
+from worker.grouping.grouping_text import (
+    extract_leading_action_verb,
+    normalize_text,
+    signature_tokens,
+    STOPWORDS,
+)
 from worker.ai_skills.workflow_group_match.schemas import WorkflowGroupMatchRequest
 from worker.ai_skills.workflow_title_resolution.schemas import WorkflowTitleResolutionRequest
 
@@ -35,29 +42,10 @@ logger = get_logger(__name__)
 class GroupingServiceProtocol(Protocol):
     """Minimal surface of ProcessGroupingService used by identity-flow helpers."""
 
-    _ACCEPTED_AI_CONFIDENCE: set[str]
     _workflow_title_resolution_skill: Any
     _workflow_group_match_skill: Any
     _ai_skill_registry: Any
     ai_transcript_interpreter: Any
-
-    def _fallback_title(
-        self,
-        *,
-        transcript: ArtifactModel,
-        steps: list[StepRecord],
-        workflow_profile: TranscriptWorkflowProfile,
-    ) -> str: ...
-
-    def _match_existing_group(
-        self,
-        *,
-        slug: str,
-        title: str,
-        steps: list[StepRecord],
-        workflow_profile: TranscriptWorkflowProfile,
-        existing_groups: list[ProcessGroupModel],
-    ) -> HeuristicGroupMatchResult: ...
 
 
 def resolve_group_identity(
@@ -96,7 +84,13 @@ def resolve_group_identity(
             ],
         )
 
-    title = service._fallback_title(transcript=transcript, steps=steps, workflow_profile=workflow_profile)
+    title = fallback_title(
+        transcript=transcript,
+        steps=steps,
+        workflow_profile=workflow_profile,
+        normalize_text_fn=normalize_text,
+        extract_leading_action_verb=extract_leading_action_verb,
+    )
     title_resolution = resolve_title_with_ai(
         service,
         transcript=transcript,
@@ -106,12 +100,15 @@ def resolve_group_identity(
     )
     title = title_resolution.workflow_title
     slug = title_resolution.canonical_slug
-    heuristic_match = service._match_existing_group(
+    heuristic_match = match_existing_group(
         slug=slug,
         title=title,
         steps=steps,
         workflow_profile=workflow_profile,
         existing_groups=existing_groups,
+        normalize_text=normalize_text,
+        stopwords=STOPWORDS,
+        signature_tokens=signature_tokens,
     )
     ai_group_match = match_existing_group_with_ai(
         service,
@@ -163,8 +160,6 @@ def resolve_title_with_ai(
         steps=steps,
         notes=[],
     )
-    if service._workflow_title_resolution_skill is None:
-        service._workflow_title_resolution_skill = service._ai_skill_registry.create("workflow_title_resolution")
     logger.info(
         "Delegating workflow title resolution to AI skill.",
         extra={
@@ -189,19 +184,18 @@ def resolve_title_with_ai(
             rationale=ai_skill_result.rationale,
         )
     )
-    if ai_resolution is None or ai_resolution.confidence not in service._ACCEPTED_AI_CONFIDENCE:
+    if ai_resolution is None or ai_resolution.confidence not in {"high", "medium"}:
         return WorkflowTitleInterpretation(
             workflow_title=fallback_title,
             canonical_slug=slugify(fallback_title),
             confidence="medium",
             rationale="",
         )
-    # SRP fix: call normalize_workflow_title directly (module-level function)
-    # instead of the previously non-existent service._normalize_workflow_title()
     normalized_title = normalize_workflow_title(
         base_title=ai_resolution.workflow_title.strip() or fallback_title,
         steps=steps,
         workflow_profile=workflow_profile,
+        extract_leading_action_verb=extract_leading_action_verb,
     )
     return WorkflowTitleInterpretation(
         workflow_title=normalized_title,
@@ -235,8 +229,6 @@ def match_existing_group_with_ai(
         existing_groups=existing_groups,
         heuristic_match=heuristic_match,
     )
-    if service._workflow_group_match_skill is None:
-        service._workflow_group_match_skill = service._ai_skill_registry.create("workflow_group_match")
     logger.info(
         "Delegating workflow group match to AI skill.",
         extra={

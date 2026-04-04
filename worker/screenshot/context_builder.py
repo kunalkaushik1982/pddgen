@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from worker import bootstrap as _bootstrap  # noqa: F401
 
@@ -65,11 +65,14 @@ class DefaultScreenshotContextBuilder:
 
         db.commit()
 
+        from worker.pipeline.stages.stage_context import SessionInputs
         context = DraftGenerationContext(
-            session_id=session.id,
-            session=session,
-            transcript_artifacts=transcript_artifacts,
-            video_artifacts=video_artifacts,
+            inputs=SessionInputs(
+                session_id=session.id,
+                session=session,
+                transcript_artifacts=transcript_artifacts,
+                video_artifacts=video_artifacts,
+            ),
             all_steps=step_candidates,
             all_notes=[],
             steps_by_transcript=steps_by_transcript,

@@ -1,16 +1,15 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections.abc import Sequence
 
 from worker.pipeline.contracts import (
     DraftContextLoader,
-    DraftPipelineStage,
     DraftResultPersister,
     DraftSessionRepository,
     FailureRecorder,
+    PipelineStage,
     ScreenshotContextBuilder,
     ScreenshotLockManager,
-    ScreenshotPipelineStage,
     ScreenshotResultPersister,
     WorkerUnitOfWorkFactory,
 )
@@ -24,7 +23,7 @@ class DraftGenerationUseCase:
         uow_factory: WorkerUnitOfWorkFactory,
         repository: DraftSessionRepository,
         context_loader: DraftContextLoader,
-        stages: Sequence[DraftPipelineStage],
+        stages: Sequence[PipelineStage],
         persister: DraftResultPersister,
         failure_recorder: FailureRecorder | None,
     ) -> None:
@@ -55,7 +54,7 @@ class ScreenshotGenerationUseCase:
         uow_factory: WorkerUnitOfWorkFactory,
         repository: DraftSessionRepository,
         context_builder: ScreenshotContextBuilder,
-        stages: Sequence[ScreenshotPipelineStage],
+        stages: Sequence[PipelineStage],
         persister: ScreenshotResultPersister,
         lock_manager: ScreenshotLockManager,
     ) -> None:

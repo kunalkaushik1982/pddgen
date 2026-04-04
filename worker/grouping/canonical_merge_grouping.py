@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from app.models.artifact import ArtifactModel
 from worker.pipeline.types import NoteRecord, StepRecord

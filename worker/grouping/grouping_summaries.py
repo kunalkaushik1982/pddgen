@@ -1,4 +1,4 @@
-﻿from worker.grouping.grouping_capabilities import (
+from worker.grouping.grouping_capabilities import (
     normalize_capability_tags,
     parse_capability_tags,
     to_capability_label,

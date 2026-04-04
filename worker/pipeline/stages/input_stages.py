@@ -1,3 +1,3 @@
-﻿from worker.pipeline.stages.evidence_segmentation import EvidenceSegmentationStage
+from worker.pipeline.stages.evidence_segmentation import EvidenceSegmentationStage
 from worker.pipeline.stages.session_preparation import SessionPreparationStage
 from worker.pipeline.stages.transcript_interpretation import TranscriptInterpretationStage

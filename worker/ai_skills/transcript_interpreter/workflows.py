@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from worker.ai_skills.transcript_interpreter.workflow_enrichment import classify_workflow_boundary, enrich_workflow_segment
 from worker.ai_skills.transcript_interpreter.workflow_grouping import infer_process_group, resolve_ambiguous_process_group

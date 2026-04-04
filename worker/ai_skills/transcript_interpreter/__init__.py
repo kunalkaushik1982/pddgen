@@ -1,4 +1,4 @@
-﻿from worker.ai_skills.transcript_interpreter.client import extract_content, parse_json_object, post_chat_completion
+from worker.ai_skills.transcript_interpreter.client import extract_content, parse_json_object, post_chat_completion
 from worker.ai_skills.transcript_interpreter.diagrams import normalize_diagram_view
 from worker.ai_skills.transcript_interpreter.models import (
     AmbiguousProcessGroupResolution,

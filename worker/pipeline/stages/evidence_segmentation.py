@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from collections import Counter
@@ -6,6 +6,7 @@ from typing import TypedDict
 
 from app.core.observability import bind_log_context, get_logger
 from app.services.action_log_service import ActionLogService
+from sqlalchemy.orm import Session
 from worker.pipeline.stages.stage_context import DraftGenerationContext
 from worker.media.transcript_normalizer import TranscriptNormalizer
 from worker.grouping.segmentation_service import EvidenceSegmentationService
@@ -28,28 +29,28 @@ class EvidenceSegmentationStage:
     def __init__(
         self,
         *,
-        transcript_normalizer: TranscriptNormalizer | None = None,
+        transcript_normalizer: TranscriptNormalizer,
         segmentation_service: EvidenceSegmentationService,
-        action_log_service: ActionLogService | None = None,
+        action_log_service: ActionLogService,
     ) -> None:
-        self.transcript_normalizer = transcript_normalizer or TranscriptNormalizer()
+        self.transcript_normalizer = transcript_normalizer
         self.segmentation_service = segmentation_service
-        self.action_log_service = action_log_service or ActionLogService()
+        self.action_log_service = action_log_service
 
-    def run(self, db, context: DraftGenerationContext) -> None:  # type: ignore[no-untyped-def]
+    def run(self, db: Session, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="evidence_segmentation"):
             action_log = self.action_log_service.record(
                 db,
-                session_id=context.session_id,
+                session_id=context.inputs.session_id,
                 event_type="generation_stage",
                 title="Segmenting evidence",
-                detail=f"Building evidence segments for {len(context.transcript_artifacts)} transcript artifact(s).",
+                detail=f"Building evidence segments for {len(context.inputs.transcript_artifacts)} transcript artifact(s).",
                 actor="system",
             )
             db.commit()
 
             all_segments = []
-            for transcript in context.transcript_artifacts:
+            for transcript in context.inputs.transcript_artifacts:
                 normalized_text = self.transcript_normalizer.normalize(transcript.storage_path, transcript.name)
                 context.normalized_transcripts[transcript.id] = normalized_text
                 all_segments.extend(
@@ -84,7 +85,7 @@ class EvidenceSegmentationStage:
         boundary_source_counts = Counter(decision.decision_source for decision in context.workflow_boundary_decisions)
         boundary_conflict_counts = Counter("conflict" if decision.conflict_detected else "non_conflict" for decision in context.workflow_boundary_decisions)
         transcript_summaries: dict[str, TranscriptSegmentationSummary] = {}
-        transcript_names = {artifact.id: artifact.name for artifact in context.transcript_artifacts}
+        transcript_names = {artifact.id: artifact.name for artifact in context.inputs.transcript_artifacts}
         for segment in context.evidence_segments:
             summary = transcript_summaries.setdefault(
                 segment.transcript_artifact_id,
@@ -110,15 +111,15 @@ class EvidenceSegmentationStage:
             for rule_hint in segment.enrichment.rule_hints:
                 summary["top_rules"][rule_hint] += 1
         return {
-            "conclusion": f"Built {len(context.evidence_segments)} evidence segment(s) across {len(context.transcript_artifacts)} transcript(s). Boundary classifier produced {len(context.workflow_boundary_decisions)} adjacent decision(s).",
-            "document_type": context.document_type,
+            "conclusion": f"Built {len(context.evidence_segments)} evidence segment(s) across {len(context.inputs.transcript_artifacts)} transcript(s). Boundary classifier produced {len(context.workflow_boundary_decisions)} adjacent decision(s).",
+            "document_type": context.inputs.document_type,
             "strategy_keys": {
                 "segmenter": self.segmentation_service.segmenter.strategy_key,
                 "enricher": self.segmentation_service.enricher.strategy_key,
                 "boundary_detector": self.segmentation_service.boundary_detector.strategy_key,
             },
             "counts": {
-                "transcript_artifacts": len(context.transcript_artifacts),
+                "transcript_artifacts": len(context.inputs.transcript_artifacts),
                 "segments": len(context.evidence_segments),
                 "boundary_decisions": len(context.workflow_boundary_decisions),
             },
