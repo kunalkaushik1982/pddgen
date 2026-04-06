@@ -22,13 +22,14 @@ class DocumentRendererService:
 
     def __init__(
         self,
-        storage_service: StorageService | None = None,
-        template_renderer: DocumentTemplateRenderer | None = None,
-        pdf_converter: DocumentPdfConverter | None = None,
+        *,
+        storage_service: StorageService,
+        template_renderer: DocumentTemplateRenderer,
+        pdf_converter: DocumentPdfConverter,
     ) -> None:
-        self.storage_service = storage_service or StorageService()
-        self.template_renderer = template_renderer or DocumentTemplateRenderer()
-        self.pdf_converter = pdf_converter or DocumentPdfConverter()
+        self.storage_service = storage_service
+        self.template_renderer = template_renderer
+        self.pdf_converter = pdf_converter
 
     def render_docx(self, db: Session, draft_session: DraftSessionModel) -> OutputDocumentModel:
         output_name = f"{draft_session.id}_draft.docx"

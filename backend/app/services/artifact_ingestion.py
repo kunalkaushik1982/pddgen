@@ -20,11 +20,12 @@ class ArtifactIngestionService:
 
     def __init__(
         self,
-        storage_service: StorageService | None = None,
-        validation_service: ArtifactValidationService | None = None,
+        *,
+        storage_service: StorageService,
+        validation_service: ArtifactValidationService,
     ) -> None:
-        self.storage_service = storage_service or StorageService()
-        self.validation_service = validation_service or ArtifactValidationService()
+        self.storage_service = storage_service
+        self.validation_service = validation_service
 
     def create_session(self, db: Session, *, title: str, owner_id: str, diagram_type: str, document_type: str) -> DraftSessionModel:
         """Create and persist a new draft session."""

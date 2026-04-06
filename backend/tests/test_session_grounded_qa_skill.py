@@ -262,7 +262,7 @@ class SessionGroundedQATests(unittest.TestCase):
                     citation_ids=["step-1", "missing-id"],
                 )
 
-        service = chat_module.SessionChatService(storage_service=FakeStorageService())
+        service = chat_module.SessionChatService(storage_service=FakeStorageService(), llm_http_client=None)
         service._session_grounded_qa_skill = StubSessionGroundedQASkill()
         session = Session(
             title="Quarterly Procurement Review",
@@ -310,7 +310,7 @@ class SessionGroundedQATests(unittest.TestCase):
                 schemas = load_schemas_module()
                 return schemas.SessionGroundedQAResponse(answer="", confidence="low", citation_ids=[])
 
-        service = chat_module.SessionChatService(storage_service=FakeStorageService())
+        service = chat_module.SessionChatService(storage_service=FakeStorageService(), llm_http_client=None)
         service._session_grounded_qa_skill = StubSessionGroundedQASkill()
         session = Session(title="Quarterly Procurement Review", process_steps=[Step(step_number=1)], process_notes=[], artifacts=[])
 

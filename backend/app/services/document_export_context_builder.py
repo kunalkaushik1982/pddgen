@@ -27,12 +27,9 @@ from app.storage.storage_service import StorageService
 class SharedWorkflowExportContextBuilder:
     """Build shared workflow/export primitives independent of a final document type."""
 
-    def __init__(
-        self,
-        process_diagram_service: ProcessDiagramService | None = None,
-    ) -> None:
+    def __init__(self, *, process_diagram_service: ProcessDiagramService) -> None:
         self.settings = get_settings()
-        self.process_diagram_service = process_diagram_service or ProcessDiagramService()
+        self.process_diagram_service = process_diagram_service
 
     def build_shared_context(
         self,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.core.observability import get_logger
 from app.models.action_log import ActionLogModel
+from app.portability.celery_job_queue import build_default_job_queue
 from app.services.action_log_service import ActionLogService
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.process_group_service import ProcessGroupService
@@ -200,5 +201,7 @@ def build_screenshot_generation_use_case(*, task_id: str | None) -> ScreenshotGe
             ),
         ],
         persister=ScreenshotPersistenceAdapter(action_log_stage=ScreenshotActionLogStage()),
-        lock_manager=ScreenshotLockManagerAdapter(JobDispatcherService()),
+        lock_manager=ScreenshotLockManagerAdapter(
+            JobDispatcherService(queue=build_default_job_queue(get_backend_settings()))
+        ),
     )

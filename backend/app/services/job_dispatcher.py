@@ -15,10 +15,10 @@ logger = get_logger(__name__)
 class JobDispatcherService:
     """Dispatch long-running generation work to the worker queue."""
 
-    def __init__(self, queue: JobQueuePort | None = None) -> None:
+    def __init__(self, *, queue: JobQueuePort) -> None:
         settings = get_settings()
         self.settings = settings
-        self._queue = queue or build_default_job_queue(settings)
+        self._queue = queue
 
     @staticmethod
     def _screenshot_lock_key(session_id: str) -> str:

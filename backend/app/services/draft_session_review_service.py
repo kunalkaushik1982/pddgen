@@ -15,8 +15,8 @@ from app.services.action_log_service import ActionLogService
 class DraftSessionReviewService:
     """Encapsulate mutable BA review actions for draft sessions."""
 
-    def __init__(self, *, action_log_service: ActionLogService | None = None) -> None:
-        self.action_log_service = action_log_service or ActionLogService()
+    def __init__(self, *, action_log_service: ActionLogService) -> None:
+        self.action_log_service = action_log_service
 
     def update_process_step(self, db: Session, *, session, step_id: str, payload, actor: str):  # type: ignore[no-untyped-def]
         step = next((item for item in session.process_steps if item.id == step_id), None)

@@ -37,12 +37,12 @@ class SessionChatService:
 
     def __init__(
         self,
-        storage_service: StorageService | None = None,
         *,
-        llm_http_client: httpx.Client | None = None,
+        storage_service: StorageService,
+        llm_http_client: httpx.Client | None,
     ) -> None:
         self.settings = get_settings()
-        self.storage_service = storage_service or StorageService()
+        self.storage_service = storage_service
         self._llm_http_client = llm_http_client
         self._session_grounded_qa_skill: SessionGroundedQASkill | None = None
 

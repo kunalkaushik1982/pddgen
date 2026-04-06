@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
 
 
 @dataclass(frozen=True)
@@ -88,8 +88,8 @@ class ArtifactValidationService:
         ),
     }
 
-    def __init__(self, settings: Settings | None = None) -> None:
-        self.settings = settings or get_settings()
+    def __init__(self, *, settings: Settings) -> None:
+        self.settings = settings
 
     def validate_upload(self, *, upload: UploadFile, artifact_kind: str) -> int:
         """Validate one upload and return its file size in bytes."""

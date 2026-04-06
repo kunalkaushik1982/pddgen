@@ -21,14 +21,21 @@ from app.services.document_export_context_builder import (
     PddDocumentExportContextBuilder,
     SopDocumentExportContextBuilder,
 )
+from app.services.process_diagram_service import ProcessDiagramService
 from app.storage.storage_service import StorageService
 
 
 class DocumentTemplateRenderer:
     """Render DOCX output files from a draft session and a template artifact."""
 
-    def __init__(self, context_builder: DocumentContextBuilder | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        process_diagram_service: ProcessDiagramService,
+        context_builder: DocumentContextBuilder | None = None,
+    ) -> None:
         self.context_builder = context_builder
+        self._process_diagram_service = process_diagram_service
         self.builder_registry = self._build_default_registry()
 
     def render_docx_file(
@@ -51,12 +58,21 @@ class DocumentTemplateRenderer:
             doc.render(context_builder.build(db, draft_session, doc, asset_root=asset_root, storage_service=storage_service))
             doc.save(str(output_path))
 
-    @staticmethod
-    def _build_default_registry() -> DocumentContextBuilderRegistry:
+    def _build_default_registry(self) -> DocumentContextBuilderRegistry:
         registry = DocumentContextBuilderRegistry()
-        registry.register(PddDocumentExportContextBuilder.document_type, PddDocumentExportContextBuilder)
-        registry.register(SopDocumentExportContextBuilder.document_type, SopDocumentExportContextBuilder)
-        registry.register(BrdDocumentExportContextBuilder.document_type, BrdDocumentExportContextBuilder)
+        pd = self._process_diagram_service
+        registry.register(
+            PddDocumentExportContextBuilder.document_type,
+            lambda: PddDocumentExportContextBuilder(process_diagram_service=pd),
+        )
+        registry.register(
+            SopDocumentExportContextBuilder.document_type,
+            lambda: SopDocumentExportContextBuilder(process_diagram_service=pd),
+        )
+        registry.register(
+            BrdDocumentExportContextBuilder.document_type,
+            lambda: BrdDocumentExportContextBuilder(process_diagram_service=pd),
+        )
         return registry
 
     @staticmethod

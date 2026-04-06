@@ -6,6 +6,7 @@ import unittest
 from fastapi import HTTPException, UploadFile
 from starlette.datastructures import Headers
 
+from app.core.config import get_settings
 from app.services.artifact_validation import ArtifactValidationService
 
 
@@ -19,7 +20,7 @@ def build_upload(filename: str, content_type: str, content: bytes) -> UploadFile
 
 class ArtifactValidationTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.service = ArtifactValidationService()
+        self.service = ArtifactValidationService(settings=get_settings())
 
     def test_rejects_invalid_file_extension(self) -> None:
         upload = build_upload("malware.exe", "application/octet-stream", b"not-allowed")

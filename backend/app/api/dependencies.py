@@ -21,7 +21,10 @@ from app.services.auth_service import AuthService
 from app.services.database_session_service import DatabaseSessionService
 from app.services.draft_session_diagram_service import DraftSessionDiagramService
 from app.services.draft_session_review_service import DraftSessionReviewService
+from app.portability.celery_job_queue import build_default_job_queue
+from app.services.document_pdf_converter import DocumentPdfConverter
 from app.services.document_renderer import DocumentRendererService
+from app.services.document_template_renderer import DocumentTemplateRenderer
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.meeting_service import MeetingService
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
@@ -41,9 +44,10 @@ def get_storage_service() -> StorageService:
 
 def get_artifact_ingestion_service() -> ArtifactIngestionService:
     """Provide the artifact ingestion service."""
+    settings = get_settings()
     return ArtifactIngestionService(
         storage_service=get_storage_service(),
-        validation_service=ArtifactValidationService(),
+        validation_service=ArtifactValidationService(settings=settings),
     )
 
 
@@ -55,6 +59,14 @@ def get_action_log_service() -> ActionLogService:
 def get_process_diagram_service() -> ProcessDiagramService:
     """Provide the read-model diagram builder for API responses."""
     return ProcessDiagramService()
+
+
+def get_document_template_renderer_service() -> DocumentTemplateRenderer:
+    """Provide the DOCX template renderer (registry wired with shared ProcessDiagramService)."""
+    return DocumentTemplateRenderer(
+        process_diagram_service=get_process_diagram_service(),
+        context_builder=None,
+    )
 
 
 def get_pipeline_orchestrator_service() -> PipelineOrchestratorService:
@@ -70,30 +82,38 @@ def get_pipeline_orchestrator_service() -> PipelineOrchestratorService:
 
 
 def get_document_renderer_service() -> DocumentRendererService:
-    """Provide the DOCX rendering service."""
-    return DocumentRendererService(storage_service=get_storage_service())
+    """Provide the DOCX/PDF rendering service."""
+    storage = get_storage_service()
+    return DocumentRendererService(
+        storage_service=storage,
+        template_renderer=get_document_template_renderer_service(),
+        pdf_converter=DocumentPdfConverter(),
+    )
 
 
 def get_draft_session_diagram_service() -> DraftSessionDiagramService:
     """Provide the draft-session diagram mutation service."""
-    return DraftSessionDiagramService()
+    return DraftSessionDiagramService(action_log_service=get_action_log_service())
 
 
 def get_draft_session_review_service() -> DraftSessionReviewService:
     """Provide the BA review mutation service."""
-    return DraftSessionReviewService()
+    return DraftSessionReviewService(action_log_service=get_action_log_service())
 
 
 def get_session_chat_service() -> SessionChatService:
     """Provide the session-grounded Q&A service."""
     settings = get_settings()
     llm_client = build_llm_http_client(settings) if settings.ai_enabled else None
-    return SessionChatService(storage_service=get_storage_service(), llm_http_client=llm_client)
+    return SessionChatService(
+        storage_service=get_storage_service(),
+        llm_http_client=llm_client,
+    )
 
 
 def get_job_dispatcher_service() -> JobDispatcherService:
     """Provide the background job dispatcher service."""
-    return JobDispatcherService()
+    return JobDispatcherService(queue=build_default_job_queue(get_settings()))
 
 def get_meeting_service() -> MeetingService:
     """Provide meeting management service."""
@@ -108,9 +128,10 @@ def get_process_group_service() -> ProcessGroupService:
 def get_auth_service() -> AuthService:
     """Provide the configured auth facade."""
     settings = get_settings()
-    identity_provider = build_identity_provider(settings)
-    session_service = DatabaseSessionService() if settings.auth_session_backend == "database_token" else None
-    return AuthService(identity_provider=identity_provider, session_service=session_service)
+    return AuthService(
+        identity_provider=build_identity_provider(settings),
+        session_service=DatabaseSessionService(),
+    )
 
 
 def get_current_user(

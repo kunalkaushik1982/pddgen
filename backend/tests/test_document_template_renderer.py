@@ -40,8 +40,10 @@ class DocumentTemplateRendererTests(unittest.TestCase):
         template_path = Path(__file__).resolve().parents[2] / "docs" / "templates" / "flowlens-sop-template.docx"
         self.assertTrue(template_path.exists(), "Expected SOP sample template to exist.")
 
+        stub = _StubProcessDiagramService()
         renderer = DocumentTemplateRenderer(
-            context_builder=SopDocumentExportContextBuilder(_StubProcessDiagramService())
+            process_diagram_service=stub,
+            context_builder=SopDocumentExportContextBuilder(process_diagram_service=stub),
         )
         draft_session = SimpleNamespace(
             id="session-1",
@@ -124,8 +126,10 @@ class DocumentTemplateRendererTests(unittest.TestCase):
         template_path = Path(__file__).resolve().parents[2] / "docs" / "templates" / "flowlens-brd-template.docx"
         self.assertTrue(template_path.exists(), "Expected BRD sample template to exist.")
 
+        stub = _StubProcessDiagramService()
         renderer = DocumentTemplateRenderer(
-            context_builder=BrdDocumentExportContextBuilder(_StubProcessDiagramService())
+            process_diagram_service=stub,
+            context_builder=BrdDocumentExportContextBuilder(process_diagram_service=stub),
         )
         draft_session = SimpleNamespace(
             id="session-2",

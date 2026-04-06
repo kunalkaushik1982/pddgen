@@ -15,8 +15,8 @@ from app.services.action_log_service import ActionLogService
 class DraftSessionDiagramService:
     """Encapsulate draft-session diagram reads and writes."""
 
-    def __init__(self, *, action_log_service: ActionLogService | None = None) -> None:
-        self.action_log_service = action_log_service or ActionLogService()
+    def __init__(self, *, action_log_service: ActionLogService) -> None:
+        self.action_log_service = action_log_service
 
     def save_diagram_model(
         self,
