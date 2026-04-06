@@ -1,8 +1,8 @@
 """Workflow-intelligence shared models.
 
 This module intentionally stays lightweight because isolated tests import it
-without the full worker dependency graph loaded. See `worker/services/README.md`
-and `worker/WORKER_PIPELINE.md` for the runtime call flow.
+without the full worker dependency graph loaded. See `worker/WORKER_PIPELINE.md`
+for the runtime call flow.
 """
 
 from dataclasses import dataclass, field
