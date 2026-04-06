@@ -113,6 +113,7 @@ class ScreenshotPersistenceAdapter:
 
     def persist(self, db: Session, context: DraftGenerationContext) -> dict[str, int | str]:
         persist_step_screenshots(db, step_models=context.persisted_step_models, step_candidates=context.all_steps)
+        context.inputs.session.status = "review"
         db.commit()
         selected_screenshot_count = context.selected_screenshot_count
         result = {

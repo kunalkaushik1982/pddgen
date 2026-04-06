@@ -4,9 +4,11 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\mappers
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.api.dependencies import get_storage_service
+from app.core.config import get_settings
+from app.models.action_log import ActionLogModel
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_group import ProcessGroupModel
@@ -98,6 +100,30 @@ def _is_effectively_pending_bundle(session: DraftSessionModel, bundle) -> bool:
     return bundle.created_at > latest_successful_draft_at
 
 
+def _maybe_stale_extracting_screenshots_log(
+    log: ActionLogModel | None,
+    *,
+    stale_after_seconds: float,
+) -> tuple[str, str] | None:
+    """If this log is an aged 'Extracting screenshots' stage, surface a stalled UX message."""
+    if log is None or stale_after_seconds <= 0:
+        return None
+    if log.event_type != "generation_stage":
+        return None
+    if log.title.strip().lower() != "extracting screenshots":
+        return None
+    created = log.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    age_seconds = (datetime.now(timezone.utc) - created).total_seconds()
+    if age_seconds <= stale_after_seconds:
+        return None
+    return (
+        "Screenshot run stalled",
+        "The last screenshot run did not finish in time. Click Generate SS to retry.",
+    )
+
+
 def _latest_stage_info(session: DraftSessionModel) -> tuple[str, str]:
     latest_action_log = next(
         iter(sorted(session.action_logs, key=lambda action_log: action_log.created_at, reverse=True)),
@@ -109,15 +135,22 @@ def _latest_stage_info(session: DraftSessionModel) -> tuple[str, str]:
         return "Run failed", failure_log.detail if failure_log is not None else "Generation failed."
 
     if session.status == "processing":
+        settings = get_settings()
         stage_log = next(
             (
                 item
                 for item in sorted(session.action_logs, key=lambda action_log: action_log.created_at, reverse=True)
-                if item.event_type in {"generation_stage", "generation_queued"}
+                if item.event_type in {"generation_stage", "generation_queued", "screenshot_generation_queued"}
             ),
             None,
         )
         if stage_log is not None:
+            stale = _maybe_stale_extracting_screenshots_log(
+                stage_log,
+                stale_after_seconds=settings.screenshot_extraction_stale_after_seconds,
+            )
+            if stale is not None:
+                return stale
             return stage_log.title, stage_log.detail
         return "Generation in progress", "Draft generation is running."
 
@@ -125,11 +158,19 @@ def _latest_stage_info(session: DraftSessionModel) -> tuple[str, str]:
         return "Inputs uploaded", "Upload complete. Resume this draft to start generation."
 
     if session.status == "review":
+        settings = get_settings()
         if latest_action_log is not None and latest_action_log.event_type in {
             "screenshot_generation_queued",
             "generation_stage",
             "screenshots_generated",
+            "screenshot_generation_failed",
         }:
+            stale = _maybe_stale_extracting_screenshots_log(
+                latest_action_log,
+                stale_after_seconds=settings.screenshot_extraction_stale_after_seconds,
+            )
+            if stale is not None:
+                return stale
             return latest_action_log.title, latest_action_log.detail
         return "Ready for review", "Draft generation completed successfully."
 

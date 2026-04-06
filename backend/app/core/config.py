@@ -93,6 +93,28 @@ class Settings(BaseSettings):
     screenshot_extended_window_candidate_cap: int = 9
     screenshot_ffmpeg_timeout_seconds: float = 8.0
     screenshot_generation_lock_seconds: int = 3600
+    screenshot_celery_soft_time_limit_seconds: float = Field(
+        default=300.0,
+        description="Celery soft time limit for screenshot_generation tasks (SIGUSR1-style SoftTimeLimitExceeded).",
+    )
+    screenshot_celery_time_limit_seconds: float = Field(
+        default=330.0,
+        description="Hard Celery time limit for screenshot_generation tasks (worker kills the job).",
+    )
+    draft_celery_soft_time_limit_seconds: float = Field(
+        default=3600.0,
+        description="Celery soft time limit for draft_generation tasks.",
+    )
+    draft_celery_time_limit_seconds: float = Field(
+        default=3720.0,
+        description="Hard Celery time limit for draft_generation tasks.",
+    )
+    screenshot_extraction_stale_after_seconds: float = Field(
+        default=300.0,
+        description=(
+            "If latest 'Extracting screenshots' stage log is older than this, API lists the run as stalled for UX."
+        ),
+    )
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_ROOT / ".env",

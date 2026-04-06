@@ -6,6 +6,7 @@ export type SessionProgressTone =
   | "screenshots"
   | "transcript"
   | "diagram"
+  | "stalled"
   | "ready"
   | "exported"
   | "failed";
@@ -56,6 +57,9 @@ export function getProgressTone(session: DraftSessionListItem): SessionProgressT
   if (normalizedTitle === "building diagram") {
     return "diagram";
   }
+  if (normalizedTitle === "screenshot run stalled" || normalizedTitle === "screenshot generation failed") {
+    return "stalled";
+  }
   if (normalizedTitle === "extracting screenshots") {
     return "screenshots";
   }
@@ -86,6 +90,8 @@ export function getSessionProgress(tone: SessionProgressTone): number {
       return 72;
     case "diagram":
       return 88;
+    case "stalled":
+      return 85;
     case "ready":
     case "exported":
     case "failed":
@@ -118,6 +124,8 @@ export function getSessionProgressLabel(
       return session.latestStageTitle || "Extracting screenshots";
     case "diagram":
       return "Building diagram";
+    case "stalled":
+      return session.latestStageTitle.trim() ? session.latestStageTitle : "Screenshot run stalled";
     case "ready":
       return "Ready for review";
     case "exported":

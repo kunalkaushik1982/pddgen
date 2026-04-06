@@ -67,6 +67,8 @@ def list_draft_sessions(
         .order_by(DraftSessionModel.updated_at.desc())
     )
     sessions = list(db.execute(statement).scalars().all())
+    for session in sessions:
+        PipelineOrchestratorService.reconcile_stale_screenshot_processing_if_needed(db, session)
     return [map_draft_session_list_item(session) for session in sessions]
 
 
@@ -133,6 +135,7 @@ def generate_session_screenshots(
             )
 
         try:
+            service.mark_session_screenshot_processing(db, session_id, owner_id=current_user.username)
             action_log.record(
                 db,
                 session_id=session.id,

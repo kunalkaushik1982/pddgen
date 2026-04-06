@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.dependencies import get_current_admin_user
+from app.services.pipeline_orchestrator import PipelineOrchestratorService
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.models.draft_session import DraftSessionModel
@@ -69,4 +70,6 @@ def list_jobs(
         .order_by(DraftSessionModel.updated_at.desc())
     )
     sessions = list(db.execute(statement).scalars().all())
+    for session in sessions:
+        PipelineOrchestratorService.reconcile_stale_screenshot_processing_if_needed(db, session)
     return [map_draft_session_list_item(session) for session in sessions]

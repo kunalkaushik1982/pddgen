@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 import sys
 import types
 import unittest
@@ -47,6 +48,12 @@ def _install_task_test_stubs() -> None:
     worker_module.__path__ = []  # type: ignore[attr-defined]
     bootstrap_module = types.ModuleType("worker.bootstrap")
     worker_module.bootstrap = bootstrap_module
+    bootstrap_module.get_backend_settings = lambda: SimpleNamespace(
+        draft_celery_soft_time_limit_seconds=3600.0,
+        draft_celery_time_limit_seconds=3720.0,
+        screenshot_celery_soft_time_limit_seconds=300.0,
+        screenshot_celery_time_limit_seconds=330.0,
+    )
     celery_app_module = types.ModuleType("worker.celery_app")
     celery_app_module.celery_app = _FakeCeleryApp()
     services_module = types.ModuleType("worker.services")
@@ -65,6 +72,21 @@ def _install_task_test_stubs() -> None:
     sys.modules["app.core.observability"] = observability_module
     sys.modules["worker"] = worker_module
     sys.modules["worker.bootstrap"] = bootstrap_module
+
+    db_session_module = types.ModuleType("app.db.session")
+    db_session_module.SessionLocal = lambda: None
+    sys.modules["app.db"] = types.ModuleType("app.db")
+    sys.modules["app.db.session"] = db_session_module
+
+    celery_exceptions = types.ModuleType("celery.exceptions")
+    celery_exceptions.SoftTimeLimitExceeded = type("SoftTimeLimitExceeded", (Exception,), {})
+    sys.modules["celery.exceptions"] = celery_exceptions
+
+    failure_module = types.ModuleType("worker.pipeline.stages.failure")
+    failure_module.FailureStage = type("FailureStage", (), {"mark_failed": staticmethod(lambda *a, **k: None), "mark_screenshot_job_failed": staticmethod(lambda *a, **k: None)})
+    sys.modules["worker.pipeline.stages.failure"] = failure_module
+    sys.modules["worker.pipeline"] = types.ModuleType("worker.pipeline")
+    sys.modules["worker.pipeline.stages"] = types.ModuleType("worker.pipeline.stages")
     sys.modules["worker.celery_app"] = celery_app_module
     sys.modules["worker.services"] = services_module
     sys.modules["worker.services.draft_generation"] = draft_generation_package

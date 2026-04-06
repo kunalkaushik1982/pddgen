@@ -653,6 +653,10 @@
   background: linear-gradient(135deg, #0f766e, #14b8a6);
 }
 
+.history-progress-stalled {
+  background: linear-gradient(135deg, #c2410c, #ea580c);
+}
+
 .history-progress-ready,
 .history-progress-exported {
   background: linear-gradient(135deg, #16a34a, #22c55e);
@@ -741,6 +745,11 @@
 .history-stage-title-diagram,
 .history-progress-label-diagram {
   color: #2dd4bf;
+}
+
+.history-stage-title-stalled,
+.history-progress-label-stalled {
+  color: #ea580c;
 }
 
 .history-stage-title-exported,
