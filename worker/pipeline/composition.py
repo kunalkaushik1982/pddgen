@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from app.core.observability import get_logger
 from app.models.action_log import ActionLogModel
-from app.portability.celery_job_queue import build_default_job_queue
+from app.portability.job_messaging.redis_lock_adapter import build_redis_distributed_lock
+from app.portability.job_messaging.screenshot_guard_adapter import build_screenshot_run_guard
+from app.portability.job_messaging.wiring import build_default_job_enqueue_port
 from app.services.action_log_service import ActionLogService
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.process_group_service import ProcessGroupService
@@ -37,6 +39,16 @@ from worker.pipeline.use_cases import DraftGenerationUseCase, ScreenshotGenerati
 from worker.screenshot.context_builder import DefaultScreenshotContextBuilder
 
 logger = get_logger(__name__)
+
+
+def _worker_job_dispatcher_for_screenshot_lock_release() -> JobDispatcherService:
+    """Dispatcher used only to release the screenshot run guard after the pipeline completes."""
+    settings = get_backend_settings()
+    lock = build_redis_distributed_lock(settings)
+    return JobDispatcherService(
+        enqueue=build_default_job_enqueue_port(settings),
+        screenshot_run_guard=build_screenshot_run_guard(settings, lock=lock),
+    )
 
 
 def build_default_evidence_segmentation_stage() -> EvidenceSegmentationStage:
@@ -203,6 +215,6 @@ def build_screenshot_generation_use_case(*, task_id: str | None) -> ScreenshotGe
         ],
         persister=ScreenshotPersistenceAdapter(action_log_stage=ScreenshotActionLogStage()),
         lock_manager=ScreenshotLockManagerAdapter(
-            JobDispatcherService(queue=build_default_job_queue(get_backend_settings()))
+            _worker_job_dispatcher_for_screenshot_lock_release()
         ),
     )

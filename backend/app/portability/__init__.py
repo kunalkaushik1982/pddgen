@@ -4,7 +4,7 @@ configuration and optional extension modules — without changing business rules
 domain services.
 
 See `app.portability.database`, `app.portability.auth_registry`,
-`app.portability.celery_job_queue`, `app.portability.storage_backend`,
+`app.portability.job_messaging`, `app.portability.storage_backend`,
 `app.portability.http_client`.
 """
 

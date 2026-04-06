@@ -38,6 +38,10 @@ class Settings(BaseSettings):
         description="Enable SQLAlchemy pool_pre_ping for resilient connections across DB engines.",
     )
     redis_url: str = "redis://localhost:6379/0"
+    lock_redis_url: str | None = Field(
+        default=None,
+        description="Optional Redis URL for distributed locks only; defaults to redis_url when unset.",
+    )
     auth_provider: str = "password"
     auth_provider_extensions_module: str = Field(
         default="",
