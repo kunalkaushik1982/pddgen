@@ -1,19 +1,19 @@
 r"""
-Purpose: Database engine and session management for PostgreSQL-compatible access.
+Purpose: Database engine and session management (SQLAlchemy; URL selects the DB dialect).
 Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\db\session.py
 """
 
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
+from app.portability.database import build_sqlalchemy_engine
 
 
 settings = get_settings()
 
-engine = create_engine(settings.database_url, future=True)
+engine = build_sqlalchemy_engine(settings)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False, class_=Session)
 
 

@@ -297,12 +297,9 @@ class StorageService:
             raise RuntimeError("Invalid preview signature.")
 
     def _build_backend(self) -> StorageBackend:
-        backend_name = self.settings.storage_backend.lower()
-        if backend_name == "local":
-            return LocalStorageBackend(self.settings)
-        if backend_name in {"s3", "r2"}:
-            return S3CompatibleStorageBackend(self.settings)
-        raise RuntimeError(f"Unsupported storage backend: {self.settings.storage_backend}")
+        from app.portability.storage_backend import select_storage_backend
+
+        return select_storage_backend(self.settings)
 
 
 def _guess_content_type(source_path: Path) -> str | None:

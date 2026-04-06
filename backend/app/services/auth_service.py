@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.user import UserModel
+from app.portability.auth_registry import build_identity_provider
 from app.services.auth_types import AuthSession, IdentityProvider, SessionService
-from app.services.auth_provider_registry import AuthProviderRegistry
 from app.services.database_session_service import DatabaseSessionService
 
 
@@ -56,4 +56,4 @@ class AuthService:
         return self.session_service.resolve_user(db, token=token)
 
     def _build_identity_provider(self) -> IdentityProvider:
-        return AuthProviderRegistry().build(self.settings)
+        return build_identity_provider(self.settings)

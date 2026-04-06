@@ -14,8 +14,9 @@ from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.services.artifact_ingestion import ArtifactIngestionService
 from app.services.artifact_validation import ArtifactValidationService
+from app.portability.auth_registry import build_identity_provider
+from app.portability.http_client import build_llm_http_client
 from app.services.auth_service import AuthService
-from app.services.auth_provider_registry import AuthProviderRegistry
 from app.services.database_session_service import DatabaseSessionService
 from app.services.draft_session_diagram_service import DraftSessionDiagramService
 from app.services.draft_session_review_service import DraftSessionReviewService
@@ -63,7 +64,9 @@ def get_draft_session_review_service() -> DraftSessionReviewService:
 
 def get_session_chat_service() -> SessionChatService:
     """Provide the session-grounded Q&A service."""
-    return SessionChatService(storage_service=get_storage_service())
+    settings = get_settings()
+    llm_client = build_llm_http_client(settings) if settings.ai_enabled else None
+    return SessionChatService(storage_service=get_storage_service(), llm_http_client=llm_client)
 
 
 def get_job_dispatcher_service() -> JobDispatcherService:
@@ -83,7 +86,7 @@ def get_process_group_service() -> ProcessGroupService:
 def get_auth_service() -> AuthService:
     """Provide the configured auth facade."""
     settings = get_settings()
-    identity_provider = AuthProviderRegistry().build(settings)
+    identity_provider = build_identity_provider(settings)
     session_service = DatabaseSessionService() if settings.auth_session_backend == "database_token" else None
     return AuthService(identity_provider=identity_provider, session_service=session_service)
 

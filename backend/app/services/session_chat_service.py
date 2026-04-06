@@ -9,6 +9,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
+
 from app.core.config import get_settings
 from app.core.observability import get_logger
 from app.models.draft_session import DraftSessionModel
@@ -33,9 +35,15 @@ class SessionEvidenceItem:
 class SessionChatService:
     """Answer grounded questions about one session."""
 
-    def __init__(self, storage_service: StorageService | None = None) -> None:
+    def __init__(
+        self,
+        storage_service: StorageService | None = None,
+        *,
+        llm_http_client: httpx.Client | None = None,
+    ) -> None:
         self.settings = get_settings()
         self.storage_service = storage_service or StorageService()
+        self._llm_http_client = llm_http_client
         self._session_grounded_qa_skill: SessionGroundedQASkill | None = None
 
     def is_enabled(self) -> bool:
@@ -65,7 +73,10 @@ class SessionChatService:
             for item in evidence_items
         ]
         if self._session_grounded_qa_skill is None:
-            self._session_grounded_qa_skill = SessionGroundedQASkill(settings=self.settings)
+            self._session_grounded_qa_skill = SessionGroundedQASkill(
+                settings=self.settings,
+                client=self._llm_http_client,
+            )
         logger.info(
             "Delegating grounded session Q&A to AI skill.",
             extra={

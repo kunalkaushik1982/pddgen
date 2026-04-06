@@ -27,8 +27,19 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/pdd_generator"
+    database_pool_pre_ping: bool = Field(
+        default=True,
+        description="Enable SQLAlchemy pool_pre_ping for resilient connections across DB engines.",
+    )
     redis_url: str = "redis://localhost:6379/0"
     auth_provider: str = "password"
+    auth_provider_extensions_module: str = Field(
+        default="",
+        description=(
+            "Optional dotted module path exporting AUTH_PROVIDER_FACTORIES for extra IdentityProvider "
+            "plug-ins without editing core registry code."
+        ),
+    )
     auth_session_backend: str = "database_token"
     auth_registration_enabled: bool = True
     admin_usernames: list[str] = Field(default_factory=list)
