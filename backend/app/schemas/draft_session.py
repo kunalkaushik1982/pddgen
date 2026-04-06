@@ -177,6 +177,12 @@ class DraftSessionResponse(BaseModel):
     document_type: WorkflowDocumentType
     created_at: datetime
     updated_at: datetime
+    draft_generation_started_at: datetime | None = None
+    draft_generation_completed_at: datetime | None = None
+    screenshot_generation_started_at: datetime | None = None
+    screenshot_generation_completed_at: datetime | None = None
+    draft_generation_duration_seconds: float | None = None
+    screenshot_generation_duration_seconds: float | None = None
     has_unprocessed_evidence: bool = False
     pending_evidence_bundles: list[PendingEvidenceBundleResponse] = Field(default_factory=list)
     process_groups: list[ProcessGroupResponse]
@@ -200,6 +206,12 @@ class DraftSessionListItemResponse(BaseModel):
     document_type: WorkflowDocumentType
     created_at: datetime
     updated_at: datetime
+    draft_generation_started_at: datetime | None = None
+    draft_generation_completed_at: datetime | None = None
+    screenshot_generation_started_at: datetime | None = None
+    screenshot_generation_completed_at: datetime | None = None
+    draft_generation_duration_seconds: float | None = None
+    screenshot_generation_duration_seconds: float | None = None
     latest_stage_title: str = ""
     latest_stage_detail: str = ""
     failure_detail: str = ""

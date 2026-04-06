@@ -133,6 +133,12 @@ export type BackendDraftSession = {
   owner_id: string;
   diagram_type: DraftSession["diagramType"];
   document_type: DraftSession["documentType"];
+  draft_generation_started_at?: string | null;
+  draft_generation_completed_at?: string | null;
+  screenshot_generation_started_at?: string | null;
+  screenshot_generation_completed_at?: string | null;
+  draft_generation_duration_seconds?: number | null;
+  screenshot_generation_duration_seconds?: number | null;
   has_unprocessed_evidence: boolean;
   pending_evidence_bundles: BackendPendingEvidenceBundle[];
   process_groups: BackendProcessGroup[];
@@ -152,6 +158,12 @@ export type BackendDraftSessionListItem = {
   document_type: DraftSession["documentType"];
   created_at: string;
   updated_at: string;
+  draft_generation_started_at?: string | null;
+  draft_generation_completed_at?: string | null;
+  screenshot_generation_started_at?: string | null;
+  screenshot_generation_completed_at?: string | null;
+  draft_generation_duration_seconds?: number | null;
+  screenshot_generation_duration_seconds?: number | null;
   latest_stage_title: string;
   latest_stage_detail: string;
   failure_detail: string;

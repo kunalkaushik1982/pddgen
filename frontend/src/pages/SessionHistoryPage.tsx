@@ -13,6 +13,7 @@ import {
   getSessionProgressLabel,
   isSessionActivelyProgressing,
 } from "../selectors/sessionPresentation";
+import { formatGenerationTimeSummary } from "../utils/formatWallDuration";
 import type { DraftSessionListItem } from "../types/session";
 
 type SessionHistoryPageProps = {
@@ -80,6 +81,7 @@ export function SessionHistoryPage({
             const isGeneratingScreenshotsThisSession = generatingScreenshotsSessionId === session.id;
             const isProcessingThisSession = isSessionActivelyProgressing(session);
             const actionsDisabledForSession = Boolean(disabled || isProcessingThisSession);
+            const generationSummary = formatGenerationTimeSummary(session);
 
             return (
               <div key={session.id} className="history-card">
@@ -91,6 +93,9 @@ export function SessionHistoryPage({
                   <div className="artifact-meta">Session ID: {session.id}</div>
                   <div className={`artifact-meta history-stage-title history-stage-title-${progressTone}`}>{progressLabel}</div>
                   <div className="artifact-meta">{session.failureDetail || session.latestStageDetail}</div>
+                  {generationSummary ? (
+                    <div className="artifact-meta muted">Last run times: {generationSummary}</div>
+                  ) : null}
                   <div className="history-progress">
                     <div className="history-progress-bar">
                       <div

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from app.api.dependencies import get_storage_service
 from app.core.config import get_settings
+from app.services.generation_timing import wall_duration_seconds
 from app.models.action_log import ActionLogModel
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
@@ -353,6 +354,18 @@ def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
         document_type=session.document_type,
         created_at=session.created_at,
         updated_at=session.updated_at,
+        draft_generation_started_at=session.draft_generation_started_at,
+        draft_generation_completed_at=session.draft_generation_completed_at,
+        screenshot_generation_started_at=session.screenshot_generation_started_at,
+        screenshot_generation_completed_at=session.screenshot_generation_completed_at,
+        draft_generation_duration_seconds=wall_duration_seconds(
+            session.draft_generation_started_at,
+            session.draft_generation_completed_at,
+        ),
+        screenshot_generation_duration_seconds=wall_duration_seconds(
+            session.screenshot_generation_started_at,
+            session.screenshot_generation_completed_at,
+        ),
         has_unprocessed_evidence=bool(pending_bundles),
         pending_evidence_bundles=sorted(pending_bundles, key=lambda item: item.uploaded_at, reverse=True),
         process_groups=[map_process_group(group) for group in sorted(session.process_groups, key=lambda item: item.display_order)],
@@ -381,6 +394,18 @@ def map_draft_session_list_item(session: DraftSessionModel) -> DraftSessionListI
         document_type=session.document_type,
         created_at=session.created_at,
         updated_at=session.updated_at,
+        draft_generation_started_at=session.draft_generation_started_at,
+        draft_generation_completed_at=session.draft_generation_completed_at,
+        screenshot_generation_started_at=session.screenshot_generation_started_at,
+        screenshot_generation_completed_at=session.screenshot_generation_completed_at,
+        draft_generation_duration_seconds=wall_duration_seconds(
+            session.draft_generation_started_at,
+            session.draft_generation_completed_at,
+        ),
+        screenshot_generation_duration_seconds=wall_duration_seconds(
+            session.screenshot_generation_started_at,
+            session.screenshot_generation_completed_at,
+        ),
         latest_stage_title=latest_stage_title,
         latest_stage_detail=latest_stage_detail,
         failure_detail=failure_detail,

@@ -71,6 +71,12 @@ export type DraftSession = {
   ownerId: string;
   diagramType: "flowchart" | "sequence";
   documentType: DocumentType;
+  draftGenerationStartedAt?: string | null;
+  draftGenerationCompletedAt?: string | null;
+  screenshotGenerationStartedAt?: string | null;
+  screenshotGenerationCompletedAt?: string | null;
+  draftGenerationDurationSeconds?: number | null;
+  screenshotGenerationDurationSeconds?: number | null;
   hasUnprocessedEvidence: boolean;
   pendingEvidenceBundles: PendingEvidenceBundle[];
   processGroups: ProcessGroup[];
@@ -90,6 +96,12 @@ export type DraftSessionListItem = {
   documentType: DraftSession["documentType"];
   createdAt: string;
   updatedAt: string;
+  draftGenerationStartedAt?: string | null;
+  draftGenerationCompletedAt?: string | null;
+  screenshotGenerationStartedAt?: string | null;
+  screenshotGenerationCompletedAt?: string | null;
+  draftGenerationDurationSeconds?: number | null;
+  screenshotGenerationDurationSeconds?: number | null;
   latestStageTitle: string;
   latestStageDetail: string;
   failureDetail: string;

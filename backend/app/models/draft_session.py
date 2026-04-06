@@ -39,6 +39,10 @@ class DraftSessionModel(Base):
     status: Mapped[str] = mapped_column(String(50), default="draft", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    draft_generation_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    draft_generation_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    screenshot_generation_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    screenshot_generation_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
 
     artifacts: Mapped[list["ArtifactModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     meetings: Mapped[list["MeetingModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")

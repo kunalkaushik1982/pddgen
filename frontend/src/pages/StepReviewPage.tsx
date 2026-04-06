@@ -17,6 +17,7 @@ import { useReviewWorkspace, type ReviewMode } from "../hooks/useReviewWorkspace
 import { useStepEditor } from "../hooks/useStepEditor";
 import type { ProcessStep } from "../types/process";
 import type { DraftSession } from "../types/session";
+import { formatGenerationTimeSummary } from "../utils/formatWallDuration";
 
 const FlowchartPreviewPanel = lazy(async () => {
   const module = await import("../components/diagram/FlowchartPreviewPanel");
@@ -188,6 +189,9 @@ export function StepReviewPage({
           <div className="artifact-meta">
             {filteredSteps.length} step(s) | status {session.status}
           </div>
+          {formatGenerationTimeSummary(session) ? (
+            <div className="artifact-meta">Generation time: {formatGenerationTimeSummary(session)}</div>
+          ) : null}
         </div>
           <div className="review-header-actions">
           <div

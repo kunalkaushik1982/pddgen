@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -66,6 +67,19 @@ def _install_task_test_stubs() -> None:
     draft_worker_module.DraftGenerationWorker = type("DraftGenerationWorker", (), {})
     screenshot_worker_module = types.ModuleType("worker.screenshot.worker")
     screenshot_worker_module.ScreenshotGenerationWorker = type("ScreenshotGenerationWorker", (), {})
+
+    app_services_pkg = types.ModuleType("app.services")
+    app_services_pkg.__path__ = []  # type: ignore[attr-defined]
+    generation_timing_mod = types.ModuleType("app.services.generation_timing")
+
+    @contextmanager
+    def _noop_wall_time(_session_id: str, **_kwargs: object):
+        yield
+
+    generation_timing_mod.track_draft_generation_wall_time = _noop_wall_time
+    generation_timing_mod.track_screenshot_generation_wall_time = _noop_wall_time
+    sys.modules["app.services"] = app_services_pkg
+    sys.modules["app.services.generation_timing"] = generation_timing_mod
 
     sys.modules["app"] = app_module
     sys.modules["app.core"] = core_module

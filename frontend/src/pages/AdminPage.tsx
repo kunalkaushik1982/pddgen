@@ -6,6 +6,7 @@
 import React from "react";
 
 import type { AdminJobSummary, AdminUserSummary } from "../types/admin";
+import { formatGenerationTimeSummary } from "../utils/formatWallDuration";
 
 type AdminPageProps = {
   users: AdminUserSummary[];
@@ -74,20 +75,26 @@ export function AdminPage({ users, jobs, isLoading = false }: AdminPageProps): R
         </div>
         {jobs.length > 0 ? (
           <div className="history-list">
-            {jobs.map((job) => (
-              <div key={job.id} className="history-card">
-                <div className="history-card-main">
-                  <strong>{job.title}</strong>
-                  <div className="artifact-meta">Owner: {job.ownerId}</div>
-                  <div className="artifact-meta">
-                    {job.status} | updated {new Date(job.updatedAt).toLocaleString()}
+            {jobs.map((job) => {
+              const generationSummary = formatGenerationTimeSummary(job);
+              return (
+                <div key={job.id} className="history-card">
+                  <div className="history-card-main">
+                    <strong>{job.title}</strong>
+                    <div className="artifact-meta">Owner: {job.ownerId}</div>
+                    <div className="artifact-meta">
+                      {job.status} | updated {new Date(job.updatedAt).toLocaleString()}
+                    </div>
+                    <div className="artifact-meta">Session ID: {job.id}</div>
+                    <div className="artifact-meta">{job.latestStageTitle}</div>
+                    <div className="artifact-meta">{job.failureDetail || job.latestStageDetail}</div>
+                    {generationSummary ? (
+                      <div className="artifact-meta muted">Last run times: {generationSummary}</div>
+                    ) : null}
                   </div>
-                  <div className="artifact-meta">Session ID: {job.id}</div>
-                  <div className="artifact-meta">{job.latestStageTitle}</div>
-                  <div className="artifact-meta">{job.failureDetail || job.latestStageDetail}</div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="empty-state">{isLoading ? "Loading jobs..." : "No jobs found."}</div>
