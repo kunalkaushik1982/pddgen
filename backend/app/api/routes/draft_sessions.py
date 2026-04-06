@@ -10,12 +10,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.dependencies import (
+    get_action_log_service,
     get_artifact_ingestion_service,
     get_current_user,
     get_draft_session_diagram_service,
     get_draft_session_review_service,
     get_job_dispatcher_service,
     get_pipeline_orchestrator_service,
+    get_process_diagram_service,
     get_session_chat_service,
 )
 from app.core.observability import bind_log_context, get_logger
@@ -46,8 +48,6 @@ from app.services.process_diagram_service import ProcessDiagramService
 from app.services.session_chat_service import SessionChatService
 
 router = APIRouter(prefix="/draft-sessions", tags=["draft-sessions"])
-diagram_service = ProcessDiagramService()
-action_log_service = ActionLogService()
 logger = get_logger(__name__)
 
 
@@ -77,12 +77,13 @@ def generate_draft_session(
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
     dispatcher: Annotated[JobDispatcherService, Depends(get_job_dispatcher_service)],
+    action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> DraftSessionResponse:
     """Queue background generation for process steps, notes, and screenshots."""
     with bind_log_context(session_id=session_id):
         session = service.mark_session_processing(db, session_id, owner_id=current_user.username)
-        action_log_service.record(
+        action_log.record(
             db,
             session_id=session.id,
             event_type="generation_queued",
@@ -108,6 +109,7 @@ def generate_session_screenshots(
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
     dispatcher: Annotated[JobDispatcherService, Depends(get_job_dispatcher_service)],
+    action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> DraftSessionResponse:
     """Queue background screenshot generation for the current canonical draft steps."""
@@ -131,7 +133,7 @@ def generate_session_screenshots(
             )
 
         try:
-            action_log_service.record(
+            action_log.record(
                 db,
                 session_id=session.id,
                 event_type="screenshot_generation_queued",
@@ -200,13 +202,14 @@ def get_diagram_model(
     session_id: str,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    diagram_read: Annotated[ProcessDiagramService, Depends(get_process_diagram_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     view: Literal["overview", "detailed"] = "overview",
     process_group_id: str | None = None,
 ) -> DiagramModelResponse:
     """Return a frontend-friendly diagram model for preview rendering."""
     session = service.get_session(db, session_id, owner_id=current_user.username)
-    return DiagramModelResponse.model_validate(diagram_service.build_diagram_model(session, view, process_group_id=process_group_id))
+    return DiagramModelResponse.model_validate(diagram_read.build_diagram_model(session, view, process_group_id=process_group_id))
 
 
 @router.put("/{session_id}/diagram-model", response_model=DiagramModelResponse)

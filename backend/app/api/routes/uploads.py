@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import (
+    get_action_log_service,
     get_artifact_ingestion_service,
     get_current_user,
     get_meeting_service,
@@ -30,7 +31,6 @@ from app.services.meeting_service import MeetingService
 from app.services.process_group_service import ProcessGroupService
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
-action_log_service = ActionLogService()
 
 
 @router.post("/sessions", response_model=DraftSessionResponse, status_code=status.HTTP_201_CREATED)
@@ -40,6 +40,7 @@ def create_upload_session(
     service: Annotated[ArtifactIngestionService, Depends(get_artifact_ingestion_service)],
     meeting_service: Annotated[MeetingService, Depends(get_meeting_service)],
     process_group_service: Annotated[ProcessGroupService, Depends(get_process_group_service)],
+    action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> DraftSessionResponse:
     """Create an upload session for required and optional artifacts."""
@@ -52,7 +53,7 @@ def create_upload_session(
     )
     meeting_service.ensure_default_meeting(db, session=session)
     process_group_service.ensure_default_process_group(db, session=session)
-    action_log_service.record(
+    action_log.record(
         db,
         session_id=session.id,
         event_type="session_created",
@@ -77,6 +78,7 @@ def upload_artifact(
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[ArtifactIngestionService, Depends(get_artifact_ingestion_service)],
     meeting_service: Annotated[MeetingService, Depends(get_meeting_service)],
+    action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     meeting_id: Annotated[str | None, Form()] = None,
     upload_batch_id: Annotated[str | None, Form()] = None,
@@ -99,7 +101,7 @@ def upload_artifact(
         upload_batch_id=upload_batch_id,
         upload_pair_index=upload_pair_index,
     )
-    action_log_service.record(
+    action_log.record(
         db,
         session_id=session_id,
         event_type="artifact_uploaded",

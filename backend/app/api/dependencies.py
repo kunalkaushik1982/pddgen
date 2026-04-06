@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.observability import set_log_context
 from app.db.session import get_db_session
 from app.models.user import UserModel
+from app.services.action_log_service import ActionLogService
 from app.services.artifact_ingestion import ArtifactIngestionService
 from app.services.artifact_validation import ArtifactValidationService
 from app.portability.auth_registry import build_identity_provider
@@ -24,8 +25,12 @@ from app.services.document_renderer import DocumentRendererService
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.meeting_service import MeetingService
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.process_diagram_service import ProcessDiagramService
 from app.services.process_group_service import ProcessGroupService
+from app.services.screenshot_mapping import ScreenshotMappingService
 from app.services.session_chat_service import SessionChatService
+from app.services.step_extraction import StepExtractionService
+from app.services.transcript_intelligence import TranscriptIntelligenceService
 from app.storage.storage_service import StorageService
 
 
@@ -42,9 +47,26 @@ def get_artifact_ingestion_service() -> ArtifactIngestionService:
     )
 
 
+def get_action_log_service() -> ActionLogService:
+    """Provide the audit action-log service."""
+    return ActionLogService()
+
+
+def get_process_diagram_service() -> ProcessDiagramService:
+    """Provide the read-model diagram builder for API responses."""
+    return ProcessDiagramService()
+
+
 def get_pipeline_orchestrator_service() -> PipelineOrchestratorService:
-    """Provide the pipeline orchestration service."""
-    return PipelineOrchestratorService(storage_service=get_storage_service())
+    """Provide the pipeline orchestration service (fully wired from this composition root)."""
+    storage = get_storage_service()
+    return PipelineOrchestratorService(
+        storage_service=storage,
+        step_extraction_service=StepExtractionService(),
+        transcript_intelligence_service=TranscriptIntelligenceService(),
+        screenshot_mapping_service=ScreenshotMappingService(),
+        process_group_service=get_process_group_service(),
+    )
 
 
 def get_document_renderer_service() -> DocumentRendererService:

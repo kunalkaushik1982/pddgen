@@ -6,6 +6,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.exc import NoSuchModuleError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -25,11 +26,16 @@ class AuthCsrfFlowTests(unittest.TestCase):
         self.original_validate = main_module.validate_database_schema
         main_module.validate_database_schema = lambda: None
 
-        self.engine = create_engine(
-            "sqlite://",
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
+        try:
+            self.engine = create_engine(
+                "sqlite://",
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+            )
+        except NoSuchModuleError as exc:
+            raise unittest.SkipTest(
+                "SQLAlchemy SQLite dialect is unavailable in this environment; install SQLite support for SQLAlchemy."
+            ) from exc
         self.session_local = sessionmaker(bind=self.engine, autoflush=False, autocommit=False, expire_on_commit=False)
         Base.metadata.create_all(self.engine)
 

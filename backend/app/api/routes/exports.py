@@ -10,7 +10,13 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user, get_document_renderer_service, get_pipeline_orchestrator_service, get_storage_service
+from app.api.dependencies import (
+    get_action_log_service,
+    get_current_user,
+    get_document_renderer_service,
+    get_pipeline_orchestrator_service,
+    get_storage_service,
+)
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.draft_session import OutputDocumentResponse
@@ -20,7 +26,6 @@ from app.services.pipeline_orchestrator import PipelineOrchestratorService
 from app.storage.storage_service import StorageService
 
 router = APIRouter(prefix="/exports", tags=["exports"])
-action_log_service = ActionLogService()
 
 
 @router.post("/{session_id}/docx", response_model=OutputDocumentResponse)
@@ -29,12 +34,13 @@ def export_docx(
     db: Annotated[Session, Depends(get_db_session)],
     pipeline_service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
     renderer_service: Annotated[DocumentRendererService, Depends(get_document_renderer_service)],
+    action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> OutputDocumentResponse:
     """Render the reviewed draft into a DOCX document."""
     session = pipeline_service.get_session(db, session_id, owner_id=current_user.username)
     output_document = renderer_service.render_docx(db, session)
-    action_log_service.record(
+    action_log.record(
         db,
         session_id=session_id,
         event_type="export_generated",
@@ -52,13 +58,14 @@ def export_docx_download(
     db: Annotated[Session, Depends(get_db_session)],
     pipeline_service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
     renderer_service: Annotated[DocumentRendererService, Depends(get_document_renderer_service)],
+    action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     storage_service: Annotated[StorageService, Depends(get_storage_service)],
 ) -> StreamingResponse:
     """Render the reviewed draft and return the DOCX as a direct download."""
     session = pipeline_service.get_session(db, session_id, owner_id=current_user.username)
     output_document = renderer_service.render_docx(db, session)
-    action_log_service.record(
+    action_log.record(
         db,
         session_id=session_id,
         event_type="export_generated",
@@ -80,13 +87,14 @@ def export_pdf_download(
     db: Annotated[Session, Depends(get_db_session)],
     pipeline_service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
     renderer_service: Annotated[DocumentRendererService, Depends(get_document_renderer_service)],
+    action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     storage_service: Annotated[StorageService, Depends(get_storage_service)],
 ) -> StreamingResponse:
     """Render the reviewed draft and return the PDF as a direct download."""
     session = pipeline_service.get_session(db, session_id, owner_id=current_user.username)
     output_document = renderer_service.render_pdf(db, session)
-    action_log_service.record(
+    action_log.record(
         db,
         session_id=session_id,
         event_type="export_generated",

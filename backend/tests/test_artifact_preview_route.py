@@ -93,6 +93,7 @@ def install_route_stubs():
     responses_module.StreamingResponse = StreamingResponse
     orm_module.Session = object
 
+    dependencies_module.get_action_log_service = lambda: None
     dependencies_module.get_artifact_ingestion_service = lambda: None
     dependencies_module.get_current_user = lambda: None
     dependencies_module.get_meeting_service = lambda: None

@@ -27,16 +27,18 @@ class PipelineOrchestratorService:
 
     def __init__(
         self,
-        storage_service: StorageService | None = None,
-        step_extraction_service: StepExtractionService | None = None,
-        transcript_intelligence_service: TranscriptIntelligenceService | None = None,
-        screenshot_mapping_service: ScreenshotMappingService | None = None,
+        *,
+        storage_service: StorageService,
+        step_extraction_service: StepExtractionService,
+        transcript_intelligence_service: TranscriptIntelligenceService,
+        screenshot_mapping_service: ScreenshotMappingService,
+        process_group_service: ProcessGroupService,
     ) -> None:
-        self.storage_service = storage_service or StorageService()
-        self.step_extraction_service = step_extraction_service or StepExtractionService()
-        self.transcript_intelligence_service = transcript_intelligence_service or TranscriptIntelligenceService()
-        self.screenshot_mapping_service = screenshot_mapping_service or ScreenshotMappingService()
-        self.process_group_service = ProcessGroupService()
+        self.storage_service = storage_service
+        self.step_extraction_service = step_extraction_service
+        self.transcript_intelligence_service = transcript_intelligence_service
+        self.screenshot_mapping_service = screenshot_mapping_service
+        self.process_group_service = process_group_service
 
     def get_session(self, db: Session, session_id: str, owner_id: str | None = None) -> DraftSessionModel:
         """Load a draft session with related entities."""
