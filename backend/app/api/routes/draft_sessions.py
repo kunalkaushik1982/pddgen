@@ -84,24 +84,33 @@ def generate_draft_session(
 ) -> DraftSessionResponse:
     """Queue background generation for process steps, notes, and screenshots."""
     with bind_log_context(session_id=session_id):
-        session = service.mark_session_processing(db, session_id, owner_id=current_user.username)
-        action_log.record(
-            db,
-            session_id=session.id,
-            event_type="generation_queued",
-            title="Draft generation queued",
-            detail="Transcript interpretation and screenshot derivation queued.",
-            actor=current_user.username,
-        )
-        db.commit()
-        session = service.get_session(db, session_id, owner_id=current_user.username)
-        task_id = dispatcher.enqueue_draft_generation(session_id)
-        logger.info(
-            "Draft generation accepted",
-            extra={"event": "draft_generation.accepted", "task_id": task_id},
-        )
-        response.headers["X-Task-Id"] = task_id
-        return map_draft_session(session)
+        if not dispatcher.acquire_draft_generation_lock(session_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Draft generation is already queued or running for this session.",
+            )
+        try:
+            session = service.mark_session_processing(db, session_id, owner_id=current_user.username)
+            action_log.record(
+                db,
+                session_id=session.id,
+                event_type="generation_queued",
+                title="Draft generation queued",
+                detail="Transcript interpretation and screenshot derivation queued.",
+                actor=current_user.username,
+            )
+            db.commit()
+            session = service.get_session(db, session_id, owner_id=current_user.username)
+            task_id = dispatcher.enqueue_draft_generation(session_id)
+            logger.info(
+                "Draft generation accepted",
+                extra={"event": "draft_generation.accepted", "task_id": task_id},
+            )
+            response.headers["X-Task-Id"] = task_id
+            return map_draft_session(session)
+        except Exception:
+            dispatcher.release_draft_generation_lock(session_id)
+            raise
 
 
 @router.post("/{session_id}/generate-screenshots", response_model=DraftSessionResponse, status_code=status.HTTP_202_ACCEPTED)

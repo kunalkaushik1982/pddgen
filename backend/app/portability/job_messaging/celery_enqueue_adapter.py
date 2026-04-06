@@ -2,11 +2,10 @@ r"""Celery-backed `JobEnqueuePort` (broker transport is Celery configuration, no
 
 from __future__ import annotations
 
-from typing import Any
-
 from celery import Celery
 
 from app.core.config import Settings
+from app.portability.job_messaging.envelope import JobEnvelope, JobType
 from app.portability.job_messaging.protocols import EnqueueHandle, JobEnqueuePort
 
 
@@ -18,7 +17,13 @@ class CeleryJobEnqueueAdapter(JobEnqueuePort):
     def __init__(self, *, celery_app: Celery) -> None:
         self._celery = celery_app
 
-    def enqueue(self, task_name: str, args: list[Any], *, queue: str) -> EnqueueHandle:
+    def enqueue(self, job: JobEnvelope, *, queue: str) -> EnqueueHandle:
+        if job.job_type is JobType.DRAFT_GENERATION:
+            task_name, args = "draft_generation.run", [job.session_id]
+        elif job.job_type is JobType.SCREENSHOT_GENERATION:
+            task_name, args = "screenshot_generation.run", [job.session_id]
+        else:  # pragma: no cover
+            raise AssertionError(f"Unhandled job_type: {job.job_type!r}")
         return self._celery.send_task(task_name, args=args, queue=queue)
 
     @classmethod

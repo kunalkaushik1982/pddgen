@@ -68,3 +68,9 @@ class ScreenshotLockManager(Protocol):
     """Release the per-session screenshot generation lock."""
 
     def release(self, session_id: str) -> None: ...
+
+
+class DraftLockManager(Protocol):
+    """Release the per-session draft generation lock."""
+
+    def release(self, session_id: str) -> None: ...

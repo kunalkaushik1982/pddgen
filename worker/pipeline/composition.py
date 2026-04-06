@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from app.core.observability import get_logger
 from app.models.action_log import ActionLogModel
+from app.portability.job_messaging.celery_enqueue_adapter import CeleryJobEnqueueAdapter, build_celery_app_for_enqueue
 from app.portability.job_messaging.redis_lock_adapter import build_redis_distributed_lock
-from app.portability.job_messaging.screenshot_guard_adapter import build_screenshot_run_guard
-from app.portability.job_messaging.wiring import build_default_job_enqueue_port
+from app.portability.job_messaging.screenshot_guard_adapter import build_draft_run_guard, build_screenshot_run_guard
 from app.services.action_log_service import ActionLogService
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.process_group_service import ProcessGroupService
@@ -41,12 +41,15 @@ from worker.screenshot.context_builder import DefaultScreenshotContextBuilder
 logger = get_logger(__name__)
 
 
-def _worker_job_dispatcher_for_screenshot_lock_release() -> JobDispatcherService:
-    """Dispatcher used only to release the screenshot run guard after the pipeline completes."""
+def _worker_job_dispatcher_for_lock_release() -> JobDispatcherService:
+    """Dispatcher used to release draft/screenshot run guards after pipeline runs (worker process)."""
     settings = get_backend_settings()
     lock = build_redis_distributed_lock(settings)
+    # Enqueue port is unused here; use Celery so worker never needs SQS/AWS when API uses sqs backend.
+    enqueue = CeleryJobEnqueueAdapter(celery_app=build_celery_app_for_enqueue(settings))
     return JobDispatcherService(
-        enqueue=build_default_job_enqueue_port(settings),
+        enqueue=enqueue,
+        draft_run_guard=build_draft_run_guard(settings, lock=lock),
         screenshot_run_guard=build_screenshot_run_guard(settings, lock=lock),
     )
 
@@ -108,6 +111,14 @@ class ScreenshotLockManagerAdapter:
 
     def release(self, session_id: str) -> None:
         self._dispatcher.release_screenshot_generation_lock(session_id)
+
+
+class DraftLockManagerAdapter:
+    def __init__(self, dispatcher: JobDispatcherService) -> None:
+        self._dispatcher = dispatcher
+
+    def release(self, session_id: str) -> None:
+        self._dispatcher.release_draft_generation_lock(session_id)
 
 
 class ScreenshotPersistenceAdapter:
@@ -198,6 +209,7 @@ def build_draft_generation_use_case(*, task_id: str | None) -> DraftGenerationUs
         ],
         persister=DraftPersistenceAdapter(PersistenceStage()),
         failure_recorder=FailureRecorderAdapter(FailureStage()),
+        lock_manager=DraftLockManagerAdapter(_worker_job_dispatcher_for_lock_release()),
     )
 
 
@@ -214,7 +226,5 @@ def build_screenshot_generation_use_case(*, task_id: str | None) -> ScreenshotGe
             ),
         ],
         persister=ScreenshotPersistenceAdapter(action_log_stage=ScreenshotActionLogStage()),
-        lock_manager=ScreenshotLockManagerAdapter(
-            _worker_job_dispatcher_for_screenshot_lock_release()
-        ),
+        lock_manager=ScreenshotLockManagerAdapter(_worker_job_dispatcher_for_lock_release()),
     )

@@ -5,8 +5,9 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\core\config.py
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.release import get_release_info
@@ -41,6 +42,22 @@ class Settings(BaseSettings):
     lock_redis_url: str | None = Field(
         default=None,
         description="Optional Redis URL for distributed locks only; defaults to redis_url when unset.",
+    )
+    job_enqueue_backend: Literal["celery", "sqs"] = Field(
+        default="celery",
+        description="Producer adapter: celery (send_task) or sqs (SendMessage JSON JobEnvelope).",
+    )
+    sqs_job_queue_url: str = Field(
+        default="",
+        description="SQS queue URL when job_enqueue_backend=sqs.",
+    )
+    sqs_is_fifo_queue: bool = Field(
+        default=False,
+        description="Set true for FIFO queues (adds MessageGroupId / MessageDeduplicationId).",
+    )
+    sqs_region: str | None = Field(
+        default=None,
+        description="Optional AWS region for the SQS client (else standard boto3 resolution).",
     )
     auth_provider: str = "password"
     auth_provider_extensions_module: str = Field(
@@ -97,6 +114,10 @@ class Settings(BaseSettings):
     screenshot_extended_window_candidate_cap: int = 9
     screenshot_ffmpeg_timeout_seconds: float = 8.0
     screenshot_generation_lock_seconds: int = 3600
+    draft_generation_lock_seconds: int = Field(
+        default=3600,
+        description="TTL for draft-generation dedupe lock (API reserve until worker releases).",
+    )
     screenshot_celery_soft_time_limit_seconds: float = Field(
         default=300.0,
         description="Celery soft time limit for screenshot_generation tasks (SIGUSR1-style SoftTimeLimitExceeded).",
@@ -125,6 +146,12 @@ class Settings(BaseSettings):
         env_prefix="PDD_GENERATOR_",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_job_enqueue_backend(self) -> Self:
+        if self.job_enqueue_backend.strip().lower() == "sqs" and not self.sqs_job_queue_url.strip():
+            raise ValueError("sqs_job_queue_url is required when job_enqueue_backend is 'sqs'")
+        return self
 
 
 @lru_cache(maxsize=1)

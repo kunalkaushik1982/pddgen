@@ -23,8 +23,8 @@ from app.services.database_session_service import DatabaseSessionService
 from app.services.draft_session_diagram_service import DraftSessionDiagramService
 from app.services.draft_session_review_service import DraftSessionReviewService
 from app.portability.job_messaging.redis_lock_adapter import build_redis_distributed_lock
-from app.portability.job_messaging.screenshot_guard_adapter import build_screenshot_run_guard
-from app.portability.job_messaging.wiring import build_default_job_enqueue_port
+from app.portability.job_messaging.screenshot_guard_adapter import build_draft_run_guard, build_screenshot_run_guard
+from app.portability.job_messaging.wiring import build_job_enqueue_port
 from app.services.document_pdf_converter import DocumentPdfConverter
 from app.services.document_renderer import DocumentRendererService
 from app.services.document_template_renderer import DocumentTemplateRenderer
@@ -124,7 +124,8 @@ def get_job_dispatcher_service() -> JobDispatcherService:
     settings = get_settings()
     lock = build_redis_distributed_lock(settings)
     return JobDispatcherService(
-        enqueue=build_default_job_enqueue_port(settings),
+        enqueue=build_job_enqueue_port(settings),
+        draft_run_guard=build_draft_run_guard(settings, lock=lock),
         screenshot_run_guard=build_screenshot_run_guard(settings, lock=lock),
     )
 

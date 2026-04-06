@@ -152,6 +152,54 @@ class WorkerUseCaseTests(unittest.TestCase):
         self.assertEqual(result["screenshots_created"], 2)
         self.assertEqual(events, ["load:session-4", "build", "derive", "persist", "uow_exit", "release:session-4"])
 
+    def test_draft_use_case_releases_lock_after_run(self) -> None:
+        events: list[str] = []
+
+        class FakeUow:
+            def __enter__(self):
+                self.session = object()
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                events.append("uow_exit")
+                return False
+
+        class FakeRepository:
+            def load_draft_session(self, db, session_id: str):
+                events.append(f"load:{session_id}")
+                return object()
+
+        class FakeContext:
+            session_id = "session-2"
+
+        class FakeStage:
+            def run(self, db, context) -> None:
+                events.append("stage")
+
+        class FakePersister:
+            def persist(self, db, context):
+                events.append("persist")
+                return {"session_id": context.session_id, "steps_created": 1}
+
+        class FakeDraftLockManager:
+            def release(self, session_id: str) -> None:
+                events.append(f"draft_release:{session_id}")
+
+        use_case = use_cases.DraftGenerationUseCase(
+            uow_factory=lambda: FakeUow(),
+            repository=FakeRepository(),
+            context_loader=lambda db, session: FakeContext(),
+            stages=[FakeStage()],
+            persister=FakePersister(),
+            failure_recorder=None,
+            lock_manager=FakeDraftLockManager(),
+        )
+
+        result = use_case.run(session_id="session-2")
+
+        self.assertEqual(result["steps_created"], 1)
+        self.assertEqual(events, ["load:session-2", "stage", "persist", "uow_exit", "draft_release:session-2"])
+
 
 if __name__ == "__main__":
     unittest.main()

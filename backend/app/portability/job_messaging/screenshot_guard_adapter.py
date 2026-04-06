@@ -1,13 +1,13 @@
-r"""Screenshot run reservation using a `DistributedLockPort` (pluggable dedupe / concurrency)."""
+r"""Session-scoped run reservations via `DistributedLockPort` (draft and screenshot dedupe keys)."""
 
 from __future__ import annotations
 
 from app.core.config import Settings
-from app.portability.job_messaging.protocols import DistributedLockPort, ScreenshotRunGuardPort
+from app.portability.job_messaging.protocols import DistributedLockPort, DraftRunGuardPort, ScreenshotRunGuardPort
 
 
-class ScreenshotLockRunGuardAdapter(ScreenshotRunGuardPort):
-    """Default: one in-flight screenshot job per session via TTL lock keys."""
+class SessionLockRunGuardAdapter:
+    """Default: one in-flight guarded job per session via TTL lock keys."""
 
     __slots__ = ("_lock", "_ttl_seconds", "_key_prefix")
 
@@ -16,7 +16,7 @@ class ScreenshotLockRunGuardAdapter(ScreenshotRunGuardPort):
         *,
         lock: DistributedLockPort,
         ttl_seconds: int,
-        key_prefix: str = "pdd-generator:screenshot-generation-lock",
+        key_prefix: str,
     ) -> None:
         self._lock = lock
         self._ttl_seconds = ttl_seconds
@@ -33,4 +33,16 @@ class ScreenshotLockRunGuardAdapter(ScreenshotRunGuardPort):
 
 
 def build_screenshot_run_guard(settings: Settings, *, lock: DistributedLockPort) -> ScreenshotRunGuardPort:
-    return ScreenshotLockRunGuardAdapter(lock=lock, ttl_seconds=settings.screenshot_generation_lock_seconds)
+    return SessionLockRunGuardAdapter(
+        lock=lock,
+        ttl_seconds=settings.screenshot_generation_lock_seconds,
+        key_prefix="pdd-generator:screenshot-generation-lock",
+    )
+
+
+def build_draft_run_guard(settings: Settings, *, lock: DistributedLockPort) -> DraftRunGuardPort:
+    return SessionLockRunGuardAdapter(
+        lock=lock,
+        ttl_seconds=settings.draft_generation_lock_seconds,
+        key_prefix="pdd-generator:draft-generation-lock",
+    )
