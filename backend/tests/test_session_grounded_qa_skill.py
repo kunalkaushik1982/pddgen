@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import importlib.util
+from typing import cast
 from pathlib import Path
 import sys
 import types
 import unittest
+
+from app.core.config import Settings
 
 SCHEMAS_PATH = (
     Path(__file__).resolve().parents[1]
@@ -65,6 +68,8 @@ def install_backend_stubs():
         ai_base_url = "https://example.test/v1"
         ai_model = "test-model"
         ai_timeout_seconds = 30
+
+    config_module.Settings = FakeSettings
 
     class FakeLogger:
         def info(self, *args, **kwargs):
@@ -207,7 +212,10 @@ class SessionGroundedQATests(unittest.TestCase):
             question="What is the approval step?",
             evidence=[{"id": "step-1", "source_type": "step", "title": "Step 1", "content": "Approve PO"}],
         )
-        messages = skill_module.SessionGroundedQASkill(client=object(), settings=FakeSettings()).build_messages(request)
+        messages = skill_module.SessionGroundedQASkill(
+            client=None,
+            settings=cast(Settings, FakeSettings()),
+        ).build_messages(request)
         self.assertEqual(messages[0]["role"], "system")
         self.assertIn("Use only the supplied evidence", messages[0]["content"])
         self.assertIn("What is the approval step?", messages[1]["content"])

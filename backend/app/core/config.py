@@ -26,7 +26,13 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_prefix: str = "/api"
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/pdd_generator"
+    database_url: str = Field(
+        default="postgresql+psycopg://postgres:postgres@localhost:5432/pdd_generator",
+        description=(
+            "SQLAlchemy URL. Default is PostgreSQL (psycopg). For MySQL install the optional "
+            "``mysql`` extra and use e.g. ``mysql+pymysql://user:pass@host:3306/db``."
+        ),
+    )
     database_pool_pre_ping: bool = Field(
         default=True,
         description="Enable SQLAlchemy pool_pre_ping for resilient connections across DB engines.",

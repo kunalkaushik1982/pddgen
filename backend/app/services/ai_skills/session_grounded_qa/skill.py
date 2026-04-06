@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from app.core.config import get_settings
+from app.core.config import Settings
 from app.core.observability import get_logger
 from app.services.ai_skills.session_grounded_qa.schemas import (
     SessionGroundedQARequest,
@@ -65,8 +65,8 @@ class SessionGroundedQASkill:
     skill_id = "session_grounded_qa"
     version = "1.0"
 
-    def __init__(self, *, settings: Any | None = None, client: httpx.Client | None = None) -> None:
-        self.settings = settings or get_settings()
+    def __init__(self, *, settings: Settings, client: httpx.Client | None = None) -> None:
+        self.settings = settings
         self._client = client
 
     def build_messages(self, request: SessionGroundedQARequest) -> list[dict[str, str]]:

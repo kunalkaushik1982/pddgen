@@ -8,14 +8,14 @@ import secrets
 
 from fastapi import HTTPException, Request, Response, status
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
 
 
 class CsrfService:
     """Issue and validate CSRF tokens using the double-submit cookie pattern."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
-        self.settings = settings or get_settings()
+    def __init__(self, *, settings: Settings) -> None:
+        self.settings = settings
 
     def issue_token(self) -> str:
         return secrets.token_urlsafe(32)

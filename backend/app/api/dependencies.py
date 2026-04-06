@@ -5,7 +5,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\dependencies
 
 from typing import Annotated
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -13,6 +13,7 @@ from app.core.observability import set_log_context
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.services.action_log_service import ActionLogService
+from app.services.csrf_service import CsrfService
 from app.services.artifact_ingestion import ArtifactIngestionService
 from app.services.artifact_validation import ArtifactValidationService
 from app.portability.auth_registry import build_identity_provider
@@ -35,6 +36,11 @@ from app.services.session_chat_service import SessionChatService
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
 from app.storage.storage_service import StorageService
+
+
+def get_csrf_service(request: Request) -> CsrfService:
+    """Provide CSRF helpers (same instance as ``app.state.csrf_service``)."""
+    return request.app.state.csrf_service
 
 
 def get_storage_service() -> StorageService:
