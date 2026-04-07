@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from app.core.observability import get_logger
 from app.models.action_log import ActionLogModel
-from app.portability.job_messaging.celery_enqueue_adapter import CeleryJobEnqueueAdapter, build_celery_app_for_enqueue
-from app.portability.job_messaging.redis_lock_adapter import build_redis_distributed_lock
-from app.portability.job_messaging.screenshot_guard_adapter import build_draft_run_guard, build_screenshot_run_guard
+from app.portability.job_messaging.enqueue_producers.celery_enqueue import CeleryJobEnqueueAdapter, build_celery_app_for_enqueue
+from app.portability.job_messaging.locks.redis_lock import build_redis_distributed_lock
+from app.portability.job_messaging.run_guards.session_run_guard import build_draft_run_guard, build_screenshot_run_guard
 from app.services.action_log_service import ActionLogService
 from app.services.job_dispatcher import JobDispatcherService
 from app.services.process_group_service import ProcessGroupService

@@ -43,13 +43,30 @@ class Settings(BaseSettings):
         default=None,
         description="Optional Redis URL for distributed locks only; defaults to redis_url when unset.",
     )
-    job_enqueue_backend: Literal["celery", "sqs"] = Field(
+    job_enqueue_backend: Literal["celery", "sqs", "azure_service_bus", "gcp_pubsub"] = Field(
         default="celery",
-        description="Producer adapter: celery (send_task) or sqs (SendMessage JSON JobEnvelope).",
+        description=(
+            "Producer: celery (send_task), sqs (SendMessage), azure_service_bus (queue), "
+            "gcp_pubsub (topic publish)."
+        ),
+    )
+    job_enqueue_max_retries: int = Field(
+        default=0,
+        ge=0,
+        description="Producer retry count on enqueue failures (per adapter send call).",
+    )
+    job_enqueue_retry_backoff_seconds: float = Field(
+        default=0.5,
+        ge=0.0,
+        description="Base backoff seconds for producer retries (exponential per attempt).",
     )
     sqs_job_queue_url: str = Field(
         default="",
         description="SQS queue URL when job_enqueue_backend=sqs.",
+    )
+    sqs_job_queue_urls: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional logical queue -> SQS queue URL map; falls back to sqs_job_queue_url.",
     )
     sqs_is_fifo_queue: bool = Field(
         default=False,
@@ -58,6 +75,38 @@ class Settings(BaseSettings):
     sqs_region: str | None = Field(
         default=None,
         description="Optional AWS region for the SQS client (else standard boto3 resolution).",
+    )
+    azure_service_bus_connection_string: str = Field(
+        default="",
+        description="Azure Service Bus namespace connection string when job_enqueue_backend=azure_service_bus.",
+    )
+    azure_service_bus_queue_name: str = Field(
+        default="",
+        description="Target queue name within the namespace for Azure Service Bus.",
+    )
+    azure_service_bus_queue_names: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional logical queue -> Azure Service Bus queue name map; falls back to azure_service_bus_queue_name.",
+    )
+    gcp_pubsub_project_id: str = Field(
+        default="",
+        description="GCP project ID when job_enqueue_backend=gcp_pubsub.",
+    )
+    gcp_pubsub_topic_id: str = Field(
+        default="",
+        description="Pub/Sub topic ID (not full path) when job_enqueue_backend=gcp_pubsub.",
+    )
+    gcp_pubsub_topic_ids: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional logical queue -> GCP Pub/Sub topic ID map; falls back to gcp_pubsub_topic_id.",
+    )
+    job_enqueue_factory: str = Field(
+        default="",
+        description=(
+            "Optional plug-in: ``dotted.module.path:callable`` returning ``JobEnqueuePort`` given ``Settings``. "
+            "When set, this overrides ``job_enqueue_backend`` (built-in registry is not used). "
+            "Only use trusted module paths."
+        ),
     )
     auth_provider: str = "password"
     auth_provider_extensions_module: str = Field(
@@ -149,8 +198,36 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_job_enqueue_backend(self) -> Self:
-        if self.job_enqueue_backend.strip().lower() == "sqs" and not self.sqs_job_queue_url.strip():
-            raise ValueError("sqs_job_queue_url is required when job_enqueue_backend is 'sqs'")
+        factory = self.job_enqueue_factory.strip()
+        if factory:
+            if ":" not in factory or factory.count(":") != 1:
+                raise ValueError("job_enqueue_factory must be exactly 'module.path:callable'")
+            module_path, attr = factory.split(":", 1)
+            if not module_path.strip() or not attr.strip():
+                raise ValueError("job_enqueue_factory must be exactly 'module.path:callable'")
+            return self
+        backend = self.job_enqueue_backend.strip().lower()
+        if backend == "sqs" and not (self.sqs_job_queue_url.strip() or self.sqs_job_queue_urls):
+            raise ValueError(
+                "Configure sqs_job_queue_url or sqs_job_queue_urls when job_enqueue_backend is 'sqs'"
+            )
+        if backend == "azure_service_bus":
+            if not self.azure_service_bus_connection_string.strip():
+                raise ValueError(
+                    "azure_service_bus_connection_string is required when job_enqueue_backend is 'azure_service_bus'"
+                )
+            if not (self.azure_service_bus_queue_name.strip() or self.azure_service_bus_queue_names):
+                raise ValueError(
+                    "Configure azure_service_bus_queue_name or azure_service_bus_queue_names "
+                    "when job_enqueue_backend is 'azure_service_bus'"
+                )
+        if backend == "gcp_pubsub":
+            if not self.gcp_pubsub_project_id.strip():
+                raise ValueError("gcp_pubsub_project_id is required when job_enqueue_backend is 'gcp_pubsub'")
+            if not (self.gcp_pubsub_topic_id.strip() or self.gcp_pubsub_topic_ids):
+                raise ValueError(
+                    "Configure gcp_pubsub_topic_id or gcp_pubsub_topic_ids when job_enqueue_backend is 'gcp_pubsub'"
+                )
         return self
 
 

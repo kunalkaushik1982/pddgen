@@ -29,5 +29,18 @@ class PortabilityAuthRegistryTests(unittest.TestCase):
         self.assertEqual(provider.provider_name, "password")
 
 
+class JobEnqueueFactoryTests(unittest.TestCase):
+    def test_dotted_factory_resolves_to_celery_adapter(self) -> None:
+        from app.portability.job_messaging.enqueue_producers.celery_enqueue import CeleryJobEnqueueAdapter
+        from app.portability.job_messaging.wiring import build_job_enqueue_port
+
+        settings = Settings(
+            database_url="postgresql+psycopg://x:x@localhost:5432/x",
+            job_enqueue_factory="app.portability.job_messaging.wiring:_build_celery_enqueue",
+        )
+        port = build_job_enqueue_port(settings)
+        self.assertIsInstance(port, CeleryJobEnqueueAdapter)
+
+
 if __name__ == "__main__":
     unittest.main()

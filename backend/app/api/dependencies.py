@@ -22,8 +22,8 @@ from app.services.auth_service import AuthService
 from app.services.database_session_service import DatabaseSessionService
 from app.services.draft_session_diagram_service import DraftSessionDiagramService
 from app.services.draft_session_review_service import DraftSessionReviewService
-from app.portability.job_messaging.redis_lock_adapter import build_redis_distributed_lock
-from app.portability.job_messaging.screenshot_guard_adapter import build_draft_run_guard, build_screenshot_run_guard
+from app.portability.job_messaging.locks.redis_lock import build_redis_distributed_lock
+from app.portability.job_messaging.run_guards.session_run_guard import build_draft_run_guard, build_screenshot_run_guard
 from app.portability.job_messaging.wiring import build_job_enqueue_port
 from app.services.document_pdf_converter import DocumentPdfConverter
 from app.services.document_renderer import DocumentRendererService

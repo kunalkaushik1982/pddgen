@@ -188,4 +188,5 @@ So the immediate blockers for the first full local run are:
 - sample templates: [docs/templates/README.md](C:\Users\work\Documents\PddGenerator\docs\templates\README.md)
 - multi-process session design: [docs/multi-process-session-design.md](C:\Users\work\Documents\PddGenerator\docs\multi-process-session-design.md)
 - architecture details: [docs/architecture.md](C:\Users\work\Documents\PddGenerator\docs\architecture.md)
+- job messaging producer plugin registry: [docs/job-messaging-producer-plugin-registry.md](C:\Users\work\Documents\PddGenerator\docs\job-messaging-producer-plugin-registry.md)
 - product blueprint: [masterplan.md](C:\Users\work\Documents\PddGenerator\masterplan.md)

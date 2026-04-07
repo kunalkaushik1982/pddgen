@@ -5,6 +5,7 @@ from __future__ import annotations
 from celery import Celery
 
 from app.core.config import Settings
+from app.portability.job_messaging.enqueue_producers.common import send_with_retry
 from app.portability.job_messaging.envelope import JobEnvelope, JobType
 from app.portability.job_messaging.protocols import EnqueueHandle, JobEnqueuePort
 
@@ -12,10 +13,12 @@ from app.portability.job_messaging.protocols import EnqueueHandle, JobEnqueuePor
 class CeleryJobEnqueueAdapter(JobEnqueuePort):
     """Delegates enqueue to a Celery application (Redis, SQS, AMQP, etc. via broker_url)."""
 
-    __slots__ = ("_celery",)
+    __slots__ = ("_celery", "_max_retries", "_retry_backoff")
 
-    def __init__(self, *, celery_app: Celery) -> None:
+    def __init__(self, *, celery_app: Celery, max_retries: int = 0, retry_backoff_seconds: float = 0.5) -> None:
         self._celery = celery_app
+        self._max_retries = max_retries
+        self._retry_backoff = retry_backoff_seconds
 
     def enqueue(self, job: JobEnvelope, *, queue: str) -> EnqueueHandle:
         if job.job_type is JobType.DRAFT_GENERATION:
@@ -24,7 +27,14 @@ class CeleryJobEnqueueAdapter(JobEnqueuePort):
             task_name, args = "screenshot_generation.run", [job.session_id]
         else:  # pragma: no cover
             raise AssertionError(f"Unhandled job_type: {job.job_type!r}")
-        return self._celery.send_task(task_name, args=args, queue=queue)
+        return send_with_retry(
+            backend="celery",
+            queue=queue,
+            job=job,
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff,
+            send_once=lambda: self._celery.send_task(task_name, args=args, queue=queue),
+        )
 
     @classmethod
     def celery_app_from_settings(cls, settings: Settings) -> Celery:
