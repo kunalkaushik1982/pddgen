@@ -293,6 +293,8 @@ export function mapUser(user: BackendUser): User {
   return {
     id: user.id,
     username: user.username,
+    email: user.email ?? null,
+    emailVerified: user.email_verified ?? false,
     createdAt: user.created_at,
     isAdmin: user.is_admin,
   };

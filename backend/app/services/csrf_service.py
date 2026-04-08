@@ -49,6 +49,13 @@ class CsrfService:
         if not request.url.path.startswith(self.settings.api_prefix):
             return
 
+        # Password reset is used without an authenticated session; allow even if a stale session cookie exists.
+        if request.url.path in (
+            f"{self.settings.api_prefix}/auth/password-reset/request",
+            f"{self.settings.api_prefix}/auth/password-reset/confirm",
+        ):
+            return
+
         session_token = request.cookies.get(self.settings.auth_cookie_name)
         if not session_token:
             return

@@ -1,14 +1,14 @@
 import type { User } from "../types/auth";
 import type { BackendAuthResponse, BackendUser } from "./contracts";
-import { fetchJson } from "./http";
+import { fetchJson, HttpError } from "./http";
 import { mapUser } from "./mappers";
 
 export const authService = {
-  async register(username: string, password: string): Promise<User> {
+  async register(username: string, password: string, email: string): Promise<User> {
     const payload = await fetchJson<BackendAuthResponse>("/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, email }),
     });
     if (!payload.user) {
       throw new Error(payload.challenge_type ?? "Additional authentication challenge required.");
@@ -40,11 +40,11 @@ export const authService = {
     return mapUser(payload.user);
   },
 
-  async requestPasswordReset(username: string): Promise<{ accepted: boolean; reset_token?: string | null }> {
+  async requestPasswordReset(email: string): Promise<{ accepted: boolean; reset_token?: string | null }> {
     return fetchJson<{ accepted: boolean; reset_token?: string | null }>("/auth/password-reset/request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username }),
+      body: JSON.stringify({ email }),
     });
   },
 
@@ -62,9 +62,19 @@ export const authService = {
     });
   },
 
-  async getCurrentUser(): Promise<User> {
-    const user = await fetchJson<BackendUser>("/auth/me");
-    return mapUser(user);
+  async getCurrentUser(): Promise<User | null> {
+    try {
+      const user = await fetchJson<BackendUser | null>("/auth/me");
+      if (!user) {
+        return null;
+      }
+      return mapUser(user);
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 401) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   clearAuthToken(): void {

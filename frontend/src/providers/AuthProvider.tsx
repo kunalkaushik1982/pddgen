@@ -8,8 +8,8 @@ type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<User>;
-  loginWithGoogle: (idToken: string) => Promise<User>;
-  register: (username: string, password: string) => Promise<User>;
+  loginWithGoogle: (accessToken: string) => Promise<User>;
+  register: (username: string, password: string, email: string) => Promise<User>;
   requestPasswordReset: (username: string) => Promise<{ accepted: boolean; reset_token?: string | null }>;
   confirmPasswordReset: (token: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -33,13 +33,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   });
 
   const registerMutation = useMutation({
-    mutationFn: ({ username, password }: { username: string; password: string }) => authService.register(username, password),
+    mutationFn: ({ username, password, email }: { username: string; password: string; email: string }) =>
+      authService.register(username, password, email),
     onSuccess: (user) => {
       queryClient.setQueryData(["auth", "currentUser"], user);
     },
   });
   const googleLoginMutation = useMutation({
-    mutationFn: (idToken: string) => authService.loginWithGoogle(idToken),
+    mutationFn: (accessToken: string) => authService.loginWithGoogle(accessToken),
     onSuccess: (user) => {
       queryClient.setQueryData(["auth", "currentUser"], user);
     },
@@ -72,8 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         confirmResetMutation.isPending ||
         logoutMutation.isPending,
       login: async (username, password) => loginMutation.mutateAsync({ username, password }),
-      loginWithGoogle: async (idToken) => googleLoginMutation.mutateAsync(idToken),
-      register: async (username, password) => registerMutation.mutateAsync({ username, password }),
+      loginWithGoogle: async (accessToken) => googleLoginMutation.mutateAsync(accessToken),
+      register: async (username, password, email) => registerMutation.mutateAsync({ username, password, email }),
       requestPasswordReset: async (username) => requestResetMutation.mutateAsync(username),
       confirmPasswordReset: async (token, newPassword) => confirmResetMutation.mutateAsync({ token, newPassword }),
       logout: async () => logoutMutation.mutateAsync(),

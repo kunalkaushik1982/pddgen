@@ -63,7 +63,7 @@ class AuthCsrfFlowTests(unittest.TestCase):
     def test_cookie_auth_and_csrf_are_enforced_for_unsafe_requests(self) -> None:
         response = self.client.post(
             "/api/auth/register",
-            json={"username": "alice", "password": "secret123"},
+            json={"username": "alice", "password": "secret123", "email": "alice@example.com"},
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn(self.settings.auth_cookie_name, self.client.cookies)
@@ -94,12 +94,12 @@ class AuthCsrfFlowTests(unittest.TestCase):
         try:
             response = self.client.post(
                 "/api/auth/register",
-                json={"username": "bob@example.com", "password": "secret123"},
+                json={"username": "bob", "password": "secret123", "email": "bob@example.com"},
             )
             self.assertEqual(response.status_code, 200)
             request_reset = self.client.post(
                 "/api/auth/password-reset/request",
-                json={"username": "bob@example.com"},
+                json={"email": "bob@example.com"},
             )
             self.assertEqual(request_reset.status_code, 200)
             reset_token = request_reset.json().get("reset_token")
@@ -109,11 +109,16 @@ class AuthCsrfFlowTests(unittest.TestCase):
                 json={"token": reset_token, "new_password": "new-secret-456"},
             )
             self.assertEqual(confirm.status_code, 204)
-            # Logout and login with the new password.
-            self.client.post("/api/auth/logout")
+            # Logout and login with the new password (CSRF required while session cookie exists).
+            csrf_token = self.client.cookies.get(settings.auth_csrf_cookie_name)
+            self.assertIsInstance(csrf_token, str)
+            self.client.post(
+                "/api/auth/logout",
+                headers={settings.auth_csrf_header_name: csrf_token},
+            )
             relogin = self.client.post(
                 "/api/auth/login",
-                json={"username": "bob@example.com", "password": "new-secret-456"},
+                json={"username": "bob", "password": "new-secret-456"},
             )
             self.assertEqual(relogin.status_code, 200)
         finally:

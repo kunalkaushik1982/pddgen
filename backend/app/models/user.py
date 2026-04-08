@@ -14,6 +14,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.user_auth_token import UserAuthTokenModel
+    from app.models.user_email_verification_token import UserEmailVerificationTokenModel
     from app.models.user_password_reset_token import UserPasswordResetTokenModel
 
 
@@ -24,6 +25,8 @@ class UserModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     username: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
@@ -32,6 +35,10 @@ class UserModel(Base):
         cascade="all, delete-orphan",
     )
     password_reset_tokens: Mapped[list["UserPasswordResetTokenModel"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    email_verification_tokens: Mapped[list["UserEmailVerificationTokenModel"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )

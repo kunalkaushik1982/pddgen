@@ -38,6 +38,12 @@
   color: var(--app-muted);
 }
 
+.app-user-menu-value {
+  font-size: 0.9rem;
+  color: var(--app-text);
+  overflow-wrap: anywhere;
+}
+
 .app-user-menu-field select {
   width: 100%;
   padding: 9px 12px;
@@ -101,6 +107,57 @@
   width: min(460px, 100%);
 }
 
+.auth-login-panel {
+  display: grid;
+  gap: 14px;
+  padding: 26px;
+  border-radius: 20px;
+}
+
+.auth-login-form {
+  gap: 12px;
+}
+
+.auth-login-input {
+  border-radius: 14px;
+  padding: 14px 14px;
+}
+
+.auth-login-actions {
+  flex-direction: column;
+}
+
+.auth-cta-primary,
+.auth-cta-secondary {
+  width: 100%;
+  justify-content: center;
+}
+
+.auth-button-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.auth-cta-primary {
+  background: #1877f2;
+  box-shadow: none;
+}
+
+.auth-cta-secondary {
+  border: 1px solid #c7d2fe;
+  background: transparent;
+}
+
+.auth-google-button {
+  margin-top: 4px;
+}
+
+.auth-forgot-password-link {
+  align-self: center;
+  margin-top: 2px;
+}
+
 .app-title {
   margin: 0;
   font-size: 2rem;
@@ -141,6 +198,10 @@
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
+}
+
+.section-header-inline .panel-title {
+  margin: 0;
 }
 
 .about-metadata {

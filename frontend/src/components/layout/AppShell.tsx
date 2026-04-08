@@ -14,6 +14,7 @@ type AppShellProps = PropsWithChildren<{
   subtitle: string;
   statusLabel?: string;
   userLabel?: string;
+  userEmail?: string | null;
   activeView?: "workspace" | "history" | "session" | "admin" | "about";
   onSelectView?: (view: "workspace" | "history" | "session" | "admin" | "about") => void;
   showAdminView?: boolean;
@@ -27,6 +28,7 @@ export function AppShell({
   subtitle,
   statusLabel,
   userLabel,
+  userEmail,
   activeView = "workspace",
   onSelectView,
   showAdminView = false,
@@ -120,6 +122,14 @@ export function AppShell({
               </button>
               {isUserMenuOpen ? (
                 <div className="app-user-menu-dropdown">
+                  {userEmail ? (
+                    <div className="app-user-menu-field">
+                      <span>Email</span>
+                      <div className="app-user-menu-value" title={userEmail}>
+                        {userEmail}
+                      </div>
+                    </div>
+                  ) : null}
                   <label className="app-user-menu-field">
                     <span>Theme</span>
                     <select value={theme} onChange={(event) => setTheme(event.target.value as AppTheme)}>

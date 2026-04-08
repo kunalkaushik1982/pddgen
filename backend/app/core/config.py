@@ -115,6 +115,28 @@ class Settings(BaseSettings):
     auth_password_reset_enabled: bool = True
     auth_password_reset_token_ttl_minutes: int = 30
     auth_password_reset_return_token_in_response: bool = False
+    auth_public_app_url: str = Field(
+        default="http://localhost:5173",
+        description="Public frontend base URL (no trailing slash). Used in password-reset emails.",
+    )
+    auth_api_public_base_url: str = Field(
+        default="http://localhost:8000",
+        description="Public backend base URL (no trailing slash). Used for /api/auth/verify-email links in mail.",
+    )
+    smtp_host: str = Field(
+        default="",
+        description="SMTP server hostname. When empty, verification emails are skipped (email auto-verified on register in dev).",
+    )
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = Field(default="", description="RFC5322 From address; defaults to smtp_user if empty.")
+    smtp_use_tls: bool = True
+    auth_email_verification_token_ttl_minutes: int = Field(
+        default=2880,
+        ge=15,
+        description="Time-to-live for email verification tokens (default 48 hours).",
+    )
     auth_provider_extensions_module: str = Field(
         default="",
         description=(

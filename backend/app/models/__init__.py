@@ -17,6 +17,7 @@ from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCa
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.models.user import UserModel
 from app.models.user_auth_token import UserAuthTokenModel
+from app.models.user_email_verification_token import UserEmailVerificationTokenModel
 from app.models.user_password_reset_token import UserPasswordResetTokenModel
 
 __all__ = [
@@ -34,5 +35,6 @@ __all__ = [
     "ProcessStepScreenshotModel",
     "UserModel",
     "UserAuthTokenModel",
+    "UserEmailVerificationTokenModel",
     "UserPasswordResetTokenModel",
 ]

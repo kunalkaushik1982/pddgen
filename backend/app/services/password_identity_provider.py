@@ -19,14 +19,21 @@ class PasswordIdentityProvider:
 
     provider_name = "password"
 
-    def register(self, db: Session, *, username: str, password: str) -> UserModel:
+    def register(self, db: Session, *, username: str, password: str, email: str) -> UserModel:
         normalized_username = username.strip()
+        email_normalized = email.strip().lower()
+        if not email_normalized:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is required.")
         existing = db.execute(select(UserModel).where(UserModel.username == normalized_username)).scalar_one_or_none()
         if existing is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists.")
+        existing_email = db.execute(select(UserModel).where(UserModel.email == email_normalized)).scalar_one_or_none()
+        if existing_email is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
 
         user = UserModel(
             username=normalized_username,
+            email=email_normalized,
             password_hash=self._hash_password(password),
         )
         db.add(user)

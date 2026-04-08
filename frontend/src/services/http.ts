@@ -6,6 +6,16 @@ export const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "");
 const CSRF_COOKIE_NAME = "pdd_generator_csrf";
 const CSRF_HEADER_NAME = "X-CSRF-Token";
 
+export class HttpError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
+  }
+}
+
 export function buildApiUrl(path: string): URL {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const origin =
@@ -39,10 +49,10 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
     const contentType = response.headers.get("content-type") ?? "";
     if (contentType.includes("application/json")) {
       const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail || `Request failed with status ${response.status}`);
+      throw new HttpError(response.status, payload.detail || `Request failed with status ${response.status}`);
     }
     const fallback = await response.text();
-    throw new Error(fallback || `Request failed with status ${response.status}`);
+    throw new HttpError(response.status, fallback || `Request failed with status ${response.status}`);
   }
   if (response.status === 204) {
     return undefined as T;

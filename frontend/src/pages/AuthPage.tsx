@@ -4,16 +4,16 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+
 import { uiCopy } from "../constants/uiCopy";
+import { useToast } from "../providers/ToastProvider";
 
 type AuthPageProps = {
   disabled?: boolean;
   message?: { tone: "info" | "error"; text: string } | null;
   onLogin: (username: string, password: string) => Promise<void>;
-  onRegister: (username: string, password: string) => Promise<void>;
   onGoogleLogin: (accessToken: string) => Promise<void>;
-  onRequestPasswordReset: (username: string) => Promise<void>;
-  onConfirmPasswordReset: (token: string, newPassword: string) => Promise<void>;
 };
 
 declare global {
@@ -62,21 +62,29 @@ export function AuthPage({
   disabled,
   message,
   onLogin,
-  onRegister,
   onGoogleLogin,
-  onRequestPasswordReset,
-  onConfirmPasswordReset,
 }: AuthPageProps): React.JSX.Element {
+  const [searchParams] = useSearchParams();
+  const { showToast } = useToast();
+  const emailVerifiedToastShown = useRef(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [resetToken, setResetToken] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() ?? "";
   const googleTokenClientRef = useRef<{
     requestAccessToken: (opts?: { prompt?: "consent" | "select_account" | "" }) => void;
   } | null>(null);
   const googleRequestInFlightRef = useRef(false);
   const [googleReady, setGoogleReady] = useState(false);
+
+  useEffect(() => {
+    if (emailVerifiedToastShown.current) {
+      return;
+    }
+    if (searchParams.get("email_verified") === "1") {
+      emailVerifiedToastShown.current = true;
+      showToast("info", "Email verified. You can sign in.");
+    }
+  }, [searchParams, showToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,74 +144,68 @@ export function AuthPage({
     }, 5000);
   };
 
+  const submitLogin = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void onLogin(username, password);
+  };
+
   return (
     <main className="auth-shell">
-      <section className="panel stack auth-panel">
+      <section className="panel auth-panel auth-login-panel">
         <div>
           <h1 className="app-title">{uiCopy.appTitle}</h1>
-          <p className="app-subtitle">Sign in to create new sessions and reopen previous work.</p>
+          <p className="app-subtitle">Log in to your account</p>
         </div>
 
         {message ? <div className={`status-banner ${message.tone === "error" ? "error" : ""}`}>{message.text}</div> : null}
 
-        <label className="field-group">
-          <span>Username</span>
-          <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="analyst1" />
-        </label>
+        <form className="stack auth-login-form" onSubmit={submitLogin}>
+          <label className="field-group">
+            <span>Username</span>
+            <input
+              className="auth-login-input"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="Email address or username"
+              autoComplete="username"
+            />
+          </label>
 
-        <label className="field-group">
-          <span>Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter password"
-          />
-        </label>
+          <label className="field-group">
+            <span>Password</span>
+            <input
+              className="auth-login-input"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter password"
+              autoComplete="current-password"
+            />
+          </label>
 
-        <div className="button-row">
-          <button type="button" className="button-primary" disabled={disabled} onClick={() => void onLogin(username, password)}>
-            Sign in
-          </button>
-          <button type="button" className="button-secondary" disabled={disabled} onClick={() => void onRegister(username, password)}>
-            Create account
-          </button>
-        </div>
+          <div className="button-row auth-login-actions">
+            <button type="submit" className="button-primary auth-cta-primary" disabled={disabled}>
+              Sign in
+            </button>
+            <Link to="/auth/register" className="button-secondary auth-cta-secondary auth-button-link">
+              Create account
+            </Link>
+          </div>
+        </form>
         {googleClientId ? (
-          <button type="button" className="button-secondary" disabled={disabled || !googleReady} onClick={() => void startGoogleLogin()}>
+          <button
+            type="button"
+            className="button-secondary auth-cta-secondary auth-google-button"
+            disabled={disabled || !googleReady}
+            onClick={() => void startGoogleLogin()}
+          >
             Continue with Google
           </button>
         ) : null}
 
-        <hr />
-        <div className="stack">
-          <h3 className="panel-title">Forgot password?</h3>
-          <p className="muted">Request a reset token, then confirm reset with the token and your new password.</p>
-          <button type="button" className="button-secondary" disabled={disabled} onClick={() => void onRequestPasswordReset(username)}>
-            Request password reset
-          </button>
-          <label className="field-group">
-            <span>Reset token</span>
-            <input value={resetToken} onChange={(event) => setResetToken(event.target.value)} placeholder="Paste reset token" />
-          </label>
-          <label className="field-group">
-            <span>New password</span>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              placeholder="Enter new password"
-            />
-          </label>
-          <button
-            type="button"
-            className="button-secondary"
-            disabled={disabled}
-            onClick={() => void onConfirmPasswordReset(resetToken, newPassword)}
-          >
-            Confirm password reset
-          </button>
-        </div>
+        <Link to="/auth/forgot" className="button-link auth-forgot-password-link">
+          Forgot password?
+        </Link>
       </section>
     </main>
   );

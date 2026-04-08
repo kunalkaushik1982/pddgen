@@ -5,11 +5,12 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\routes\auth.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.api.dependencies import get_auth_service, get_csrf_service, get_current_user
+from app.api.dependencies import get_auth_service, get_csrf_service
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.auth import (
@@ -19,6 +20,7 @@ from app.schemas.auth import (
     PasswordResetConfirmRequest,
     PasswordResetRequest,
     PasswordResetRequestResponse,
+    RegisterRequest,
     UserResponse,
 )
 from app.services.auth_service import AuthService
@@ -30,14 +32,19 @@ settings = get_settings()
 
 @router.post("/register", response_model=AuthResponse)
 def register(
-    payload: AuthRequest,
+    payload: RegisterRequest,
     response: Response,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[AuthService, Depends(get_auth_service)],
     csrf: Annotated[CsrfService, Depends(get_csrf_service)],
 ) -> AuthResponse:
     """Create one user account and establish an authenticated session."""
-    auth_session = service.register(db, username=payload.username, password=payload.password)
+    auth_session = service.register(
+        db,
+        username=payload.username,
+        password=payload.password,
+        email=payload.email,
+    )
     _set_auth_cookie(response, auth_session.session_token)
     _set_csrf_cookie(response, csrf)
     return AuthResponse(
@@ -45,6 +52,20 @@ def register(
         challenge_type=auth_session.challenge_type,
         challenge_token=auth_session.challenge_token,
         user=_build_user_response(auth_session.user),
+    )
+
+
+@router.get("/verify-email")
+def verify_email(
+    token: str,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[AuthService, Depends(get_auth_service)],
+) -> RedirectResponse:
+    """Consume email verification link and redirect to the SPA sign-in page."""
+    service.verify_email_with_token(db, token=token)
+    return RedirectResponse(
+        url=f"{settings.auth_public_app_url.rstrip('/')}/auth?email_verified=1",
+        status_code=status.HTTP_302_FOUND,
     )
 
 
@@ -98,8 +119,8 @@ def request_password_reset(
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> PasswordResetRequestResponse:
-    """Create one-time password reset token for a user (delivery channel depends on deployment)."""
-    token = service.request_password_reset(db, username=payload.username)
+    """Create one-time password reset token and email a link when SMTP is configured."""
+    token = service.request_password_reset(db, email=payload.email)
     return PasswordResetRequestResponse(accepted=True, reset_token=token)
 
 
@@ -114,16 +135,26 @@ def confirm_password_reset(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse | None)
 def get_me(
     response: Response,
-    current_user: Annotated[UserModel, Depends(get_current_user)],
     csrf: Annotated[CsrfService, Depends(get_csrf_service)],
+    session_cookie: Annotated[str | None, Cookie(alias=settings.auth_cookie_name)] = None,
+    db: Annotated[Session, Depends(get_db_session)] = None,
+    service: Annotated[AuthService, Depends(get_auth_service)] = None,
     csrf_cookie: Annotated[str | None, Cookie(alias=settings.auth_csrf_cookie_name)] = None,
-) -> UserResponse:
+) -> UserResponse | None:
     """Return the currently authenticated user."""
     if not csrf_cookie:
         _set_csrf_cookie(response, csrf)
+    if not session_cookie:
+        return None
+    try:
+        current_user = service.authenticate_token(db, token=session_cookie)
+    except HTTPException as error:
+        if error.status_code == status.HTTP_401_UNAUTHORIZED:
+            return None
+        raise
     return _build_user_response(current_user)
 
 
@@ -180,6 +211,8 @@ def _build_user_response(user: UserModel) -> UserResponse:
     return UserResponse(
         id=user.id,
         username=user.username,
+        email=user.email,
+        email_verified=user.email_verified_at is not None,
         created_at=user.created_at,
         is_admin=user.username in settings.admin_usernames,
     )

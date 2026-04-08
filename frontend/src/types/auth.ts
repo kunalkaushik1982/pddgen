@@ -6,6 +6,8 @@
 export type User = {
   id: string;
   username: string;
+  email?: string | null;
+  emailVerified?: boolean;
   createdAt: string;
   isAdmin: boolean;
 };

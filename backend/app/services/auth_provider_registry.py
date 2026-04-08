@@ -15,7 +15,7 @@ class UnsupportedPasswordMfaProvider:
 
     provider_name = "password_mfa"
 
-    def register(self, db, *, username: str, password: str):  # type: ignore[no-untyped-def]
+    def register(self, db, *, username: str, password: str, email: str = ""):  # type: ignore[no-untyped-def]
         raise NotImplementedError(
             "Password+MFA auth provider is not configured yet. Supply an implementation behind auth_provider=password_mfa."
         )
@@ -31,7 +31,7 @@ class UnsupportedSsoIdentityProvider:
 
     provider_name = "sso"
 
-    def register(self, db, *, username: str, password: str):  # type: ignore[no-untyped-def]
+    def register(self, db, *, username: str, password: str, email: str = ""):  # type: ignore[no-untyped-def]
         raise NotImplementedError("SSO auth providers do not support self-service registration in this implementation.")
 
     def authenticate(self, db, *, username: str, password: str):  # type: ignore[no-untyped-def]

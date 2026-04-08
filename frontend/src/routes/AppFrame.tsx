@@ -51,6 +51,7 @@ export function AppFrame(): React.JSX.Element {
             : uiCopy.workspaceLabel
       }
       userLabel={user.username}
+      userEmail={user.email ?? null}
       activeView={activeView}
       showAdminView={user.isAdmin}
       onSelectView={(view) => {

@@ -55,6 +55,9 @@ export function AppRouter(): React.JSX.Element {
     <BrowserRouter>
       <Suspense fallback={<RouteLoadingFallback />}>
         <Routes>
+          <Route path="/auth/reset-password" element={withRouteBoundary("Authentication", <AuthRoute />)} />
+          <Route path="/auth/forgot" element={withRouteBoundary("Authentication", <AuthRoute />)} />
+          <Route path="/auth/register" element={withRouteBoundary("Authentication", <AuthRoute />)} />
           <Route path="/auth" element={withRouteBoundary("Authentication", <AuthRoute />)} />
           <Route element={withRouteBoundary("Application Shell", <AppFrame />)}>
             <Route index element={<Navigate to="/workspace" replace />} />

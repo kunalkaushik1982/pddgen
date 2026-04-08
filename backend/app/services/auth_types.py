@@ -30,7 +30,7 @@ class IdentityProvider(Protocol):
 
     provider_name: str
 
-    def register(self, db: Session, *, username: str, password: str) -> UserModel:
+    def register(self, db: Session, *, username: str, password: str, email: str) -> UserModel:
         """Create one new identity and return the associated user."""
 
     def authenticate(self, db: Session, *, username: str, password: str) -> UserModel:

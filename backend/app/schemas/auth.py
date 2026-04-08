@@ -5,14 +5,22 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\schemas\auth.py
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class AuthRequest(BaseModel):
-    """Username/password payload for login or registration."""
+    """Username/password payload for login."""
 
     username: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=4, max_length=255)
+
+
+class RegisterRequest(BaseModel):
+    """Self-service registration with a reachable email for verification and password reset."""
+
+    username: str = Field(min_length=3, max_length=255)
+    password: str = Field(min_length=4, max_length=255)
+    email: EmailStr
 
 
 class GoogleAuthRequest(BaseModel):
@@ -23,9 +31,9 @@ class GoogleAuthRequest(BaseModel):
 
 
 class PasswordResetRequest(BaseModel):
-    """Start password reset for a username/email."""
+    """Start password reset for a verified account email."""
 
-    username: str = Field(min_length=3, max_length=255)
+    email: EmailStr
 
 
 class PasswordResetConfirmRequest(BaseModel):
@@ -47,6 +55,8 @@ class UserResponse(BaseModel):
 
     id: str
     username: str
+    email: str | None = None
+    email_verified: bool = False
     created_at: datetime
     is_admin: bool = False
 
