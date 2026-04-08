@@ -109,6 +109,12 @@ class Settings(BaseSettings):
         ),
     )
     auth_provider: str = "password"
+    auth_google_enabled: bool = False
+    auth_google_client_id: str = ""
+    auth_google_auto_create_user: bool = True
+    auth_password_reset_enabled: bool = True
+    auth_password_reset_token_ttl_minutes: int = 30
+    auth_password_reset_return_token_in_response: bool = False
     auth_provider_extensions_module: str = Field(
         default="",
         description=(
@@ -198,6 +204,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_job_enqueue_backend(self) -> Self:
+        if self.auth_google_enabled and not self.auth_google_client_id.strip():
+            raise ValueError("auth_google_client_id is required when auth_google_enabled is true")
+        if self.auth_password_reset_token_ttl_minutes <= 0:
+            raise ValueError("auth_password_reset_token_ttl_minutes must be > 0")
         factory = self.job_enqueue_factory.strip()
         if factory:
             if ":" not in factory or factory.count(":") != 1:

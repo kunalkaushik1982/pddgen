@@ -28,6 +28,34 @@ export const authService = {
     return mapUser(payload.user);
   },
 
+  async loginWithGoogle(idToken: string): Promise<User> {
+    const payload = await fetchJson<BackendAuthResponse>("/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+    if (!payload.user) {
+      throw new Error(payload.challenge_type ?? "Google authentication failed.");
+    }
+    return mapUser(payload.user);
+  },
+
+  async requestPasswordReset(username: string): Promise<{ accepted: boolean; reset_token?: string | null }> {
+    return fetchJson<{ accepted: boolean; reset_token?: string | null }>("/auth/password-reset/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+  },
+
+  async confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+    await fetchJson<void>("/auth/password-reset/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+  },
+
   async logout(): Promise<void> {
     await fetchJson<void>("/auth/logout", {
       method: "POST",

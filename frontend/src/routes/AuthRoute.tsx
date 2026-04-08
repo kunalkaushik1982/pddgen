@@ -6,7 +6,7 @@ import { useAuth } from "../providers/AuthProvider";
 import { useToast } from "../providers/ToastProvider";
 
 export function AuthRoute(): React.JSX.Element {
-  const { user, isLoading, login, register } = useAuth();
+  const { user, isLoading, login, loginWithGoogle, register, requestPasswordReset, confirmPasswordReset } = useAuth();
   const { message, showToast } = useToast();
 
   if (user) {
@@ -29,6 +29,34 @@ export function AuthRoute(): React.JSX.Element {
         try {
           const nextUser = await register(username, password);
           showToast("info", `Account created for ${nextUser.username}.`);
+        } catch (error) {
+          showToast("error", getErrorMessage(error));
+        }
+      }}
+      onGoogleLogin={async (idToken) => {
+        try {
+          const nextUser = await loginWithGoogle(idToken);
+          showToast("info", `Signed in as ${nextUser.username}.`);
+        } catch (error) {
+          showToast("error", getErrorMessage(error));
+        }
+      }}
+      onRequestPasswordReset={async (username) => {
+        try {
+          const result = await requestPasswordReset(username);
+          if (result.reset_token) {
+            showToast("info", `Reset token: ${result.reset_token}`);
+          } else {
+            showToast("info", "If the account exists, a password reset token has been issued.");
+          }
+        } catch (error) {
+          showToast("error", getErrorMessage(error));
+        }
+      }}
+      onConfirmPasswordReset={async (token, newPassword) => {
+        try {
+          await confirmPasswordReset(token, newPassword);
+          showToast("info", "Password reset successful. You can sign in with your new password.");
         } catch (error) {
           showToast("error", getErrorMessage(error));
         }

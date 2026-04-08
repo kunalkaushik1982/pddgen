@@ -14,6 +14,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.user_auth_token import UserAuthTokenModel
+    from app.models.user_password_reset_token import UserPasswordResetTokenModel
 
 
 class UserModel(Base):
@@ -27,6 +28,10 @@ class UserModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     auth_tokens: Mapped[list["UserAuthTokenModel"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    password_reset_tokens: Mapped[list["UserPasswordResetTokenModel"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )

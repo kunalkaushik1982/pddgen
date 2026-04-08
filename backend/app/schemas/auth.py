@@ -15,6 +15,30 @@ class AuthRequest(BaseModel):
     password: str = Field(min_length=4, max_length=255)
 
 
+class GoogleAuthRequest(BaseModel):
+    """Google ID token payload for sign-in/up via Google Identity Services."""
+
+    id_token: str = Field(min_length=20)
+
+
+class PasswordResetRequest(BaseModel):
+    """Start password reset for a username/email."""
+
+    username: str = Field(min_length=3, max_length=255)
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    """Finalize password reset with one-time token."""
+
+    token: str = Field(min_length=16, max_length=512)
+    new_password: str = Field(min_length=4, max_length=255)
+
+
+class PasswordResetRequestResponse(BaseModel):
+    accepted: bool = True
+    reset_token: str | None = None
+
+
 class UserResponse(BaseModel):
     """Authenticated user response."""
 

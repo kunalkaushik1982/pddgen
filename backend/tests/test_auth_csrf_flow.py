@@ -84,3 +84,38 @@ class AuthCsrfFlowTests(unittest.TestCase):
         self.assertEqual(created.status_code, 201)
         self.assertEqual(created.json()["owner_id"], "alice")
 
+    def test_password_reset_request_and_confirm(self) -> None:
+        settings = get_settings()
+        original_debug = settings.app_debug
+        original_reset_enabled = settings.auth_password_reset_enabled
+        settings.app_debug = True
+        settings.auth_password_reset_enabled = True
+        try:
+            response = self.client.post(
+                "/api/auth/register",
+                json={"username": "bob@example.com", "password": "secret123"},
+            )
+            self.assertEqual(response.status_code, 200)
+            request_reset = self.client.post(
+                "/api/auth/password-reset/request",
+                json={"username": "bob@example.com"},
+            )
+            self.assertEqual(request_reset.status_code, 200)
+            reset_token = request_reset.json().get("reset_token")
+            self.assertIsInstance(reset_token, str)
+            confirm = self.client.post(
+                "/api/auth/password-reset/confirm",
+                json={"token": reset_token, "new_password": "new-secret-456"},
+            )
+            self.assertEqual(confirm.status_code, 204)
+            # Logout and login with the new password.
+            self.client.post("/api/auth/logout")
+            relogin = self.client.post(
+                "/api/auth/login",
+                json={"username": "bob@example.com", "password": "new-secret-456"},
+            )
+            self.assertEqual(relogin.status_code, 200)
+        finally:
+            settings.app_debug = original_debug
+            settings.auth_password_reset_enabled = original_reset_enabled
+
