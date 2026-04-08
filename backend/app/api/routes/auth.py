@@ -76,8 +76,12 @@ def login_with_google(
     service: Annotated[AuthService, Depends(get_auth_service)],
     csrf: Annotated[CsrfService, Depends(get_csrf_service)],
 ) -> AuthResponse:
-    """Authenticate via Google ID token and establish an authenticated session."""
-    auth_session = service.login_with_google(db, id_token=payload.id_token)
+    """Authenticate via Google token(s) and establish an authenticated session."""
+    auth_session = service.login_with_google(
+        db,
+        id_token=payload.id_token,
+        access_token=payload.access_token,
+    )
     _set_auth_cookie(response, auth_session.session_token)
     _set_csrf_cookie(response, csrf)
     return AuthResponse(

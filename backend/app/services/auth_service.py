@@ -10,6 +10,7 @@ import secrets
 from fastapi import HTTPException, status
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -62,20 +63,43 @@ class AuthService:
     def authenticate_token(self, db: Session, *, token: str) -> UserModel:
         return self.session_service.resolve_user(db, token=token)
 
-    def login_with_google(self, db: Session, *, id_token: str) -> AuthSession:
+    def login_with_google(self, db: Session, *, id_token: str | None = None, access_token: str | None = None) -> AuthSession:
         if not self.settings.auth_google_enabled:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Google sign-in is disabled.")
-        client_id = self.settings.auth_google_client_id.strip()
-        try:
-            payload = google_id_token.verify_oauth2_token(
-                id_token,
-                google_requests.Request(),
-                audience=client_id,
-            )
-        except Exception as error:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token.") from error
+        if not id_token and not access_token:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provide id_token or access_token.")
+        payload: dict[str, object]
+        if id_token:
+            client_id = self.settings.auth_google_client_id.strip()
+            try:
+                payload = dict(
+                    google_id_token.verify_oauth2_token(
+                        id_token,
+                        google_requests.Request(),
+                        audience=client_id,
+                    )
+                )
+            except Exception as error:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google ID token.") from error
+        else:
+            assert access_token is not None
+            try:
+                with httpx.Client(timeout=10.0) as client:
+                    response = client.get(
+                        "https://openidconnect.googleapis.com/v1/userinfo",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                    )
+                response.raise_for_status()
+                payload = dict(response.json())
+            except Exception as error:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google access token.") from error
         email = str(payload.get("email") or "").strip().lower()
-        if not email or not bool(payload.get("email_verified")):
+        email_verified = payload.get("email_verified")
+        if isinstance(email_verified, str):
+            email_verified_bool = email_verified.lower() == "true"
+        else:
+            email_verified_bool = bool(email_verified)
+        if not email or not email_verified_bool:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google account email is not verified.")
         user = db.execute(select(UserModel).where(UserModel.username == email)).scalar_one_or_none()
         if user is None:

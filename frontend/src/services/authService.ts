@@ -28,11 +28,11 @@ export const authService = {
     return mapUser(payload.user);
   },
 
-  async loginWithGoogle(idToken: string): Promise<User> {
+  async loginWithGoogle(accessToken: string): Promise<User> {
     const payload = await fetchJson<BackendAuthResponse>("/auth/google", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id_token: idToken }),
+      body: JSON.stringify({ access_token: accessToken }),
     });
     if (!payload.user) {
       throw new Error(payload.challenge_type ?? "Google authentication failed.");

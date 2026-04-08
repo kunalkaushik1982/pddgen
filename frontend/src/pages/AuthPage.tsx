@@ -3,7 +3,7 @@
  * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\pages\AuthPage.tsx
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { uiCopy } from "../constants/uiCopy";
 
 type AuthPageProps = {
@@ -11,7 +11,7 @@ type AuthPageProps = {
   message?: { tone: "info" | "error"; text: string } | null;
   onLogin: (username: string, password: string) => Promise<void>;
   onRegister: (username: string, password: string) => Promise<void>;
-  onGoogleLogin: (idToken: string) => Promise<void>;
+  onGoogleLogin: (accessToken: string) => Promise<void>;
   onRequestPasswordReset: (username: string) => Promise<void>;
   onConfirmPasswordReset: (token: string, newPassword: string) => Promise<void>;
 };
@@ -20,9 +20,13 @@ declare global {
   interface Window {
     google?: {
       accounts: {
-        id: {
-          initialize: (cfg: { client_id: string; callback: (res: { credential?: string }) => void }) => void;
-          prompt: () => void;
+        oauth2: {
+          initTokenClient: (cfg: {
+            client_id: string;
+            scope: string;
+            callback: (res: { access_token?: string; error?: string }) => void;
+            prompt?: "consent" | "select_account" | "";
+          }) => { requestAccessToken: (opts?: { prompt?: "consent" | "select_account" | "" }) => void };
         };
       };
     };
@@ -32,7 +36,7 @@ declare global {
 const GOOGLE_SCRIPT_ID = "google-identity-services";
 
 function loadGoogleScript(): Promise<void> {
-  if (window.google?.accounts?.id) {
+  if (window.google?.accounts?.oauth2) {
     return Promise.resolve();
   }
   const existing = document.getElementById(GOOGLE_SCRIPT_ID) as HTMLScriptElement | null;
@@ -68,26 +72,68 @@ export function AuthPage({
   const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() ?? "";
+  const googleTokenClientRef = useRef<{
+    requestAccessToken: (opts?: { prompt?: "consent" | "select_account" | "" }) => void;
+  } | null>(null);
+  const googleRequestInFlightRef = useRef(false);
+  const [googleReady, setGoogleReady] = useState(false);
 
-  const startGoogleLogin = async () => {
+  useEffect(() => {
+    let cancelled = false;
     if (!googleClientId) {
-      return;
+      setGoogleReady(false);
+      googleTokenClientRef.current = null;
+      return () => {};
     }
-    await loadGoogleScript();
-    if (!window.google?.accounts?.id) {
-      throw new Error("Google Sign-In is unavailable.");
-    }
-    window.google.accounts.id.initialize({
-      client_id: googleClientId,
-      callback: (result) => {
-        const credential = result.credential;
-        if (!credential) {
+    void loadGoogleScript()
+      .then(() => {
+        if (cancelled || !window.google?.accounts?.oauth2 || googleTokenClientRef.current) {
+          if (!cancelled && window.google?.accounts?.oauth2) {
+            setGoogleReady(true);
+          }
           return;
         }
-        void onGoogleLogin(credential);
-      },
-    });
-    window.google.accounts.id.prompt();
+        const tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: googleClientId,
+          scope: "openid email profile",
+          prompt: "select_account",
+          callback: (result) => {
+            googleRequestInFlightRef.current = false;
+            const accessToken = result.access_token;
+            if (!accessToken || result.error) {
+              return;
+            }
+            void onGoogleLogin(accessToken);
+          },
+        });
+        googleTokenClientRef.current = tokenClient;
+        setGoogleReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGoogleReady(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId, onGoogleLogin]);
+
+  const startGoogleLogin = async () => {
+    if (!googleClientId || !googleReady) {
+      return;
+    }
+    if (!window.google?.accounts?.oauth2 || !googleTokenClientRef.current) {
+      throw new Error("Google Sign-In is unavailable.");
+    }
+    if (googleRequestInFlightRef.current) {
+      return;
+    }
+    googleRequestInFlightRef.current = true;
+    googleTokenClientRef.current.requestAccessToken({ prompt: "select_account" });
+    window.setTimeout(() => {
+      googleRequestInFlightRef.current = false;
+    }, 5000);
   };
 
   return (
@@ -124,7 +170,7 @@ export function AuthPage({
           </button>
         </div>
         {googleClientId ? (
-          <button type="button" className="button-secondary" disabled={disabled} onClick={() => void startGoogleLogin()}>
+          <button type="button" className="button-secondary" disabled={disabled || !googleReady} onClick={() => void startGoogleLogin()}>
             Continue with Google
           </button>
         ) : null}

@@ -16,9 +16,10 @@ class AuthRequest(BaseModel):
 
 
 class GoogleAuthRequest(BaseModel):
-    """Google ID token payload for sign-in/up via Google Identity Services."""
+    """Google token payload for sign-in/up via Google Identity Services."""
 
-    id_token: str = Field(min_length=20)
+    id_token: str | None = Field(default=None, min_length=20)
+    access_token: str | None = Field(default=None, min_length=20)
 
 
 class PasswordResetRequest(BaseModel):

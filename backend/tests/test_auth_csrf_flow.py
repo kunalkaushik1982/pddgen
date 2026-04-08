@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -118,4 +119,35 @@ class AuthCsrfFlowTests(unittest.TestCase):
         finally:
             settings.app_debug = original_debug
             settings.auth_password_reset_enabled = original_reset_enabled
+
+    def test_google_login_with_access_token(self) -> None:
+        settings = get_settings()
+        original_google_enabled = settings.auth_google_enabled
+        original_google_client_id = settings.auth_google_client_id
+        settings.auth_google_enabled = True
+        settings.auth_google_client_id = "test-client-id.apps.googleusercontent.com"
+        try:
+            mock_response = MagicMock()
+            mock_response.raise_for_status.return_value = None
+            mock_response.json.return_value = {
+                "email": "google-user@example.com",
+                "email_verified": True,
+            }
+            mock_client = MagicMock()
+            mock_client.get.return_value = mock_response
+            mock_client_cm = MagicMock()
+            mock_client_cm.__enter__.return_value = mock_client
+            mock_client_cm.__exit__.return_value = None
+            with patch("app.services.auth_service.httpx.Client", return_value=mock_client_cm):
+                response = self.client.post(
+                    "/api/auth/google",
+                    json={"access_token": "ya29.mock-access-token-1234567890"},
+                )
+            self.assertEqual(response.status_code, 200)
+            body = response.json()
+            self.assertEqual(body["user"]["username"], "google-user@example.com")
+            self.assertIn(self.settings.auth_cookie_name, self.client.cookies)
+        finally:
+            settings.auth_google_enabled = original_google_enabled
+            settings.auth_google_client_id = original_google_client_id
 
