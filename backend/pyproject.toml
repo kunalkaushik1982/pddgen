@@ -4,12 +4,14 @@ version = "1.0.0"
 description = "FastAPI backend for AI-assisted PDD drafting"
 requires-python = ">=3.11"
 dependencies = [
+  "azure-servicebus==7.14.2",
   "boto3==1.38.46",
   "alembic==1.16.1",
   "celery[redis]==5.5.3",
   "docx2pdf==0.1.8",
   "docxtpl==0.20.1",
   "fastapi==0.115.12",
+  "google-cloud-pubsub==2.29.0",
   "httpx==0.28.1",
   "pillow==11.2.1",
   "pydantic-settings==2.10.1",

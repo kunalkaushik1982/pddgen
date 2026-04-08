@@ -5,8 +5,9 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\core\config.py
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.release import get_release_info
@@ -38,6 +39,75 @@ class Settings(BaseSettings):
         description="Enable SQLAlchemy pool_pre_ping for resilient connections across DB engines.",
     )
     redis_url: str = "redis://localhost:6379/0"
+    lock_redis_url: str | None = Field(
+        default=None,
+        description="Optional Redis URL for distributed locks only; defaults to redis_url when unset.",
+    )
+    job_enqueue_backend: Literal["celery", "sqs", "azure_service_bus", "gcp_pubsub"] = Field(
+        default="celery",
+        description=(
+            "Producer: celery (send_task), sqs (SendMessage), azure_service_bus (queue), "
+            "gcp_pubsub (topic publish)."
+        ),
+    )
+    job_enqueue_max_retries: int = Field(
+        default=0,
+        ge=0,
+        description="Producer retry count on enqueue failures (per adapter send call).",
+    )
+    job_enqueue_retry_backoff_seconds: float = Field(
+        default=0.5,
+        ge=0.0,
+        description="Base backoff seconds for producer retries (exponential per attempt).",
+    )
+    sqs_job_queue_url: str = Field(
+        default="",
+        description="SQS queue URL when job_enqueue_backend=sqs.",
+    )
+    sqs_job_queue_urls: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional logical queue -> SQS queue URL map; falls back to sqs_job_queue_url.",
+    )
+    sqs_is_fifo_queue: bool = Field(
+        default=False,
+        description="Set true for FIFO queues (adds MessageGroupId / MessageDeduplicationId).",
+    )
+    sqs_region: str | None = Field(
+        default=None,
+        description="Optional AWS region for the SQS client (else standard boto3 resolution).",
+    )
+    azure_service_bus_connection_string: str = Field(
+        default="",
+        description="Azure Service Bus namespace connection string when job_enqueue_backend=azure_service_bus.",
+    )
+    azure_service_bus_queue_name: str = Field(
+        default="",
+        description="Target queue name within the namespace for Azure Service Bus.",
+    )
+    azure_service_bus_queue_names: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional logical queue -> Azure Service Bus queue name map; falls back to azure_service_bus_queue_name.",
+    )
+    gcp_pubsub_project_id: str = Field(
+        default="",
+        description="GCP project ID when job_enqueue_backend=gcp_pubsub.",
+    )
+    gcp_pubsub_topic_id: str = Field(
+        default="",
+        description="Pub/Sub topic ID (not full path) when job_enqueue_backend=gcp_pubsub.",
+    )
+    gcp_pubsub_topic_ids: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional logical queue -> GCP Pub/Sub topic ID map; falls back to gcp_pubsub_topic_id.",
+    )
+    job_enqueue_factory: str = Field(
+        default="",
+        description=(
+            "Optional plug-in: ``dotted.module.path:callable`` returning ``JobEnqueuePort`` given ``Settings``. "
+            "When set, this overrides ``job_enqueue_backend`` (built-in registry is not used). "
+            "Only use trusted module paths."
+        ),
+    )
     auth_provider: str = "password"
     auth_provider_extensions_module: str = Field(
         default="",
@@ -93,6 +163,10 @@ class Settings(BaseSettings):
     screenshot_extended_window_candidate_cap: int = 9
     screenshot_ffmpeg_timeout_seconds: float = 8.0
     screenshot_generation_lock_seconds: int = 3600
+    draft_generation_lock_seconds: int = Field(
+        default=3600,
+        description="TTL for draft-generation dedupe lock (API reserve until worker releases).",
+    )
     screenshot_celery_soft_time_limit_seconds: float = Field(
         default=300.0,
         description="Celery soft time limit for screenshot_generation tasks (SIGUSR1-style SoftTimeLimitExceeded).",
@@ -121,6 +195,40 @@ class Settings(BaseSettings):
         env_prefix="PDD_GENERATOR_",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_job_enqueue_backend(self) -> Self:
+        factory = self.job_enqueue_factory.strip()
+        if factory:
+            if ":" not in factory or factory.count(":") != 1:
+                raise ValueError("job_enqueue_factory must be exactly 'module.path:callable'")
+            module_path, attr = factory.split(":", 1)
+            if not module_path.strip() or not attr.strip():
+                raise ValueError("job_enqueue_factory must be exactly 'module.path:callable'")
+            return self
+        backend = self.job_enqueue_backend.strip().lower()
+        if backend == "sqs" and not (self.sqs_job_queue_url.strip() or self.sqs_job_queue_urls):
+            raise ValueError(
+                "Configure sqs_job_queue_url or sqs_job_queue_urls when job_enqueue_backend is 'sqs'"
+            )
+        if backend == "azure_service_bus":
+            if not self.azure_service_bus_connection_string.strip():
+                raise ValueError(
+                    "azure_service_bus_connection_string is required when job_enqueue_backend is 'azure_service_bus'"
+                )
+            if not (self.azure_service_bus_queue_name.strip() or self.azure_service_bus_queue_names):
+                raise ValueError(
+                    "Configure azure_service_bus_queue_name or azure_service_bus_queue_names "
+                    "when job_enqueue_backend is 'azure_service_bus'"
+                )
+        if backend == "gcp_pubsub":
+            if not self.gcp_pubsub_project_id.strip():
+                raise ValueError("gcp_pubsub_project_id is required when job_enqueue_backend is 'gcp_pubsub'")
+            if not (self.gcp_pubsub_topic_id.strip() or self.gcp_pubsub_topic_ids):
+                raise ValueError(
+                    "Configure gcp_pubsub_topic_id or gcp_pubsub_topic_ids when job_enqueue_backend is 'gcp_pubsub'"
+                )
+        return self
 
 
 @lru_cache(maxsize=1)
