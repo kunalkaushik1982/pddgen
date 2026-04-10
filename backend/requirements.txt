@@ -4,7 +4,9 @@ alembic==1.16.1
 celery[redis]==5.5.3
 docx2pdf==0.1.8
 docxtpl==0.20.1
+email-validator>=2.0.0
 fastapi==0.115.12
+google-auth==2.41.1
 httpx==0.28.1
 pillow==11.2.1
 pydantic-settings==2.10.1
