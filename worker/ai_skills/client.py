@@ -31,7 +31,13 @@ class OpenAICompatibleSkillClient:
             and self.settings.ai_model
         )
 
-    def post_json(self, *, messages: list[dict[str, str]], temperature: float = 0.1) -> dict[str, Any]:
+    def post_json(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        temperature: float = 0.1,
+        skill_id: str = "unknown",
+    ) -> dict[str, Any]:
         import httpx
 
         endpoint = f"{self.settings.ai_base_url.rstrip('/')}/chat/completions"
@@ -50,7 +56,27 @@ class OpenAICompatibleSkillClient:
             with httpx.Client(timeout=timeout) as client:
                 response = client.post(endpoint, headers=headers, json=payload)
                 response.raise_for_status()
-                return response.json()
+                body = response.json()
+                from app.core.llm_usage import log_chat_completion_usage
+                from app.core.observability import get_log_context, get_logger
+
+                ctx = get_log_context()
+                sid = ctx.get("session_id") if isinstance(ctx, dict) else None
+                log_chat_completion_usage(
+                    get_logger(__name__),
+                    response_body=body,
+                    session_id=sid,
+                    skill_id=skill_id,
+                    model_requested=self.settings.ai_model,
+                )
+                from app.services.usage_metrics_service import persist_llm_usage_from_response_body_standalone
+
+                persist_llm_usage_from_response_body_standalone(
+                    session_id=sid if isinstance(sid, str) else None,
+                    skill_id=skill_id,
+                    response_body=body,
+                )
+                return body
         except httpx.TimeoutException as exc:
             raise RuntimeError(
                 f"AI skill request timed out after {self.settings.ai_timeout_seconds:.0f} seconds."

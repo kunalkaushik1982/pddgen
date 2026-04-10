@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from app.core.config import Settings
+from app.core.llm_usage import log_chat_completion_usage
 from app.core.observability import get_logger
 from app.services.ai_skills.session_grounded_qa.schemas import (
     SessionGroundedQARequest,
@@ -87,12 +88,13 @@ class SessionGroundedQASkill:
             },
         ]
 
-    def run(self, input: SessionGroundedQARequest) -> SessionGroundedQAResponse:
+    def run(self, input: SessionGroundedQARequest) -> tuple[SessionGroundedQAResponse, dict[str, Any]]:
         logger.info(
             "Executing AI skill.",
             extra={
                 "skill_id": self.skill_id,
                 "skill_version": self.version,
+                "session_id": input.session_id,
                 "process_group_id": input.process_group_id,
             },
         )
@@ -109,11 +111,21 @@ class SessionGroundedQASkill:
                 "messages": self.build_messages(input),
             },
         )
+        log_chat_completion_usage(
+            logger,
+            response_body=body,
+            session_id=input.session_id,
+            skill_id=self.skill_id,
+            model_requested=self.settings.ai_model,
+        )
         parsed = parse_json_object(extract_message_content(body))
-        return SessionGroundedQAResponse(
-            answer=str(parsed.get("answer", "") or "").strip(),
-            confidence=normalize_confidence(parsed.get("confidence")),
-            citation_ids=normalize_citation_ids(parsed.get("citation_ids", [])),
+        return (
+            SessionGroundedQAResponse(
+                answer=str(parsed.get("answer", "") or "").strip(),
+                confidence=normalize_confidence(parsed.get("confidence")),
+                citation_ids=normalize_citation_ids(parsed.get("citation_ids", [])),
+            ),
+            body,
         )
 
     def _post_chat_completion(self, *, endpoint: str, headers: dict[str, str], payload: dict[str, Any]) -> dict[str, Any]:

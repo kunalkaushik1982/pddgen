@@ -5,6 +5,7 @@ Thumbs.db
 .git/
 .idea/
 .vscode/
+.cursor/
 
 **/.env
 **/.env.*

@@ -17,6 +17,8 @@ type AppShellProps = PropsWithChildren<{
   userEmail?: string | null;
   activeView?: "workspace" | "history" | "session" | "admin" | "about";
   onSelectView?: (view: "workspace" | "history" | "session" | "admin" | "about") => void;
+  /** Hide workspace/projects/session nav; show admin (and About in menu) only. */
+  adminConsoleOnly?: boolean;
   showAdminView?: boolean;
   onOpenAbout?: () => void;
   onLogout?: () => void;
@@ -31,6 +33,7 @@ export function AppShell({
   userEmail,
   activeView = "workspace",
   onSelectView,
+  adminConsoleOnly = false,
   showAdminView = false,
   onOpenAbout,
   onLogout,
@@ -79,27 +82,31 @@ export function AppShell({
         <div className="app-header-actions">
           {onSelectView ? (
             <div className="button-row app-header-nav">
-              <button
-                type="button"
-                className={activeView === "workspace" ? "button-primary" : "button-secondary"}
-                onClick={() => onSelectView("workspace")}
-              >
-                Workspace
-              </button>
-              <button
-                type="button"
-                className={activeView === "history" ? "button-primary" : "button-secondary"}
-                onClick={() => onSelectView("history")}
-              >
-                My Projects
-              </button>
-              <button
-                type="button"
-                className={activeView === "session" ? "button-primary" : "button-secondary"}
-                onClick={() => onSelectView("session")}
-              >
-                Session Detail
-              </button>
+              {adminConsoleOnly ? null : (
+                <>
+                  <button
+                    type="button"
+                    className={activeView === "workspace" ? "button-primary" : "button-secondary"}
+                    onClick={() => onSelectView("workspace")}
+                  >
+                    Workspace
+                  </button>
+                  <button
+                    type="button"
+                    className={activeView === "history" ? "button-primary" : "button-secondary"}
+                    onClick={() => onSelectView("history")}
+                  >
+                    My Projects
+                  </button>
+                  <button
+                    type="button"
+                    className={activeView === "session" ? "button-primary" : "button-secondary"}
+                    onClick={() => onSelectView("session")}
+                  >
+                    Session Detail
+                  </button>
+                </>
+              )}
               {showAdminView ? (
                 <button
                   type="button"

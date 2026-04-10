@@ -10,12 +10,14 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.observability import get_logger
 from app.models.draft_session import DraftSessionModel
 from app.services.ai_skills.session_grounded_qa.schemas import SessionGroundedQARequest
 from app.services.ai_skills.session_grounded_qa.skill import SessionGroundedQASkill
+from app.services.usage_metrics_service import persist_llm_usage_from_response_body
 from app.storage.storage_service import StorageService
 
 logger = get_logger(__name__)
@@ -50,7 +52,14 @@ class SessionChatService:
         """Return whether AI-backed session chat is configured."""
         return bool(self.settings.ai_enabled and self.settings.ai_api_key and self.settings.ai_base_url and self.settings.ai_model)
 
-    def ask(self, *, session: DraftSessionModel, question: str, process_group_id: str | None = None) -> dict[str, Any]:
+    def ask(
+        self,
+        *,
+        session: DraftSessionModel,
+        question: str,
+        process_group_id: str | None = None,
+        db: Session | None = None,
+    ) -> dict[str, Any]:
         """Return one grounded answer with citations for the provided session question."""
         if not self.is_enabled():
             raise RuntimeError("Ask this Session is unavailable because AI is not configured.")
@@ -85,14 +94,24 @@ class SessionChatService:
                 "process_group_id": process_group_id,
             },
         )
-        result = self._session_grounded_qa_skill.run(
+        result, raw_body = self._session_grounded_qa_skill.run(
             SessionGroundedQARequest(
+                session_id=session.id,
                 session_title=session.title,
                 process_group_id=process_group_id,
                 question=cleaned_question,
                 evidence=evidence_payload,
             )
         )
+        if db is not None:
+            persist_llm_usage_from_response_body(
+                db,
+                session_id=session.id,
+                owner_id=session.owner_id,
+                skill_id=self._session_grounded_qa_skill.skill_id,
+                response_body=raw_body,
+                settings=self.settings,
+            )
 
         cited_ids = result.citation_ids
         evidence_by_id = {item.evidence_id: item for item in evidence_items}

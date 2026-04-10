@@ -26,6 +26,14 @@ export function AppFrame(): React.JSX.Element {
     return <Navigate to="/auth" replace />;
   }
 
+  if (
+    user.adminConsoleOnly &&
+    !location.pathname.startsWith("/admin") &&
+    !location.pathname.startsWith("/about")
+  ) {
+    return <Navigate to="/admin" replace />;
+  }
+
   const activeView =
     location.pathname.startsWith("/projects")
       ? "history"
@@ -53,6 +61,7 @@ export function AppFrame(): React.JSX.Element {
       userLabel={user.username}
       userEmail={user.email ?? null}
       activeView={activeView}
+      adminConsoleOnly={Boolean(user.adminConsoleOnly)}
       showAdminView={user.isAdmin}
       onSelectView={(view) => {
         if (view === "history") {

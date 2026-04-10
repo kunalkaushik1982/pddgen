@@ -46,7 +46,27 @@ def post_chat_completion(
         with httpx.Client(timeout=timeout) as client:
             response = client.post(endpoint, headers=headers, json=payload)
             response.raise_for_status()
-            return response.json()
+            body = response.json()
+            from app.core.llm_usage import log_chat_completion_usage
+            from app.core.observability import get_log_context, get_logger
+
+            ctx = get_log_context()
+            sid = ctx.get("session_id") if isinstance(ctx, dict) else None
+            log_chat_completion_usage(
+                get_logger(__name__),
+                response_body=body,
+                session_id=sid,
+                skill_id=f"transcript_interpreter:{context}",
+                model_requested=payload.get("model") if isinstance(payload.get("model"), str) else None,
+            )
+            from app.services.usage_metrics_service import persist_llm_usage_from_response_body_standalone
+
+            persist_llm_usage_from_response_body_standalone(
+                session_id=sid if isinstance(sid, str) else None,
+                skill_id=f"transcript_interpreter:{context}",
+                response_body=body,
+            )
+            return body
     except httpx.TimeoutException as exc:
         raise RuntimeError(f"AI {context} timed out after {timeout_seconds:.0f} seconds.") from exc
     except httpx.HTTPStatusError as exc:

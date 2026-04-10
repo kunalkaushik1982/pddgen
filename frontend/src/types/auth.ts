@@ -10,4 +10,6 @@ export type User = {
   emailVerified?: boolean;
   createdAt: string;
   isAdmin: boolean;
+  /** When true, the app shows only the admin console (no workspace/projects/session). */
+  adminConsoleOnly?: boolean;
 };

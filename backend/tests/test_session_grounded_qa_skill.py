@@ -107,6 +107,13 @@ def install_backend_stubs():
         def post(self, *args, **kwargs):
             raise AssertionError("Test should inject a client when executing network calls.")
 
+    llm_usage_module = types.ModuleType("app.core.llm_usage")
+
+    def _noop_llm_usage(*args, **kwargs):
+        return None
+
+    llm_usage_module.log_chat_completion_usage = _noop_llm_usage  # type: ignore[attr-defined]
+
     config_module.get_settings = lambda: FakeSettings()
     observability_module.get_logger = lambda name: FakeLogger()
     draft_session_module.DraftSessionModel = object
@@ -121,6 +128,7 @@ def install_backend_stubs():
     sys.modules["app.core"] = core_module
     sys.modules["app.core.config"] = config_module
     sys.modules["app.core.observability"] = observability_module
+    sys.modules["app.core.llm_usage"] = llm_usage_module
     sys.modules["app.services"] = services_module
     sys.modules["app.services.ai_skills"] = ai_skills_module
     sys.modules["app.services.ai_skills.session_grounded_qa"] = grounded_pkg
@@ -168,6 +176,7 @@ class SessionGroundedQATests(unittest.TestCase):
     def test_session_grounded_qa_request_keeps_inputs(self) -> None:
         schemas = load_schemas_module()
         request = schemas.SessionGroundedQARequest(
+            session_id="session-1",
             session_title="Quarterly Procurement Review",
             process_group_id="group-1",
             question="What is the approval step?",
@@ -207,6 +216,7 @@ class SessionGroundedQATests(unittest.TestCase):
             ai_timeout_seconds = 30
 
         request = schemas.SessionGroundedQARequest(
+            session_id="session-1",
             session_title="Quarterly Procurement Review",
             process_group_id="group-1",
             question="What is the approval step?",
@@ -249,6 +259,7 @@ class SessionGroundedQATests(unittest.TestCase):
 
         @dataclass
         class Session:
+            id: str
             title: str
             process_steps: list[Step]
             process_notes: list[Note]
@@ -264,15 +275,19 @@ class SessionGroundedQATests(unittest.TestCase):
 
             def run(self, input: object):
                 schemas = load_schemas_module()
-                return schemas.SessionGroundedQAResponse(
-                    answer="The approval happens after review.",
-                    confidence="high",
-                    citation_ids=["step-1", "missing-id"],
+                return (
+                    schemas.SessionGroundedQAResponse(
+                        answer="The approval happens after review.",
+                        confidence="high",
+                        citation_ids=["step-1", "missing-id"],
+                    ),
+                    {},
                 )
 
         service = chat_module.SessionChatService(storage_service=FakeStorageService(), llm_http_client=None)
         service._session_grounded_qa_skill = StubSessionGroundedQASkill()
         session = Session(
+            id="session-1",
             title="Quarterly Procurement Review",
             process_steps=[Step(step_number=1)],
             process_notes=[Note(text="Manager review is required.")],
@@ -301,6 +316,7 @@ class SessionGroundedQATests(unittest.TestCase):
 
         @dataclass
         class Session:
+            id: str
             title: str
             process_steps: list[Step]
             process_notes: list[object]
@@ -316,11 +332,17 @@ class SessionGroundedQATests(unittest.TestCase):
 
             def run(self, input: object):
                 schemas = load_schemas_module()
-                return schemas.SessionGroundedQAResponse(answer="", confidence="low", citation_ids=[])
+                return (schemas.SessionGroundedQAResponse(answer="", confidence="low", citation_ids=[]), {})
 
         service = chat_module.SessionChatService(storage_service=FakeStorageService(), llm_http_client=None)
         service._session_grounded_qa_skill = StubSessionGroundedQASkill()
-        session = Session(title="Quarterly Procurement Review", process_steps=[Step(step_number=1)], process_notes=[], artifacts=[])
+        session = Session(
+            id="session-1",
+            title="Quarterly Procurement Review",
+            process_steps=[Step(step_number=1)],
+            process_notes=[],
+            artifacts=[],
+        )
 
         response = service.ask(session=session, question="What is the approval step?")
         self.assertEqual(response["answer"], "The session evidence did not support a confident answer.")

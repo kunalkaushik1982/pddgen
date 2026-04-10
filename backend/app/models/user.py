@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -28,6 +28,7 @@ class UserModel(Base):
     email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    admin_console_only: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     auth_tokens: Mapped[list["UserAuthTokenModel"]] = relationship(

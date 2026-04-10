@@ -78,8 +78,12 @@ def _install_task_test_stubs() -> None:
 
     generation_timing_mod.track_draft_generation_wall_time = _noop_wall_time
     generation_timing_mod.track_screenshot_generation_wall_time = _noop_wall_time
+    usage_metrics_mod = types.ModuleType("app.services.usage_metrics_service")
+    usage_metrics_mod.persist_background_job_run = lambda **kwargs: None  # type: ignore[attr-defined]
+    usage_metrics_mod.persist_llm_usage_from_response_body_standalone = lambda **kwargs: None  # type: ignore[attr-defined]
     sys.modules["app.services"] = app_services_pkg
     sys.modules["app.services.generation_timing"] = generation_timing_mod
+    sys.modules["app.services.usage_metrics_service"] = usage_metrics_mod
 
     sys.modules["app"] = app_module
     sys.modules["app.core"] = core_module

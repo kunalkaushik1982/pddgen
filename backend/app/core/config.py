@@ -146,7 +146,10 @@ class Settings(BaseSettings):
     )
     auth_session_backend: str = "database_token"
     auth_registration_enabled: bool = True
-    admin_usernames: list[str] = Field(default_factory=list)
+    admin_usernames: list[str] = Field(
+        default_factory=lambda: ["admin"],
+        description="Usernames that may access /api/admin/* and the Admin UI.",
+    )
     auth_token_days: int = 7
     auth_cookie_name: str = "pdd_generator_session"
     auth_cookie_secure: bool = False
@@ -158,9 +161,42 @@ class Settings(BaseSettings):
     ai_enabled: bool = False
     ai_provider: str = "openai_compatible"
     ai_api_key: str = ""
-    ai_model: str = "gpt-4.1-mini"
+    ai_model: str = "gpt-4o"
     ai_base_url: str = "https://api.openai.com/v1"
     ai_timeout_seconds: float = 180.0
+    # OpenAI standard API pricing for gpt-4o (per 1M tokens on platform.openai.com/docs/pricing): $2.50 in, $10 out.
+    ai_prompt_usd_per_1k_tokens: float = Field(default=0.0025, description="USD per 1k prompt tokens (gpt-4o: 2.50/1M).")
+    ai_completion_usd_per_1k_tokens: float = Field(default=0.01, description="USD per 1k completion tokens (gpt-4o: 10/1M).")
+    usd_to_inr_rate: float = Field(
+        default=83.0,
+        ge=0.0,
+        description="Multiply USD estimates by this to show INR in admin (update to live FX as needed).",
+    )
+    admin_ai_cost_margin_multiplier: float = Field(
+        default=1.5,
+        ge=1.0,
+        description="Display charge in INR = actual INR × this (1.5 = cost plus 50% margin).",
+    )
+    admin_processing_inr_per_minute_draft: float = Field(
+        default=0.5,
+        ge=0.0,
+        description="Estimated INR cost per minute for draft_generation worker compute.",
+    )
+    admin_processing_inr_per_minute_screenshot: float = Field(
+        default=0.35,
+        ge=0.0,
+        description="Estimated INR cost per minute for screenshot_generation worker compute.",
+    )
+    admin_storage_inr_per_gb_month: float = Field(
+        default=2.0,
+        ge=0.0,
+        description="Estimated INR storage cost per GB-month used for admin cost rollups.",
+    )
+    admin_storage_retention_days: float = Field(
+        default=30.0,
+        ge=0.0,
+        description="Retention window in days applied to per-session storage cost estimate.",
+    )
     storage_backend: str = "local"
     local_storage_root: Path = Field(default=DEFAULT_STORAGE_ROOT)
     object_storage_bucket: str = ""

@@ -1,5 +1,5 @@
 import type { User } from "../types/auth";
-import type { AdminUserSummary } from "../types/admin";
+import type { AdminSessionMetrics, AdminUserSummary } from "../types/admin";
 import type { Meeting } from "../types/meeting";
 import type {
   DiagramCanvasSettings,
@@ -11,6 +11,7 @@ import type { CandidateScreenshot, ProcessNote, ProcessStep, StepScreenshot } fr
 import type { ActionLogEntry, DraftSession, DraftSessionListItem, InputArtifact, OutputDocument, PendingEvidenceBundle, ProcessGroup, SessionAnswer } from "../types/session";
 import type {
   BackendActionLog,
+  BackendAdminSessionMetrics,
   BackendAdminUserSummary,
   BackendArtifact,
   BackendCandidateScreenshot,
@@ -297,6 +298,7 @@ export function mapUser(user: BackendUser): User {
     emailVerified: user.email_verified ?? false,
     createdAt: user.created_at,
     isAdmin: user.is_admin,
+    adminConsoleOnly: user.admin_console_only ?? false,
   };
 }
 
@@ -308,5 +310,30 @@ export function mapAdminUserSummary(user: BackendAdminUserSummary): AdminUserSum
     isAdmin: user.is_admin,
     totalJobs: user.total_jobs,
     activeJobs: user.active_jobs,
+  };
+}
+
+export function mapAdminSessionMetrics(row: BackendAdminSessionMetrics): AdminSessionMetrics {
+  return {
+    sessionId: row.session_id,
+    title: row.title,
+    ownerId: row.owner_id,
+    status: row.status,
+    updatedAt: row.updated_at,
+    llmCallCount: row.llm_call_count,
+    totalPromptTokens: row.total_prompt_tokens,
+    totalCompletionTokens: row.total_completion_tokens,
+    totalTokensReported: row.total_tokens_reported,
+    estimatedCostUsd: row.estimated_cost_usd,
+    actualAiCostInr: row.actual_ai_cost_inr,
+    chargeInrWithMargin: row.charge_inr_with_margin,
+    processingCostInr: row.processing_cost_inr,
+    storageBytesTotal: row.storage_bytes_total,
+    storageCostInr: row.storage_cost_inr,
+    totalEstimatedCostInr: row.total_estimated_cost_inr,
+    draftGenerationSecondsTotal: row.draft_generation_seconds_total,
+    draftGenerationRuns: row.draft_generation_runs,
+    screenshotGenerationSecondsTotal: row.screenshot_generation_seconds_total,
+    screenshotGenerationRuns: row.screenshot_generation_runs,
   };
 }

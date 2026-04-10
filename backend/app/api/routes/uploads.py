@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import (
     get_action_log_service,
     get_artifact_ingestion_service,
-    get_current_user,
     get_meeting_service,
     get_process_group_service,
     get_storage_service,
+    require_workspace_user,
 )
 from app.db.session import get_db_session
 from app.models.user import UserModel
@@ -41,7 +41,7 @@ def create_upload_session(
     meeting_service: Annotated[MeetingService, Depends(get_meeting_service)],
     process_group_service: Annotated[ProcessGroupService, Depends(get_process_group_service)],
     action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
-    current_user: Annotated[UserModel, Depends(get_current_user)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> DraftSessionResponse:
     """Create an upload session for required and optional artifacts."""
     session = service.create_session(
@@ -79,7 +79,7 @@ def upload_artifact(
     service: Annotated[ArtifactIngestionService, Depends(get_artifact_ingestion_service)],
     meeting_service: Annotated[MeetingService, Depends(get_meeting_service)],
     action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
-    current_user: Annotated[UserModel, Depends(get_current_user)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
     meeting_id: Annotated[str | None, Form()] = None,
     upload_batch_id: Annotated[str | None, Form()] = None,
     upload_pair_index: Annotated[int | None, Form()] = None,
@@ -118,7 +118,7 @@ def upload_artifact(
 def get_artifact_content(
     artifact_id: str,
     db: Annotated[Session, Depends(get_db_session)],
-    current_user: Annotated[UserModel, Depends(get_current_user)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
     storage_service: Annotated[StorageService, Depends(get_storage_service)],
 ) -> Response:
     """Serve one stored artifact file for frontend preview."""
@@ -165,7 +165,7 @@ def delete_uploaded_artifact(
     artifact_id: str,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[ArtifactIngestionService, Depends(get_artifact_ingestion_service)],
-    current_user: Annotated[UserModel, Depends(get_current_user)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> Response:
     """Delete one uploaded artifact from a draft-only workspace session."""
     service.delete_artifact(

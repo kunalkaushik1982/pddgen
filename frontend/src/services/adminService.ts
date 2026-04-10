@@ -1,7 +1,7 @@
-import type { AdminJobSummary, AdminUserSummary } from "../types/admin";
-import type { BackendAdminUserSummary, BackendDraftSessionListItem } from "./contracts";
+import type { AdminJobSummary, AdminSessionMetrics, AdminUserSummary } from "../types/admin";
+import type { BackendAdminSessionMetrics, BackendAdminUserSummary, BackendDraftSessionListItem } from "./contracts";
 import { fetchJson } from "./http";
-import { mapAdminUserSummary, mapDraftSessionListItem } from "./mappers";
+import { mapAdminSessionMetrics, mapAdminUserSummary, mapDraftSessionListItem } from "./mappers";
 
 export const adminService = {
   async listUsers(): Promise<AdminUserSummary[]> {
@@ -12,5 +12,10 @@ export const adminService = {
   async listJobs(): Promise<AdminJobSummary[]> {
     const jobs = await fetchJson<BackendDraftSessionListItem[]>("/admin/jobs");
     return jobs.map(mapDraftSessionListItem);
+  },
+
+  async listSessionMetrics(): Promise<AdminSessionMetrics[]> {
+    const rows = await fetchJson<BackendAdminSessionMetrics[]>("/admin/metrics/sessions");
+    return rows.map(mapAdminSessionMetrics);
   },
 };

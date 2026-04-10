@@ -140,7 +140,7 @@ class DiagramGenerationSkill:
                 "session_title": input.session_title,
             },
         )
-        response_body = client.post_json(messages=self.build_messages(input))
+        response_body = client.post_json(messages=self.build_messages(input), skill_id=self.skill_id)
         content = extract_message_content(response_body)
         parsed = parse_json_object(content)
         return _DiagramGenerationResponse(

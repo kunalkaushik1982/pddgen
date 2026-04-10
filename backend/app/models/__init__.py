@@ -5,8 +5,10 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\models\__init__.
 
 from app.models.action_log import ActionLogModel
 from app.models.artifact import ArtifactModel
+from app.models.background_job_run import BackgroundJobRunModel
 from app.models.diagram_layout import DiagramLayoutModel
 from app.models.draft_session import DraftSessionModel
+from app.models.llm_usage_event import LlmUsageEventModel
 from app.models.meeting import MeetingModel
 from app.models.meeting_evidence_bundle import MeetingEvidenceBundleModel
 from app.models.output_document import OutputDocumentModel
@@ -23,8 +25,10 @@ from app.models.user_password_reset_token import UserPasswordResetTokenModel
 __all__ = [
     "ArtifactModel",
     "ActionLogModel",
+    "BackgroundJobRunModel",
     "DiagramLayoutModel",
     "DraftSessionModel",
+    "LlmUsageEventModel",
     "MeetingModel",
     "MeetingEvidenceBundleModel",
     "OutputDocumentModel",

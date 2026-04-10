@@ -215,4 +215,5 @@ def _build_user_response(user: UserModel) -> UserResponse:
         email_verified=user.email_verified_at is not None,
         created_at=user.created_at,
         is_admin=user.username in settings.admin_usernames,
+        admin_console_only=user.admin_console_only,
     )

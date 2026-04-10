@@ -59,6 +59,7 @@ class UserResponse(BaseModel):
     email_verified: bool = False
     created_at: datetime
     is_admin: bool = False
+    admin_console_only: bool = False
 
 
 class AuthResponse(BaseModel):

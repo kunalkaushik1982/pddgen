@@ -228,6 +228,55 @@
   font-weight: 600;
 }
 
+.admin-metrics-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+}
+
+.admin-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.admin-metrics-table th,
+.admin-metrics-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--accent-border);
+  vertical-align: top;
+}
+
+.admin-metrics-table th {
+  color: var(--app-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-metrics-title {
+  font-weight: 600;
+}
+
+.admin-cost-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.admin-cost-summary-card {
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface-soft);
+}
+
+.admin-cost-summary-card strong {
+  display: block;
+  margin-top: 4px;
+}
+
 @media (max-width: 960px) {
   .section-header-inline,
   .app-header-actions {

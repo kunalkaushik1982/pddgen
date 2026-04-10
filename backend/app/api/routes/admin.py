@@ -15,9 +15,10 @@ from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.models.draft_session import DraftSessionModel
 from app.models.user import UserModel
-from app.schemas.admin import AdminUserListItemResponse
+from app.schemas.admin import AdminSessionMetricsResponse, AdminUserListItemResponse
 from app.schemas.draft_session import DraftSessionListItemResponse
 from app.services.mappers import map_draft_session_list_item
+from app.services.usage_metrics_service import list_admin_session_metrics
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -53,6 +54,15 @@ def list_users(
         )
         for user in users
     ]
+
+
+@router.get("/metrics/sessions", response_model=list[AdminSessionMetricsResponse])
+def list_session_metrics(
+    db: Annotated[Session, Depends(get_db_session)],
+    _current_admin: Annotated[UserModel, Depends(get_current_admin_user)],
+) -> list[AdminSessionMetricsResponse]:
+    """Per-session LLM token totals, estimated cost, and background job wall time."""
+    return list_admin_session_metrics(db)
 
 
 @router.get("/jobs", response_model=list[DraftSessionListItemResponse])

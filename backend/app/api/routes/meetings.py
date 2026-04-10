@@ -8,7 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user, get_meeting_service
+from app.api.dependencies import get_meeting_service, require_workspace_user
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.meeting import CreateMeetingRequest, MeetingResponse, ReorderMeetingsRequest, UpdateMeetingRequest
@@ -23,7 +23,7 @@ def list_meetings(
     session_id: str,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[MeetingService, Depends(get_meeting_service)],
-    current_user: Annotated[UserModel, Depends(get_current_user)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> list[MeetingResponse]:
     meetings = service.list_meetings(db, session_id=session_id, owner_id=current_user.username)
     return [MeetingResponse.model_validate(meeting) for meeting in meetings]
@@ -35,7 +35,7 @@ def create_meeting(
     payload: CreateMeetingRequest,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[MeetingService, Depends(get_meeting_service)],
-    current_user: Annotated[UserModel, Depends(get_current_user)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> MeetingResponse:
     meeting = service.create_meeting(
         db,
@@ -53,7 +53,7 @@ def reorder_meetings(
     payload: ReorderMeetingsRequest,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[MeetingService, Depends(get_meeting_service)],
-    current_user: Annotated[UserModel, Depends(get_current_user)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> list[MeetingResponse]:
     meetings = service.reorder_meetings(
         db,
@@ -71,7 +71,7 @@ def update_meeting(
     payload: UpdateMeetingRequest,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[MeetingService, Depends(get_meeting_service)],
-    current_user: Annotated[UserModel, Depends(get_current_user)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> MeetingResponse:
     fields = payload.model_fields_set
     meeting = service.update_meeting(
@@ -94,7 +94,7 @@ def discard_pending_bundle(
     bundle_id: str,
     db: Annotated[Session, Depends(get_db_session)],
     service: Annotated[MeetingService, Depends(get_meeting_service)],
-    current_user: Annotated[UserModel, Depends(get_current_user)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> Response:
     service.discard_pending_bundle(
         db,

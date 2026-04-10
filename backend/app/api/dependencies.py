@@ -161,6 +161,18 @@ def get_current_user(
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
 
 
+def require_workspace_user(
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+) -> UserModel:
+    """Reject users limited to the admin console (workspace and uploads APIs)."""
+    if current_user.admin_console_only:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account is limited to the admin console.",
+        )
+    return current_user
+
+
 def get_current_admin_user(
     current_user: Annotated[UserModel, Depends(get_current_user)],
 ) -> UserModel:

@@ -18,16 +18,22 @@ export function AdminRoute(): React.JSX.Element {
     queryFn: adminService.listJobs,
     enabled: Boolean(user?.isAdmin),
   });
+  const metricsQuery = useQuery({
+    queryKey: ["admin", "metrics", "sessions"],
+    queryFn: adminService.listSessionMetrics,
+    enabled: Boolean(user?.isAdmin),
+  });
 
   if (!user?.isAdmin) {
-    return <Navigate to="/workspace" replace />;
+    return <Navigate to={user?.adminConsoleOnly ? "/about" : "/workspace"} replace />;
   }
 
   return (
     <AdminPage
       users={usersQuery.data ?? []}
       jobs={jobsQuery.data ?? []}
-      isLoading={usersQuery.isLoading || jobsQuery.isLoading}
+      sessionMetrics={metricsQuery.data ?? []}
+      isLoading={usersQuery.isLoading || jobsQuery.isLoading || metricsQuery.isLoading}
     />
   );
 }

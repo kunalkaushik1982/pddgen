@@ -3,6 +3,8 @@ Purpose: Background task for long-running draft generation work.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\tasks\draft_generation.py
 """
 
+import time
+
 from celery.exceptions import SoftTimeLimitExceeded
 
 from worker import bootstrap as _bootstrap  # noqa: F401
@@ -36,8 +38,25 @@ def run_draft_generation(self, session_id: str) -> dict[str, int | str]:
             with track_draft_generation_wall_time(session_id):
                 worker = DraftGenerationWorker(task_id=self.request.id)
                 try:
+                    started = time.monotonic()
                     result = worker.run(session_id)
-                    logger.info("Draft generation task completed", extra={"event": "draft_generation.task_completed"})
+                    duration_s = round(time.monotonic() - started, 3)
+                    logger.info(
+                        "Draft generation task completed",
+                        extra={
+                            "event": "draft_generation.task_completed",
+                            "duration_seconds": duration_s,
+                            "duration_ms": int(duration_s * 1000),
+                        },
+                    )
+                    from app.services.usage_metrics_service import persist_background_job_run
+
+                    persist_background_job_run(
+                        session_id=session_id,
+                        job_type="draft_generation",
+                        celery_task_id=self.request.id,
+                        duration_seconds=duration_s,
+                    )
                     return result
                 except ValueError as exc:
                     logger.exception("Draft generation task failed", extra={"event": "draft_generation.task_failed"})

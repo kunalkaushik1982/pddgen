@@ -38,6 +38,11 @@ const WorkspaceRoute = lazy(async () => {
   return { default: module.WorkspaceRoute };
 });
 
+const IndexRedirect = lazy(async () => {
+  const module = await import("./routes/IndexRedirect");
+  return { default: module.IndexRedirect };
+});
+
 function RouteLoadingFallback(): React.JSX.Element {
   return (
     <section className="panel">
@@ -60,7 +65,7 @@ export function AppRouter(): React.JSX.Element {
           <Route path="/auth/register" element={withRouteBoundary("Authentication", <AuthRoute />)} />
           <Route path="/auth" element={withRouteBoundary("Authentication", <AuthRoute />)} />
           <Route element={withRouteBoundary("Application Shell", <AppFrame />)}>
-            <Route index element={<Navigate to="/workspace" replace />} />
+            <Route index element={withRouteBoundary("Home", <IndexRedirect />)} />
             <Route path="/about" element={withRouteBoundary("About", <AboutRoute />)} />
             <Route path="/admin" element={withRouteBoundary("Admin", <AdminRoute />)} />
             <Route path="/workspace" element={withRouteBoundary("Workspace", <WorkspaceRoute />)} />

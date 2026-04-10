@@ -15,6 +15,8 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.action_log import ActionLogModel
     from app.models.artifact import ArtifactModel
+    from app.models.background_job_run import BackgroundJobRunModel
+    from app.models.llm_usage_event import LlmUsageEventModel
     from app.models.diagram_layout import DiagramLayoutModel
     from app.models.meeting import MeetingModel
     from app.models.meeting_evidence_bundle import MeetingEvidenceBundleModel
@@ -57,3 +59,9 @@ class DraftSessionModel(Base):
     process_steps: Mapped[list["ProcessStepModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     process_notes: Mapped[list["ProcessNoteModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     output_documents: Mapped[list["OutputDocumentModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    llm_usage_events: Mapped[list["LlmUsageEventModel"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
+    )
+    background_job_runs: Mapped[list["BackgroundJobRunModel"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
+    )

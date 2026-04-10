@@ -15,3 +15,26 @@ export type AdminUserSummary = {
 };
 
 export type AdminJobSummary = DraftSessionListItem;
+
+export type AdminSessionMetrics = {
+  sessionId: string;
+  title: string;
+  ownerId: string;
+  status: string;
+  updatedAt: string;
+  llmCallCount: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalTokensReported: number | null;
+  estimatedCostUsd: number | null;
+  actualAiCostInr: number | null;
+  chargeInrWithMargin: number | null;
+  processingCostInr: number;
+  storageBytesTotal: number;
+  storageCostInr: number;
+  totalEstimatedCostInr: number;
+  draftGenerationSecondsTotal: number;
+  draftGenerationRuns: number;
+  screenshotGenerationSecondsTotal: number;
+  screenshotGenerationRuns: number;
+};

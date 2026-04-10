@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 @dataclass(slots=True)
 class SessionGroundedQARequest:
+    session_id: str
     session_title: str
     process_group_id: str | None
     question: str

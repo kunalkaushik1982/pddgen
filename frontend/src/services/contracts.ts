@@ -191,6 +191,7 @@ export type BackendUser = {
   email_verified?: boolean;
   created_at: string;
   is_admin: boolean;
+  admin_console_only?: boolean;
 };
 
 export type BackendAdminUserSummary = {
@@ -200,6 +201,29 @@ export type BackendAdminUserSummary = {
   is_admin: boolean;
   total_jobs: number;
   active_jobs: number;
+};
+
+export type BackendAdminSessionMetrics = {
+  session_id: string;
+  title: string;
+  owner_id: string;
+  status: string;
+  updated_at: string;
+  llm_call_count: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens_reported: number | null;
+  estimated_cost_usd: number | null;
+  actual_ai_cost_inr: number | null;
+  charge_inr_with_margin: number | null;
+  processing_cost_inr: number;
+  storage_bytes_total: number;
+  storage_cost_inr: number;
+  total_estimated_cost_inr: number;
+  draft_generation_seconds_total: number;
+  draft_generation_runs: number;
+  screenshot_generation_seconds_total: number;
+  screenshot_generation_runs: number;
 };
 
 export type BackendMeeting = {

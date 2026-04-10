@@ -94,7 +94,7 @@ class ProcessSummaryGenerationSkill:
                 "process_title": input.process_title,
             },
         )
-        response_body = client.post_json(messages=self.build_messages(input))
+        response_body = client.post_json(messages=self.build_messages(input), skill_id=self.skill_id)
         content = extract_message_content(response_body)
         parsed = parse_json_object(content)
         summary_text = normalize_summary_text(parsed.get("summary_text"))

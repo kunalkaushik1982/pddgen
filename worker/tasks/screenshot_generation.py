@@ -3,6 +3,8 @@ Purpose: Background task for screenshot-only generation work.
 Full filepath: C:\Users\work\Documents\PddGenerator\worker\tasks\screenshot_generation.py
 """
 
+import time
+
 from celery.exceptions import SoftTimeLimitExceeded
 
 from worker import bootstrap as _bootstrap  # noqa: F401
@@ -36,8 +38,25 @@ def run_screenshot_generation(self, session_id: str) -> dict[str, int | str]:
             with track_screenshot_generation_wall_time(session_id):
                 worker = ScreenshotGenerationWorker(task_id=self.request.id)
                 try:
+                    started = time.monotonic()
                     result = worker.run(session_id)
-                    logger.info("Screenshot generation task completed", extra={"event": "screenshot_generation.task_completed"})
+                    duration_s = round(time.monotonic() - started, 3)
+                    logger.info(
+                        "Screenshot generation task completed",
+                        extra={
+                            "event": "screenshot_generation.task_completed",
+                            "duration_seconds": duration_s,
+                            "duration_ms": int(duration_s * 1000),
+                        },
+                    )
+                    from app.services.usage_metrics_service import persist_background_job_run
+
+                    persist_background_job_run(
+                        session_id=session_id,
+                        job_type="screenshot_generation",
+                        celery_task_id=self.request.id,
+                        duration_seconds=duration_s,
+                    )
                     return result
                 except ValueError as exc:
                     logger.exception("Screenshot generation task failed", extra={"event": "screenshot_generation.task_failed"})

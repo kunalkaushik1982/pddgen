@@ -95,7 +95,7 @@ def install_route_stubs():
 
     dependencies_module.get_action_log_service = lambda: None
     dependencies_module.get_artifact_ingestion_service = lambda: None
-    dependencies_module.get_current_user = lambda: None
+    dependencies_module.require_workspace_user = lambda: None
     dependencies_module.get_meeting_service = lambda: None
     dependencies_module.get_process_group_service = lambda: None
     dependencies_module.get_storage_service = lambda: None
