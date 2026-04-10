@@ -16,6 +16,39 @@ export type AdminUserSummary = {
 
 export type AdminJobSummary = DraftSessionListItem;
 
+export type AdminMetricsColumnId =
+  | "session"
+  | "owner"
+  | "status"
+  | "llm_call_count"
+  | "total_prompt_tokens"
+  | "total_completion_tokens"
+  | "total_tokens_reported"
+  | "estimated_cost_usd"
+  | "actual_ai_cost_inr"
+  | "charge_inr_with_margin"
+  | "processing_cost_inr"
+  | "storage_bytes_total"
+  | "storage_cost_inr"
+  | "total_estimated_cost_inr"
+  | "draft_generation_runs"
+  | "draft_generation_seconds_total"
+  | "screenshot_generation_runs"
+  | "screenshot_generation_seconds_total"
+  | "updated_at";
+
+export type AdminPreferences = {
+  sessionMetricsVisibleColumns: AdminMetricsColumnId[];
+};
+
+export const DEFAULT_ADMIN_METRIC_COLUMNS: AdminMetricsColumnId[] = [
+  "session",
+  "owner",
+  "status",
+  "total_estimated_cost_inr",
+  "updated_at",
+];
+
 export type AdminSessionMetrics = {
   sessionId: string;
   title: string;

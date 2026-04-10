@@ -3,15 +3,17 @@
  * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\pages\AdminPage.tsx
  */
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 
-import type { AdminJobSummary, AdminSessionMetrics, AdminUserSummary } from "../types/admin";
+import type { AdminJobSummary, AdminMetricsColumnId, AdminSessionMetrics, AdminUserSummary } from "../types/admin";
 import { formatGenerationTimeSummary } from "../utils/formatWallDuration";
 
 type AdminPageProps = {
   users: AdminUserSummary[];
   jobs: AdminJobSummary[];
   sessionMetrics: AdminSessionMetrics[];
+  visibleMetricColumns: AdminMetricsColumnId[];
+  onVisibleMetricColumnsChange: (columns: AdminMetricsColumnId[]) => Promise<unknown>;
   isLoading?: boolean;
 };
 
@@ -59,12 +61,76 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
-export function AdminPage({ users, jobs, sessionMetrics, isLoading = false }: AdminPageProps): React.JSX.Element {
+type ColumnDefinition = {
+  id: AdminMetricsColumnId;
+  label: string;
+  render: (row: AdminSessionMetrics) => React.ReactNode;
+};
+
+const metricColumnDefinitions: ColumnDefinition[] = [
+  {
+    id: "session",
+    label: "Session",
+    render: (row) => (
+      <>
+        <div className="admin-metrics-title">{row.title}</div>
+        <div className="artifact-meta">{row.sessionId}</div>
+      </>
+    ),
+  },
+  { id: "owner", label: "Owner", render: (row) => row.ownerId },
+  { id: "status", label: "Status", render: (row) => row.status },
+  { id: "llm_call_count", label: "LLM calls", render: (row) => row.llmCallCount },
+  { id: "total_prompt_tokens", label: "Prompt tok", render: (row) => row.totalPromptTokens },
+  { id: "total_completion_tokens", label: "Completion tok", render: (row) => row.totalCompletionTokens },
+  { id: "total_tokens_reported", label: "Σ total tok", render: (row) => row.totalTokensReported ?? "—" },
+  { id: "estimated_cost_usd", label: "Est. USD", render: (row) => formatUsd(row.estimatedCostUsd) },
+  { id: "actual_ai_cost_inr", label: "Actual AI (INR)", render: (row) => formatInr(row.actualAiCostInr) },
+  { id: "charge_inr_with_margin", label: "Charge AI+margin (INR)", render: (row) => formatInr(row.chargeInrWithMargin) },
+  { id: "processing_cost_inr", label: "Processing (INR)", render: (row) => formatInr(row.processingCostInr) },
+  { id: "storage_bytes_total", label: "Storage used", render: (row) => formatBytes(row.storageBytesTotal) },
+  { id: "storage_cost_inr", label: "Storage (INR)", render: (row) => formatInr(row.storageCostInr) },
+  {
+    id: "total_estimated_cost_inr",
+    label: "Total est. (INR)",
+    render: (row) => <strong>{formatInr(row.totalEstimatedCostInr)}</strong>,
+  },
+  { id: "draft_generation_runs", label: "Draft jobs", render: (row) => row.draftGenerationRuns },
+  { id: "draft_generation_seconds_total", label: "Draft time", render: (row) => formatSecondsTotal(row.draftGenerationSecondsTotal) },
+  { id: "screenshot_generation_runs", label: "Screenshot jobs", render: (row) => row.screenshotGenerationRuns },
+  {
+    id: "screenshot_generation_seconds_total",
+    label: "Screenshot time",
+    render: (row) => formatSecondsTotal(row.screenshotGenerationSecondsTotal),
+  },
+  { id: "updated_at", label: "Updated", render: (row) => new Date(row.updatedAt).toLocaleString() },
+];
+
+export function AdminPage({
+  users,
+  jobs,
+  sessionMetrics,
+  visibleMetricColumns,
+  onVisibleMetricColumnsChange,
+  isLoading = false,
+}: AdminPageProps): React.JSX.Element {
   const totalAiCostInr = sessionMetrics.reduce((sum, row) => sum + (row.actualAiCostInr ?? 0), 0);
   const totalProcessingCostInr = sessionMetrics.reduce((sum, row) => sum + row.processingCostInr, 0);
   const totalStorageCostInr = sessionMetrics.reduce((sum, row) => sum + row.storageCostInr, 0);
   const totalEstimatedCostInr = sessionMetrics.reduce((sum, row) => sum + row.totalEstimatedCostInr, 0);
   const totalStorageBytes = sessionMetrics.reduce((sum, row) => sum + row.storageBytesTotal, 0);
+  const [columnPickerOpen, setColumnPickerOpen] = useState(false);
+  const visibleColumnDefinitions = useMemo(
+    () => metricColumnDefinitions.filter((column) => visibleMetricColumns.includes(column.id)),
+    [visibleMetricColumns],
+  );
+
+  const toggleColumn = async (columnId: AdminMetricsColumnId) => {
+    const nextColumns = visibleMetricColumns.includes(columnId)
+      ? visibleMetricColumns.filter((id) => id !== columnId)
+      : [...visibleMetricColumns, columnId];
+    await onVisibleMetricColumnsChange(nextColumns);
+  };
 
   return (
     <div className="stack">
@@ -100,6 +166,30 @@ export function AdminPage({ users, jobs, sessionMetrics, isLoading = false }: Ad
               cost tracking.
             </p>
           </div>
+          <div className="admin-column-picker">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => setColumnPickerOpen((open) => !open)}
+              aria-expanded={columnPickerOpen}
+            >
+              Columns
+            </button>
+            {columnPickerOpen ? (
+              <div className="admin-column-picker-menu">
+                {metricColumnDefinitions.map((column) => (
+                  <label key={column.id} className="admin-column-picker-option">
+                    <input
+                      type="checkbox"
+                      checked={visibleMetricColumns.includes(column.id)}
+                      onChange={() => void toggleColumn(column.id)}
+                    />
+                    <span>{column.label}</span>
+                  </label>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
         <div className="admin-cost-summary-grid">
           <div className="admin-cost-summary-card">
@@ -128,54 +218,17 @@ export function AdminPage({ users, jobs, sessionMetrics, isLoading = false }: Ad
             <table className="admin-metrics-table">
               <thead>
                 <tr>
-                  <th>Session</th>
-                  <th>Owner</th>
-                  <th>Status</th>
-                  <th>LLM calls</th>
-                  <th>Prompt tok</th>
-                  <th>Completion tok</th>
-                  <th>Σ total tok</th>
-                  <th>Est. USD</th>
-                  <th>Actual AI (INR)</th>
-                  <th>Charge AI+margin (INR)</th>
-                  <th>Processing (INR)</th>
-                  <th>Storage used</th>
-                  <th>Storage (INR)</th>
-                  <th>Total est. (INR)</th>
-                  <th>Draft jobs</th>
-                  <th>Draft time</th>
-                  <th>Screenshot jobs</th>
-                  <th>Screenshot time</th>
-                  <th>Updated</th>
+                  {visibleColumnDefinitions.map((column) => (
+                    <th key={column.id}>{column.label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {sessionMetrics.map((m) => (
-                  <tr key={m.sessionId}>
-                    <td>
-                      <div className="admin-metrics-title">{m.title}</div>
-                      <div className="artifact-meta">{m.sessionId}</div>
-                    </td>
-                    <td>{m.ownerId}</td>
-                    <td>{m.status}</td>
-                    <td>{m.llmCallCount}</td>
-                    <td>{m.totalPromptTokens}</td>
-                    <td>{m.totalCompletionTokens}</td>
-                    <td>{m.totalTokensReported ?? "—"}</td>
-                    <td>{formatUsd(m.estimatedCostUsd)}</td>
-                    <td>{formatInr(m.actualAiCostInr)}</td>
-                    <td>{formatInr(m.chargeInrWithMargin)}</td>
-                    <td>{formatInr(m.processingCostInr)}</td>
-                    <td>{formatBytes(m.storageBytesTotal)}</td>
-                    <td>{formatInr(m.storageCostInr)}</td>
-                    <td>
-                      <strong>{formatInr(m.totalEstimatedCostInr)}</strong>
-                    </td>
-                    <td>{m.draftGenerationRuns}</td>
-                    <td>{formatSecondsTotal(m.draftGenerationSecondsTotal)}</td>
-                    <td>{m.screenshotGenerationRuns}</td>
-                    <td>{formatSecondsTotal(m.screenshotGenerationSecondsTotal)}</td>
-                    <td>{new Date(m.updatedAt).toLocaleString()}</td>
+                {sessionMetrics.map((row) => (
+                  <tr key={row.sessionId}>
+                    {visibleColumnDefinitions.map((column) => (
+                      <td key={column.id}>{column.render(row)}</td>
+                    ))}
                   </tr>
                 ))}
               </tbody>

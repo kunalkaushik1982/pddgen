@@ -1,13 +1,15 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate } from "react-router-dom";
 
 import { AdminPage } from "../pages/AdminPage";
 import { useAuth } from "../providers/AuthProvider";
 import { adminService } from "../services/adminService";
+import { DEFAULT_ADMIN_METRIC_COLUMNS } from "../types/admin";
 
 export function AdminRoute(): React.JSX.Element {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const usersQuery = useQuery({
     queryKey: ["admin", "users"],
     queryFn: adminService.listUsers,
@@ -23,6 +25,17 @@ export function AdminRoute(): React.JSX.Element {
     queryFn: adminService.listSessionMetrics,
     enabled: Boolean(user?.isAdmin),
   });
+  const preferencesQuery = useQuery({
+    queryKey: ["admin", "preferences"],
+    queryFn: adminService.getPreferences,
+    enabled: Boolean(user?.isAdmin),
+  });
+  const updatePreferencesMutation = useMutation({
+    mutationFn: adminService.updatePreferences,
+    onSuccess: (preferences) => {
+      queryClient.setQueryData(["admin", "preferences"], preferences);
+    },
+  });
 
   if (!user?.isAdmin) {
     return <Navigate to={user?.adminConsoleOnly ? "/about" : "/workspace"} replace />;
@@ -33,7 +46,9 @@ export function AdminRoute(): React.JSX.Element {
       users={usersQuery.data ?? []}
       jobs={jobsQuery.data ?? []}
       sessionMetrics={metricsQuery.data ?? []}
-      isLoading={usersQuery.isLoading || jobsQuery.isLoading || metricsQuery.isLoading}
+      visibleMetricColumns={preferencesQuery.data?.sessionMetricsVisibleColumns ?? DEFAULT_ADMIN_METRIC_COLUMNS}
+      onVisibleMetricColumnsChange={async (columns) => updatePreferencesMutation.mutateAsync(columns)}
+      isLoading={usersQuery.isLoading || jobsQuery.isLoading || metricsQuery.isLoading || preferencesQuery.isLoading}
     />
   );
 }

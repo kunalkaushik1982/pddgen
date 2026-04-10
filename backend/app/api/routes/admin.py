@@ -4,6 +4,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\routes\admin
 """
 
 from typing import Annotated
+import json
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
@@ -15,7 +16,12 @@ from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.models.draft_session import DraftSessionModel
 from app.models.user import UserModel
-from app.schemas.admin import AdminSessionMetricsResponse, AdminUserListItemResponse
+from app.schemas.admin import (
+    AdminPreferencesResponse,
+    AdminPreferencesUpdateRequest,
+    AdminSessionMetricsResponse,
+    AdminUserListItemResponse,
+)
 from app.schemas.draft_session import DraftSessionListItemResponse
 from app.services.mappers import map_draft_session_list_item
 from app.services.usage_metrics_service import list_admin_session_metrics
@@ -23,6 +29,32 @@ from app.services.usage_metrics_service import list_admin_session_metrics
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 settings = get_settings()
+DEFAULT_SESSION_METRICS_VISIBLE_COLUMNS = [
+    "session",
+    "owner",
+    "status",
+    "total_estimated_cost_inr",
+    "updated_at",
+]
+
+
+def _load_admin_preferences(user: UserModel) -> dict[str, object]:
+    raw = (user.admin_preferences_json or "").strip()
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _build_admin_preferences_response(user: UserModel) -> AdminPreferencesResponse:
+    preferences = _load_admin_preferences(user)
+    visible_columns = preferences.get("session_metrics_visible_columns")
+    if not isinstance(visible_columns, list) or not all(isinstance(item, str) for item in visible_columns):
+        visible_columns = DEFAULT_SESSION_METRICS_VISIBLE_COLUMNS
+    return AdminPreferencesResponse(session_metrics_visible_columns=list(visible_columns))
 
 
 @router.get("/users", response_model=list[AdminUserListItemResponse])
@@ -54,6 +86,31 @@ def list_users(
         )
         for user in users
     ]
+
+
+@router.get("/preferences", response_model=AdminPreferencesResponse)
+def get_admin_preferences(
+    _db: Annotated[Session, Depends(get_db_session)],
+    current_admin: Annotated[UserModel, Depends(get_current_admin_user)],
+) -> AdminPreferencesResponse:
+    """Return persisted admin-console preferences for the current admin user."""
+    return _build_admin_preferences_response(current_admin)
+
+
+@router.put("/preferences", response_model=AdminPreferencesResponse)
+def update_admin_preferences(
+    payload: AdminPreferencesUpdateRequest,
+    db: Annotated[Session, Depends(get_db_session)],
+    current_admin: Annotated[UserModel, Depends(get_current_admin_user)],
+) -> AdminPreferencesResponse:
+    """Persist admin-console preferences for the current admin user."""
+    current_admin.admin_preferences_json = json.dumps(
+        {"session_metrics_visible_columns": payload.session_metrics_visible_columns}
+    )
+    db.add(current_admin)
+    db.commit()
+    db.refresh(current_admin)
+    return _build_admin_preferences_response(current_admin)
 
 
 @router.get("/metrics/sessions", response_model=list[AdminSessionMetricsResponse])

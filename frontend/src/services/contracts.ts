@@ -226,6 +226,10 @@ export type BackendAdminSessionMetrics = {
   screenshot_generation_runs: number;
 };
 
+export type BackendAdminPreferences = {
+  session_metrics_visible_columns: string[];
+};
+
 export type BackendMeeting = {
   id: string;
   session_id: string;

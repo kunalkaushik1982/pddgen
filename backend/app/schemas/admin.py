@@ -5,7 +5,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\schemas\admin.py
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AdminUserListItemResponse(BaseModel):
@@ -42,3 +42,15 @@ class AdminSessionMetricsResponse(BaseModel):
     draft_generation_runs: int
     screenshot_generation_seconds_total: float
     screenshot_generation_runs: int
+
+
+class AdminPreferencesResponse(BaseModel):
+    """Admin console UI preferences persisted per user."""
+
+    session_metrics_visible_columns: list[str] = Field(default_factory=list)
+
+
+class AdminPreferencesUpdateRequest(BaseModel):
+    """Mutable admin console UI preferences."""
+
+    session_metrics_visible_columns: list[str] = Field(default_factory=list)

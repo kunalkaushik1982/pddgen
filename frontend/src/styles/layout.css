@@ -235,6 +235,34 @@
   border-radius: 8px;
 }
 
+.admin-column-picker {
+  position: relative;
+  align-self: flex-start;
+}
+
+.admin-column-picker-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: var(--surface-strong);
+  box-shadow: var(--panel-shadow);
+  z-index: 20;
+}
+
+.admin-column-picker-option {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 2px;
+  font-size: 0.9rem;
+}
+
 .admin-metrics-table {
   width: 100%;
   border-collapse: collapse;
