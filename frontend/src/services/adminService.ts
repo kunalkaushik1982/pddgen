@@ -29,6 +29,9 @@ export const adminService = {
   async updatePreferences(sessionMetricsVisibleColumns: AdminPreferences["sessionMetricsVisibleColumns"]): Promise<AdminPreferences> {
     const payload = await fetchJson<BackendAdminPreferences>("/admin/preferences", {
       method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ session_metrics_visible_columns: sessionMetricsVisibleColumns }),
     });
     return {
