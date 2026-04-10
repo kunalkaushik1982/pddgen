@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+COPY backend/requirements.txt /tmp/backend-requirements.txt
 COPY worker/requirements.txt /tmp/worker-requirements.txt
-RUN pip install --no-cache-dir -r /tmp/worker-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/backend-requirements.txt -r /tmp/worker-requirements.txt
 
 COPY backend /app/backend
 COPY worker /app/worker
