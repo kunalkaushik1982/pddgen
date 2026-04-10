@@ -12,6 +12,12 @@ export type AdminUserSummary = {
   isAdmin: boolean;
   totalJobs: number;
   activeJobs: number;
+  quotaLifetimeBonus: number;
+  quotaDailyBonus: number;
+  jobUsageLifetime: number;
+  jobUsageDaily: number;
+  effectiveLifetimeCap: number;
+  effectiveDailyCap: number;
 };
 
 export type AdminJobSummary = DraftSessionListItem;

@@ -20,6 +20,7 @@ from app.api.dependencies import (
     get_session_chat_service,
     require_workspace_user,
 )
+from app.core.config import get_settings
 from app.core.observability import bind_log_context, get_logger
 from app.db.session import get_db_session
 from app.models.draft_session import DraftSessionModel
@@ -46,6 +47,7 @@ from app.services.mappers import map_draft_session, map_draft_session_list_item,
 from app.services.pipeline_orchestrator import PipelineOrchestratorService
 from app.services.process_diagram_service import ProcessDiagramService
 from app.services.session_chat_service import SessionChatService
+from app.services.user_quota_service import refund_job_unit, reserve_job_unit
 
 router = APIRouter(prefix="/draft-sessions", tags=["draft-sessions"])
 logger = get_logger(__name__)
@@ -83,8 +85,19 @@ def generate_draft_session(
     current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> DraftSessionResponse:
     """Queue background generation for process steps, notes, and screenshots."""
+    settings = get_settings()
+    reserved = False
     with bind_log_context(session_id=session_id):
+        try:
+            reserve_job_unit(db, current_user, settings)
+            db.commit()
+            reserved = True
+        except HTTPException:
+            raise
         if not dispatcher.acquire_draft_generation_lock(session_id):
+            if reserved:
+                refund_job_unit(db, current_user, settings)
+                db.commit()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Draft generation is already queued or running for this session.",
@@ -110,6 +123,9 @@ def generate_draft_session(
             return map_draft_session(session)
         except Exception:
             dispatcher.release_draft_generation_lock(session_id)
+            if reserved:
+                refund_job_unit(db, current_user, settings)
+                db.commit()
             raise
 
 
@@ -137,7 +153,18 @@ def generate_session_screenshots(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="At least one video artifact is required before generating screenshots.",
             )
+        settings = get_settings()
+        reserved = False
+        try:
+            reserve_job_unit(db, current_user, settings)
+            db.commit()
+            reserved = True
+        except HTTPException:
+            raise
         if not dispatcher.acquire_screenshot_generation_lock(session_id):
+            if reserved:
+                refund_job_unit(db, current_user, settings)
+                db.commit()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Screenshot generation is already queued or running for this session.",
@@ -164,6 +191,9 @@ def generate_session_screenshots(
             return map_draft_session(session)
         except Exception:
             dispatcher.release_screenshot_generation_lock(session_id)
+            if reserved:
+                refund_job_unit(db, current_user, settings)
+                db.commit()
             raise
 
 

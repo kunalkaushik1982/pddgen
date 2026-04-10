@@ -3,7 +3,7 @@
  * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\pages\AdminPage.tsx
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import type {
   AdminJobSummary,
@@ -25,6 +25,7 @@ type AdminPageProps = {
   onSelectedOwnerIdChange?: (ownerId: string) => Promise<unknown>;
   isAdminView?: boolean;
   isLoading?: boolean;
+  onUpdateUserQuota?: (userId: string, payload: { quotaLifetimeBonus: number; quotaDailyBonus: number }) => Promise<unknown>;
 };
 
 function formatSecondsTotal(seconds: number): string {
@@ -127,6 +128,7 @@ export function AdminPage({
   onSelectedOwnerIdChange,
   isAdminView = false,
   isLoading = false,
+  onUpdateUserQuota,
 }: AdminPageProps): React.JSX.Element {
   const totalAiCostInr = sessionMetrics.reduce((sum, row) => sum + (row.actualAiCostInr ?? 0), 0);
   const totalProcessingCostInr = sessionMetrics.reduce((sum, row) => sum + row.processingCostInr, 0);
@@ -138,6 +140,15 @@ export function AdminPage({
     () => metricColumnDefinitions.filter((column) => visibleMetricColumns.includes(column.id)),
     [visibleMetricColumns],
   );
+
+  const [quotaDrafts, setQuotaDrafts] = useState<Record<string, { lifetime: number; daily: number }>>({});
+  useEffect(() => {
+    const next: Record<string, { lifetime: number; daily: number }> = {};
+    for (const u of users) {
+      next[u.id] = { lifetime: u.quotaLifetimeBonus, daily: u.quotaDailyBonus };
+    }
+    setQuotaDrafts(next);
+  }, [users]);
 
   const toggleColumn = async (columnId: AdminMetricsColumnId) => {
     const nextColumns = visibleMetricColumns.includes(columnId)
@@ -174,6 +185,102 @@ export function AdminPage({
           </div>
         </div>
       </section>
+
+      {isAdminView && onUpdateUserQuota ? (
+        <section className="panel stack">
+          <div className="section-header-inline">
+            <div>
+              <h2>User job quotas</h2>
+              <p className="muted">
+                Each new session and each generate / screenshot run counts as one job unit. Global defaults come from
+                backend env; bonuses add on top. Admin accounts are unlimited.
+              </p>
+            </div>
+          </div>
+          {users.length > 0 ? (
+            <div className="admin-metrics-scroll">
+              <table className="admin-metrics-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Lifetime used / cap</th>
+                    <th>Daily used / cap</th>
+                    <th>Bonus lifetime</th>
+                    <th>Bonus daily</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => {
+                    const draft = quotaDrafts[u.id] ?? { lifetime: u.quotaLifetimeBonus, daily: u.quotaDailyBonus };
+                    return (
+                      <tr key={u.id}>
+                        <td>
+                          <strong>{u.username}</strong>
+                          {u.isAdmin ? <div className="artifact-meta">Admin (unlimited)</div> : null}
+                        </td>
+                        <td>
+                          {u.jobUsageLifetime} / {u.effectiveLifetimeCap}
+                        </td>
+                        <td>
+                          {u.jobUsageDaily} / {u.effectiveDailyCap}
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min={0}
+                            className="input-compact"
+                            disabled={u.isAdmin}
+                            value={draft.lifetime}
+                            onChange={(event) =>
+                              setQuotaDrafts((prev) => ({
+                                ...prev,
+                                [u.id]: { ...draft, lifetime: Number.parseInt(event.target.value, 10) || 0 },
+                              }))
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min={0}
+                            className="input-compact"
+                            disabled={u.isAdmin}
+                            value={draft.daily}
+                            onChange={(event) =>
+                              setQuotaDrafts((prev) => ({
+                                ...prev,
+                                [u.id]: { ...draft, daily: Number.parseInt(event.target.value, 10) || 0 },
+                              }))
+                            }
+                          />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            disabled={u.isAdmin}
+                            onClick={() =>
+                              void onUpdateUserQuota(u.id, {
+                                quotaLifetimeBonus: draft.lifetime,
+                                quotaDailyBonus: draft.daily,
+                              })
+                            }
+                          >
+                            Save
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-state">{isLoading ? "Loading users..." : "No users loaded."}</div>
+          )}
+        </section>
+      ) : null}
 
       <section className="panel stack">
         <div className="section-header-inline">

@@ -197,6 +197,16 @@ class Settings(BaseSettings):
         ge=0.0,
         description="Retention window in days applied to per-session storage cost estimate.",
     )
+    user_quota_lifetime_jobs: int = Field(
+        default=4,
+        ge=0,
+        description="Default max lifetime job units per user (new session + each generate/screenshot run).",
+    )
+    user_quota_daily_jobs: int = Field(
+        default=4,
+        ge=0,
+        description="Default max job units per UTC day per user.",
+    )
     storage_backend: str = "local"
     local_storage_root: Path = Field(default=DEFAULT_STORAGE_ROOT)
     object_storage_bucket: str = ""

@@ -18,6 +18,7 @@ from app.api.dependencies import (
     get_storage_service,
     require_workspace_user,
 )
+from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.common import ArtifactKind
@@ -29,6 +30,7 @@ from app.models.artifact import ArtifactModel
 from app.storage.storage_service import StorageService
 from app.services.meeting_service import MeetingService
 from app.services.process_group_service import ProcessGroupService
+from app.services.user_quota_service import refund_job_unit, reserve_job_unit
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
@@ -44,26 +46,38 @@ def create_upload_session(
     current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> DraftSessionResponse:
     """Create an upload session for required and optional artifacts."""
-    session = service.create_session(
-        db,
-        title=payload.title,
-        owner_id=current_user.username,
-        diagram_type=payload.diagram_type,
-        document_type=payload.document_type,
-    )
-    meeting_service.ensure_default_meeting(db, session=session)
-    process_group_service.ensure_default_process_group(db, session=session)
-    action_log.record(
-        db,
-        session_id=session.id,
-        event_type="session_created",
-        title="Session created",
-        detail=f"{session.title} ({session.diagram_type})",
-        actor=current_user.username,
-    )
-    db.commit()
-    db.refresh(session)
-    return map_draft_session(session)
+    settings = get_settings()
+    try:
+        reserve_job_unit(db, current_user, settings)
+        db.commit()
+    except HTTPException:
+        raise
+    try:
+        session = service.create_session(
+            db,
+            title=payload.title,
+            owner_id=current_user.username,
+            diagram_type=payload.diagram_type,
+            document_type=payload.document_type,
+            commit=False,
+        )
+        meeting_service.ensure_default_meeting(db, session=session, commit=False)
+        process_group_service.ensure_default_process_group(db, session=session, commit=False)
+        action_log.record(
+            db,
+            session_id=session.id,
+            event_type="session_created",
+            title="Session created",
+            detail=f"{session.title} ({session.diagram_type})",
+            actor=current_user.username,
+        )
+        db.commit()
+        db.refresh(session)
+        return map_draft_session(session)
+    except Exception:
+        refund_job_unit(db, current_user, settings)
+        db.commit()
+        raise
 
 
 @router.post(

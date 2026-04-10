@@ -310,6 +310,12 @@ export function mapAdminUserSummary(user: BackendAdminUserSummary): AdminUserSum
     isAdmin: user.is_admin,
     totalJobs: user.total_jobs,
     activeJobs: user.active_jobs,
+    quotaLifetimeBonus: user.quota_lifetime_bonus ?? 0,
+    quotaDailyBonus: user.quota_daily_bonus ?? 0,
+    jobUsageLifetime: user.job_usage_lifetime ?? 0,
+    jobUsageDaily: user.job_usage_daily ?? 0,
+    effectiveLifetimeCap: user.effective_lifetime_cap ?? 0,
+    effectiveDailyCap: user.effective_daily_cap ?? 0,
   };
 }
 

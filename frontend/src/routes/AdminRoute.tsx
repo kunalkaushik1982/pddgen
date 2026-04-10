@@ -34,6 +34,25 @@ export function AdminRoute(): React.JSX.Element {
     queryFn: metricsService.listOwners,
     enabled: Boolean(user?.isAdmin),
   });
+  const usersQuery = useQuery({
+    queryKey: ["admin", "users"],
+    queryFn: metricsService.listUsers,
+    enabled: Boolean(user?.isAdmin),
+  });
+
+  const updateUserQuotaMutation = useMutation({
+    mutationFn: ({
+      userId,
+      payload,
+    }: {
+      userId: string;
+      payload: { quotaLifetimeBonus: number; quotaDailyBonus: number };
+    }) => metricsService.updateUserQuota(userId, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+  });
+
   const updatePreferencesMutation = useMutation({
     mutationFn: metricsService.updatePreferences,
     onMutate: async (preferences) => {
@@ -63,7 +82,7 @@ export function AdminRoute(): React.JSX.Element {
 
   return (
     <AdminPage
-      users={[]}
+      users={usersQuery.data ?? []}
       jobs={jobsQuery.data ?? []}
       sessionMetrics={metricsQuery.data ?? []}
       visibleMetricColumns={currentPreferences.sessionMetricsVisibleColumns}
@@ -85,7 +104,20 @@ export function AdminRoute(): React.JSX.Element {
           : undefined
       }
       isAdminView={user.isAdmin}
-      isLoading={preferencesQuery.isLoading || jobsQuery.isLoading || metricsQuery.isLoading || ownersQuery.isLoading}
+      isLoading={
+        preferencesQuery.isLoading ||
+        jobsQuery.isLoading ||
+        metricsQuery.isLoading ||
+        ownersQuery.isLoading ||
+        usersQuery.isLoading
+      }
+      onUpdateUserQuota={
+        user.isAdmin
+          ? async (userId, payload) => {
+              await updateUserQuotaMutation.mutateAsync({ userId, payload });
+            }
+          : undefined
+      }
     />
   );
 }

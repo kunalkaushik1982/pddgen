@@ -3,11 +3,11 @@ Purpose: SQLAlchemy model for an application user that can own draft sessions.
 Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\models\user.py
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -30,6 +30,11 @@ class UserModel(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     admin_console_only: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     admin_preferences_json: Mapped[str] = mapped_column(Text(), default="", nullable=False)
+    quota_lifetime_bonus: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    quota_daily_bonus: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    job_usage_lifetime: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    job_usage_daily: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    job_usage_daily_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     auth_tokens: Mapped[list["UserAuthTokenModel"]] = relationship(

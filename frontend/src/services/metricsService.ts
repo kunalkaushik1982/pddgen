@@ -1,12 +1,19 @@
-import type { AdminJobSummary, AdminPreferences, AdminSessionMetrics, MetricOwnerOption } from "../types/admin";
+import type {
+  AdminJobSummary,
+  AdminPreferences,
+  AdminSessionMetrics,
+  AdminUserSummary,
+  MetricOwnerOption,
+} from "../types/admin";
 import type {
   BackendAdminPreferences,
   BackendAdminSessionMetrics,
+  BackendAdminUserSummary,
   BackendDraftSessionListItem,
   BackendMetricsOwnerOption,
 } from "./contracts";
 import { fetchJson } from "./http";
-import { mapAdminSessionMetrics, mapDraftSessionListItem } from "./mappers";
+import { mapAdminSessionMetrics, mapAdminUserSummary, mapDraftSessionListItem } from "./mappers";
 
 function buildOwnerQuery(ownerId?: string | null): string {
   if (!ownerId || ownerId === "all") {
@@ -16,6 +23,28 @@ function buildOwnerQuery(ownerId?: string | null): string {
 }
 
 export const metricsService = {
+  async listUsers(): Promise<AdminUserSummary[]> {
+    const rows = await fetchJson<BackendAdminUserSummary[]>("/admin/users");
+    return rows.map(mapAdminUserSummary);
+  },
+
+  async updateUserQuota(
+    userId: string,
+    payload: { quotaLifetimeBonus: number; quotaDailyBonus: number },
+  ): Promise<AdminUserSummary> {
+    const row = await fetchJson<BackendAdminUserSummary>(`/admin/users/${encodeURIComponent(userId)}/quota`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        quota_lifetime_bonus: payload.quotaLifetimeBonus,
+        quota_daily_bonus: payload.quotaDailyBonus,
+      }),
+    });
+    return mapAdminUserSummary(row);
+  },
+
   async listOwners(): Promise<MetricOwnerOption[]> {
     const payload = await fetchJson<BackendMetricsOwnerOption[]>("/metrics/owners");
     return payload.map((item) => ({ id: item.id, label: item.label }));

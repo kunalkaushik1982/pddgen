@@ -17,6 +17,19 @@ class AdminUserListItemResponse(BaseModel):
     is_admin: bool
     total_jobs: int
     active_jobs: int
+    quota_lifetime_bonus: int = 0
+    quota_daily_bonus: int = 0
+    job_usage_lifetime: int = 0
+    job_usage_daily: int = 0
+    effective_lifetime_cap: int = 0
+    effective_daily_cap: int = 0
+
+
+class AdminUserQuotaUpdateRequest(BaseModel):
+    """Adjust per-user quota bonuses added on top of global env defaults."""
+
+    quota_lifetime_bonus: int | None = Field(default=None, ge=0)
+    quota_daily_bonus: int | None = Field(default=None, ge=0)
 
 
 class AdminSessionMetricsResponse(BaseModel):

@@ -20,7 +20,7 @@ class ProcessGroupService:
     def __init__(self) -> None:
         self.settings = get_settings()
 
-    def ensure_default_process_group(self, db: Session, *, session: DraftSessionModel) -> ProcessGroupModel:
+    def ensure_default_process_group(self, db: Session, *, session: DraftSessionModel, commit: bool = True) -> ProcessGroupModel:
         """Ensure the session has at least one process group and return it."""
         process_group = (
             db.execute(
@@ -42,7 +42,10 @@ class ProcessGroupService:
             display_order=1,
         )
         db.add(process_group)
-        db.commit()
+        if commit:
+            db.commit()
+        else:
+            db.flush()
         db.refresh(process_group)
         return process_group
 

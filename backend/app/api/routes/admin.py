@@ -6,7 +6,7 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\api\routes\admin
 from typing import Annotated
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -21,10 +21,12 @@ from app.schemas.admin import (
     AdminPreferencesUpdateRequest,
     AdminSessionMetricsResponse,
     AdminUserListItemResponse,
+    AdminUserQuotaUpdateRequest,
 )
 from app.schemas.draft_session import DraftSessionListItemResponse
 from app.services.mappers import map_draft_session_list_item
 from app.services.usage_metrics_service import list_admin_session_metrics
+from app.services.user_quota_service import effective_limits
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -75,17 +77,74 @@ def list_users(
     total_jobs_by_owner = {owner_id: count for owner_id, count in total_jobs_rows}
     active_jobs_by_owner = {owner_id: count for owner_id, count in active_jobs_rows}
 
-    return [
-        AdminUserListItemResponse(
-            id=user.id,
-            username=user.username,
-            created_at=user.created_at,
-            is_admin=user.username in settings.admin_usernames,
-            total_jobs=total_jobs_by_owner.get(user.username, 0),
-            active_jobs=active_jobs_by_owner.get(user.username, 0),
+    out: list[AdminUserListItemResponse] = []
+    for user in users:
+        life_cap, day_cap = effective_limits(settings, user)
+        out.append(
+            AdminUserListItemResponse(
+                id=user.id,
+                username=user.username,
+                created_at=user.created_at,
+                is_admin=user.username in settings.admin_usernames,
+                total_jobs=total_jobs_by_owner.get(user.username, 0),
+                active_jobs=active_jobs_by_owner.get(user.username, 0),
+                quota_lifetime_bonus=int(user.quota_lifetime_bonus or 0),
+                quota_daily_bonus=int(user.quota_daily_bonus or 0),
+                job_usage_lifetime=int(user.job_usage_lifetime or 0),
+                job_usage_daily=int(user.job_usage_daily or 0),
+                effective_lifetime_cap=life_cap,
+                effective_daily_cap=day_cap,
+            )
         )
-        for user in users
-    ]
+    return out
+
+
+@router.patch("/users/{user_id}/quota", response_model=AdminUserListItemResponse)
+def update_user_quota(
+    user_id: str,
+    payload: AdminUserQuotaUpdateRequest,
+    db: Annotated[Session, Depends(get_db_session)],
+    _current_admin: Annotated[UserModel, Depends(get_current_admin_user)],
+) -> AdminUserListItemResponse:
+    """Set per-user quota bonuses (adds to global env defaults)."""
+    user = db.get(UserModel, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if payload.quota_lifetime_bonus is None and payload.quota_daily_bonus is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide quota_lifetime_bonus and/or quota_daily_bonus.",
+        )
+    if payload.quota_lifetime_bonus is not None:
+        user.quota_lifetime_bonus = payload.quota_lifetime_bonus
+    if payload.quota_daily_bonus is not None:
+        user.quota_daily_bonus = payload.quota_daily_bonus
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    total_jobs_rows = db.execute(
+        select(func.count(DraftSessionModel.id)).where(DraftSessionModel.owner_id == user.username)
+    ).scalar_one()
+    active_jobs_rows = db.execute(
+        select(func.count(DraftSessionModel.id))
+        .where(DraftSessionModel.owner_id == user.username)
+        .where(DraftSessionModel.status.in_(("draft", "processing", "review")))
+    ).scalar_one()
+    life_cap, day_cap = effective_limits(settings, user)
+    return AdminUserListItemResponse(
+        id=user.id,
+        username=user.username,
+        created_at=user.created_at,
+        is_admin=user.username in settings.admin_usernames,
+        total_jobs=int(total_jobs_rows or 0),
+        active_jobs=int(active_jobs_rows or 0),
+        quota_lifetime_bonus=int(user.quota_lifetime_bonus or 0),
+        quota_daily_bonus=int(user.quota_daily_bonus or 0),
+        job_usage_lifetime=int(user.job_usage_lifetime or 0),
+        job_usage_daily=int(user.job_usage_daily or 0),
+        effective_lifetime_cap=life_cap,
+        effective_daily_cap=day_cap,
+    )
 
 
 @router.get("/preferences", response_model=AdminPreferencesResponse)

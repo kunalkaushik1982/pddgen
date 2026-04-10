@@ -201,6 +201,12 @@ export type BackendAdminUserSummary = {
   is_admin: boolean;
   total_jobs: number;
   active_jobs: number;
+  quota_lifetime_bonus: number;
+  quota_daily_bonus: number;
+  job_usage_lifetime: number;
+  job_usage_daily: number;
+  effective_lifetime_cap: number;
+  effective_daily_cap: number;
 };
 
 export type BackendAdminSessionMetrics = {

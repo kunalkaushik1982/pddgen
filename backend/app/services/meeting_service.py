@@ -30,7 +30,7 @@ class MeetingService:
         """Return meetings sorted by explicit order or timestamp fallback."""
         session = self._get_session(db, session_id=session_id, owner_id=owner_id)
         if not session.meetings:
-            self.ensure_default_meeting(db, session=session)
+            self.ensure_default_meeting(db, session=session, commit=True)
         statement = (
             select(MeetingModel)
             .where(MeetingModel.session_id == session_id)
@@ -199,7 +199,7 @@ class MeetingService:
             return meeting
         return self.ensure_default_meeting(db, session=session)
 
-    def ensure_default_meeting(self, db: Session, *, session: DraftSessionModel) -> MeetingModel:
+    def ensure_default_meeting(self, db: Session, *, session: DraftSessionModel, commit: bool = True) -> MeetingModel:
         """Ensure the session has at least one meeting and return it."""
         meeting = (
             db.execute(select(MeetingModel).where(MeetingModel.session_id == session.id).order_by(MeetingModel.order_index.asc().nullslast()))
@@ -216,7 +216,10 @@ class MeetingService:
             order_index=1,
         )
         db.add(meeting)
-        db.commit()
+        if commit:
+            db.commit()
+        else:
+            db.flush()
         db.refresh(meeting)
         return meeting
 
