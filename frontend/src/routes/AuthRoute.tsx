@@ -15,7 +15,7 @@ export function AuthRoute(): React.JSX.Element {
   const { message, showToast } = useToast();
 
   if (user) {
-    return <Navigate to={user.adminConsoleOnly ? "/admin" : "/workspace"} replace />;
+    return <Navigate to={user.adminConsoleOnly ? "/metrics" : "/workspace"} replace />;
   }
 
   if (location.pathname === "/auth/reset-password") {

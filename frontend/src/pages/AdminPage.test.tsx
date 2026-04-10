@@ -38,6 +38,9 @@ describe("AdminPage metrics column picker", () => {
         ]}
         visibleMetricColumns={["session", "owner", "status", "total_estimated_cost_inr", "updated_at"]}
         onVisibleMetricColumnsChange={onVisibleColumnsChange}
+        ownerOptions={[]}
+        selectedOwnerId="all"
+        isAdminView
       />,
     );
 

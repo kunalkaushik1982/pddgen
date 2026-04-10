@@ -126,10 +126,13 @@ def persist_background_job_run(
         db.close()
 
 
-def list_admin_session_metrics(db: Session) -> list[AdminSessionMetricsResponse]:
+def list_admin_session_metrics(db: Session, *, owner_id: str | None = None) -> list[AdminSessionMetricsResponse]:
     """Aggregate LLM usage and background job durations per draft session (newest first)."""
     settings = get_settings()
-    sessions = list(db.execute(select(DraftSessionModel).order_by(DraftSessionModel.updated_at.desc())).scalars().all())
+    statement = select(DraftSessionModel).order_by(DraftSessionModel.updated_at.desc())
+    if owner_id:
+        statement = statement.where(DraftSessionModel.owner_id == owner_id)
+    sessions = list(db.execute(statement).scalars().all())
     if not sessions:
         return []
     ids = [s.id for s in sessions]

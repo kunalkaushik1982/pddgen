@@ -29,14 +29,17 @@ export function AppFrame(): React.JSX.Element {
   if (
     user.adminConsoleOnly &&
     !location.pathname.startsWith("/admin") &&
+    !location.pathname.startsWith("/metrics") &&
     !location.pathname.startsWith("/about")
   ) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/metrics" replace />;
   }
 
   const activeView =
     location.pathname.startsWith("/projects")
       ? "history"
+      : location.pathname.startsWith("/metrics")
+        ? "metrics"
       : location.pathname.startsWith("/admin")
         ? "admin"
       : location.pathname.startsWith("/about")
@@ -54,6 +57,8 @@ export function AppFrame(): React.JSX.Element {
           ? uiCopy.projectsLabel
           : activeView === "session"
             ? uiCopy.sessionDetailLabel
+            : activeView === "metrics"
+              ? uiCopy.metricsLabel
             : activeView === "admin"
               ? uiCopy.adminLabel
             : uiCopy.workspaceLabel
@@ -69,7 +74,11 @@ export function AppFrame(): React.JSX.Element {
           return;
         }
         if (view === "admin") {
-          navigate("/admin");
+          navigate("/metrics");
+          return;
+        }
+        if (view === "metrics") {
+          navigate("/metrics");
           return;
         }
         if (view === "session") {
@@ -82,6 +91,7 @@ export function AppFrame(): React.JSX.Element {
         }
         navigate("/workspace");
       }}
+      onOpenMetrics={() => navigate("/metrics")}
       onOpenAbout={() => navigate("/about")}
       onLogout={() => void logout()}
     >

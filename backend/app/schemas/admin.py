@@ -48,9 +48,18 @@ class AdminPreferencesResponse(BaseModel):
     """Admin console UI preferences persisted per user."""
 
     session_metrics_visible_columns: list[str] = Field(default_factory=list)
+    metrics_selected_owner_id: str | None = None
 
 
 class AdminPreferencesUpdateRequest(BaseModel):
     """Mutable admin console UI preferences."""
 
     session_metrics_visible_columns: list[str] = Field(default_factory=list)
+    metrics_selected_owner_id: str | None = None
+
+
+class MetricsOwnerOptionResponse(BaseModel):
+    """Owner option available in the metrics scope selector."""
+
+    id: str
+    label: str

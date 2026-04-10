@@ -4,65 +4,88 @@ import { Navigate } from "react-router-dom";
 
 import { AdminPage } from "../pages/AdminPage";
 import { useAuth } from "../providers/AuthProvider";
-import { adminService } from "../services/adminService";
+import { metricsService } from "../services/metricsService";
 import type { AdminPreferences } from "../types/admin";
 import { DEFAULT_ADMIN_METRIC_COLUMNS } from "../types/admin";
 
 export function AdminRoute(): React.JSX.Element {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const usersQuery = useQuery({
-    queryKey: ["admin", "users"],
-    queryFn: adminService.listUsers,
-    enabled: Boolean(user?.isAdmin),
+  const preferencesQuery = useQuery({
+    queryKey: ["metrics", "preferences"],
+    queryFn: metricsService.getPreferences,
+    enabled: Boolean(user),
   });
+  const selectedOwnerId = user?.isAdmin
+    ? preferencesQuery.data?.metricsSelectedOwnerId ?? "all"
+    : user?.username ?? null;
   const jobsQuery = useQuery({
-    queryKey: ["admin", "jobs"],
-    queryFn: adminService.listJobs,
-    enabled: Boolean(user?.isAdmin),
+    queryKey: ["metrics", "jobs", selectedOwnerId],
+    queryFn: () => metricsService.listJobs(selectedOwnerId),
+    enabled: Boolean(user),
   });
   const metricsQuery = useQuery({
-    queryKey: ["admin", "metrics", "sessions"],
-    queryFn: adminService.listSessionMetrics,
-    enabled: Boolean(user?.isAdmin),
+    queryKey: ["metrics", "sessions", selectedOwnerId],
+    queryFn: () => metricsService.listSessionMetrics(selectedOwnerId),
+    enabled: Boolean(user),
   });
-  const preferencesQuery = useQuery({
-    queryKey: ["admin", "preferences"],
-    queryFn: adminService.getPreferences,
+  const ownersQuery = useQuery({
+    queryKey: ["metrics", "owners"],
+    queryFn: metricsService.listOwners,
     enabled: Boolean(user?.isAdmin),
   });
   const updatePreferencesMutation = useMutation({
-    mutationFn: adminService.updatePreferences,
-    onMutate: async (columns) => {
-      await queryClient.cancelQueries({ queryKey: ["admin", "preferences"] });
-      const previousPreferences = queryClient.getQueryData<AdminPreferences>(["admin", "preferences"]);
-      queryClient.setQueryData<AdminPreferences>(["admin", "preferences"], {
-        sessionMetricsVisibleColumns: columns,
-      });
+    mutationFn: metricsService.updatePreferences,
+    onMutate: async (preferences) => {
+      await queryClient.cancelQueries({ queryKey: ["metrics", "preferences"] });
+      const previousPreferences = queryClient.getQueryData<AdminPreferences>(["metrics", "preferences"]);
+      queryClient.setQueryData<AdminPreferences>(["metrics", "preferences"], preferences);
       return { previousPreferences };
     },
-    onError: (_error, _columns, context) => {
+    onError: (_error, _preferences, context) => {
       if (context?.previousPreferences) {
-        queryClient.setQueryData(["admin", "preferences"], context.previousPreferences);
+        queryClient.setQueryData(["metrics", "preferences"], context.previousPreferences);
       }
     },
     onSuccess: (preferences) => {
-      queryClient.setQueryData(["admin", "preferences"], preferences);
+      queryClient.setQueryData(["metrics", "preferences"], preferences);
     },
   });
 
-  if (!user?.isAdmin) {
-    return <Navigate to={user?.adminConsoleOnly ? "/about" : "/workspace"} replace />;
+  if (!user) {
+    return <Navigate to="/auth" replace />;
   }
+
+  const currentPreferences: AdminPreferences = {
+    sessionMetricsVisibleColumns: preferencesQuery.data?.sessionMetricsVisibleColumns ?? DEFAULT_ADMIN_METRIC_COLUMNS,
+    metricsSelectedOwnerId: selectedOwnerId,
+  };
 
   return (
     <AdminPage
-      users={usersQuery.data ?? []}
+      users={[]}
       jobs={jobsQuery.data ?? []}
       sessionMetrics={metricsQuery.data ?? []}
-      visibleMetricColumns={preferencesQuery.data?.sessionMetricsVisibleColumns ?? DEFAULT_ADMIN_METRIC_COLUMNS}
-      onVisibleMetricColumnsChange={async (columns) => updatePreferencesMutation.mutateAsync(columns)}
-      isLoading={usersQuery.isLoading || jobsQuery.isLoading || metricsQuery.isLoading || preferencesQuery.isLoading}
+      visibleMetricColumns={currentPreferences.sessionMetricsVisibleColumns}
+      onVisibleMetricColumnsChange={async (columns) =>
+        updatePreferencesMutation.mutateAsync({
+          ...currentPreferences,
+          sessionMetricsVisibleColumns: columns,
+        })
+      }
+      ownerOptions={ownersQuery.data ?? []}
+      selectedOwnerId={currentPreferences.metricsSelectedOwnerId}
+      onSelectedOwnerIdChange={
+        user.isAdmin
+          ? async (ownerId) =>
+              updatePreferencesMutation.mutateAsync({
+                ...currentPreferences,
+                metricsSelectedOwnerId: ownerId,
+              })
+          : undefined
+      }
+      isAdminView={user.isAdmin}
+      isLoading={preferencesQuery.isLoading || jobsQuery.isLoading || metricsQuery.isLoading || ownersQuery.isLoading}
     />
   );
 }

@@ -5,6 +5,7 @@ export const uiCopy = {
   projectsLabel: "My Projects",
   sessionDetailLabel: "Session Detail",
   adminLabel: "Admin",
+  metricsLabel: "Metrics",
   aboutLabel: "About",
   loadingSessionSubtitle: "Loading session...",
   loadingApplicationMessage: "Loading application...",

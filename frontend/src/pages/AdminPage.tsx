@@ -5,7 +5,13 @@
 
 import React, { useMemo, useState } from "react";
 
-import type { AdminJobSummary, AdminMetricsColumnId, AdminSessionMetrics, AdminUserSummary } from "../types/admin";
+import type {
+  AdminJobSummary,
+  AdminMetricsColumnId,
+  AdminSessionMetrics,
+  AdminUserSummary,
+  MetricOwnerOption,
+} from "../types/admin";
 import { formatGenerationTimeSummary } from "../utils/formatWallDuration";
 
 type AdminPageProps = {
@@ -14,6 +20,10 @@ type AdminPageProps = {
   sessionMetrics: AdminSessionMetrics[];
   visibleMetricColumns: AdminMetricsColumnId[];
   onVisibleMetricColumnsChange: (columns: AdminMetricsColumnId[]) => Promise<unknown>;
+  ownerOptions?: MetricOwnerOption[];
+  selectedOwnerId?: string | null;
+  onSelectedOwnerIdChange?: (ownerId: string) => Promise<unknown>;
+  isAdminView?: boolean;
   isLoading?: boolean;
 };
 
@@ -112,6 +122,10 @@ export function AdminPage({
   sessionMetrics,
   visibleMetricColumns,
   onVisibleMetricColumnsChange,
+  ownerOptions = [],
+  selectedOwnerId = null,
+  onSelectedOwnerIdChange,
+  isAdminView = false,
   isLoading = false,
 }: AdminPageProps): React.JSX.Element {
   const totalAiCostInr = sessionMetrics.reduce((sum, row) => sum + (row.actualAiCostInr ?? 0), 0);
@@ -137,8 +151,12 @@ export function AdminPage({
       <section className="panel stack">
         <div className="section-header-inline">
           <div>
-            <h2>Admin Overview</h2>
-            <p className="muted">Read-only visibility across all registered users and all draft jobs.</p>
+            <h2>Metrics Overview</h2>
+            <p className="muted">
+              {isAdminView
+                ? "Cross-user operational visibility with owner scoping."
+                : "Your job activity, AI usage, processing time, and storage metrics."}
+            </p>
           </div>
         </div>
         <div className="button-row">
@@ -166,29 +184,44 @@ export function AdminPage({
               cost tracking.
             </p>
           </div>
-          <div className="admin-column-picker">
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={() => setColumnPickerOpen((open) => !open)}
-              aria-expanded={columnPickerOpen}
-            >
-              Columns
-            </button>
-            {columnPickerOpen ? (
-              <div className="admin-column-picker-menu">
-                {metricColumnDefinitions.map((column) => (
-                  <label key={column.id} className="admin-column-picker-option">
-                    <input
-                      type="checkbox"
-                      checked={visibleMetricColumns.includes(column.id)}
-                      onChange={() => void toggleColumn(column.id)}
-                    />
-                    <span>{column.label}</span>
-                  </label>
-                ))}
-              </div>
+          <div className="admin-filter-bar">
+            {isAdminView && onSelectedOwnerIdChange ? (
+              <label className="admin-filter-field">
+                <span>Owner</span>
+                <select value={selectedOwnerId ?? "all"} onChange={(event) => void onSelectedOwnerIdChange(event.target.value)}>
+                  <option value="all">All users</option>
+                  {ownerOptions.map((owner) => (
+                    <option key={owner.id} value={owner.id}>
+                      {owner.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             ) : null}
+            <div className="admin-column-picker">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => setColumnPickerOpen((open) => !open)}
+                aria-expanded={columnPickerOpen}
+              >
+                Columns
+              </button>
+              {columnPickerOpen ? (
+                <div className="admin-column-picker-menu">
+                  {metricColumnDefinitions.map((column) => (
+                    <label key={column.id} className="admin-column-picker-option">
+                      <input
+                        type="checkbox"
+                        checked={visibleMetricColumns.includes(column.id)}
+                        onChange={() => void toggleColumn(column.id)}
+                      />
+                      <span>{column.label}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
         <div className="admin-cost-summary-grid">
@@ -236,32 +269,6 @@ export function AdminPage({
           </div>
         ) : (
           <div className="empty-state">{isLoading ? "Loading metrics..." : "No session metrics recorded yet."}</div>
-        )}
-      </section>
-
-      <section className="panel stack">
-        <div className="section-header-inline">
-          <div>
-            <h2>Users</h2>
-            <p className="muted">All application users with admin membership and job counts.</p>
-          </div>
-        </div>
-        {users.length > 0 ? (
-          <div className="history-list">
-            {users.map((user) => (
-              <div key={user.id} className="history-card">
-                <div className="history-card-main">
-                  <strong>{user.username}</strong>
-                  <div className="artifact-meta">Created {new Date(user.createdAt).toLocaleString()}</div>
-                  <div className="artifact-meta">Role: {user.isAdmin ? "Admin" : "User"}</div>
-                  <div className="artifact-meta">Total jobs: {user.totalJobs}</div>
-                  <div className="artifact-meta">Active jobs: {user.activeJobs}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">{isLoading ? "Loading users..." : "No users found."}</div>
         )}
       </section>
 

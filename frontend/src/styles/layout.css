@@ -240,6 +240,34 @@
   align-self: flex-start;
 }
 
+.admin-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.admin-filter-field {
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.admin-filter-field span {
+  font-size: 0.78rem;
+  color: var(--app-muted);
+}
+
+.admin-filter-field select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--app-text);
+}
+
 .admin-column-picker-menu {
   position: absolute;
   top: calc(100% + 8px);

@@ -67,6 +67,7 @@ export function AppRouter(): React.JSX.Element {
           <Route element={withRouteBoundary("Application Shell", <AppFrame />)}>
             <Route index element={withRouteBoundary("Home", <IndexRedirect />)} />
             <Route path="/about" element={withRouteBoundary("About", <AboutRoute />)} />
+            <Route path="/metrics" element={withRouteBoundary("Metrics", <AdminRoute />)} />
             <Route path="/admin" element={withRouteBoundary("Admin", <AdminRoute />)} />
             <Route path="/workspace" element={withRouteBoundary("Workspace", <WorkspaceRoute />)} />
             <Route path="/projects" element={withRouteBoundary("My Projects", <ProjectsRoute />)} />

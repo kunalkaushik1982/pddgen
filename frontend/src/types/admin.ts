@@ -39,6 +39,12 @@ export type AdminMetricsColumnId =
 
 export type AdminPreferences = {
   sessionMetricsVisibleColumns: AdminMetricsColumnId[];
+  metricsSelectedOwnerId?: string | null;
+};
+
+export type MetricOwnerOption = {
+  id: string;
+  label: string;
 };
 
 export const DEFAULT_ADMIN_METRIC_COLUMNS: AdminMetricsColumnId[] = [

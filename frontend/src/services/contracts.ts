@@ -228,6 +228,12 @@ export type BackendAdminSessionMetrics = {
 
 export type BackendAdminPreferences = {
   session_metrics_visible_columns: string[];
+  metrics_selected_owner_id?: string | null;
+};
+
+export type BackendMetricsOwnerOption = {
+  id: string;
+  label: string;
 };
 
 export type BackendMeeting = {

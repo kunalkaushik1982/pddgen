@@ -15,11 +15,12 @@ type AppShellProps = PropsWithChildren<{
   statusLabel?: string;
   userLabel?: string;
   userEmail?: string | null;
-  activeView?: "workspace" | "history" | "session" | "admin" | "about";
-  onSelectView?: (view: "workspace" | "history" | "session" | "admin" | "about") => void;
+  activeView?: "workspace" | "history" | "session" | "admin" | "metrics" | "about";
+  onSelectView?: (view: "workspace" | "history" | "session" | "admin" | "metrics" | "about") => void;
   /** Hide workspace/projects/session nav; show admin (and About in menu) only. */
   adminConsoleOnly?: boolean;
   showAdminView?: boolean;
+  onOpenMetrics?: () => void;
   onOpenAbout?: () => void;
   onLogout?: () => void;
 }>;
@@ -35,6 +36,7 @@ export function AppShell({
   onSelectView,
   adminConsoleOnly = false,
   showAdminView = false,
+  onOpenMetrics,
   onOpenAbout,
   onLogout,
 }: AppShellProps): React.JSX.Element {
@@ -147,6 +149,18 @@ export function AppShell({
                       ))}
                     </select>
                   </label>
+                  {onOpenMetrics ? (
+                    <button
+                      type="button"
+                      className="app-user-menu-item"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onOpenMetrics();
+                      }}
+                    >
+                      Metrics
+                    </button>
+                  ) : null}
                   {onOpenAbout ? (
                     <button
                       type="button"

@@ -39,7 +39,7 @@ describe("AppFrame", () => {
         <Routes>
           <Route element={<AppFrame />}>
             <Route path="/workspace" element={<div>Workspace content</div>} />
-            <Route path="/admin" element={<div>Admin content</div>} />
+            <Route path="/metrics" element={<div>Metrics content</div>} />
             <Route path="/about" element={<div>About content</div>} />
           </Route>
         </Routes>
@@ -47,6 +47,6 @@ describe("AppFrame", () => {
     );
 
     expect(screen.queryByText("Workspace content")).not.toBeInTheDocument();
-    expect(screen.getByText("Admin content")).toBeInTheDocument();
+    expect(screen.getByText("Metrics content")).toBeInTheDocument();
   });
 });
