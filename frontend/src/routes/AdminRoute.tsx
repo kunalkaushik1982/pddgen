@@ -5,6 +5,7 @@ import { Navigate } from "react-router-dom";
 import { AdminPage } from "../pages/AdminPage";
 import { useAuth } from "../providers/AuthProvider";
 import { adminService } from "../services/adminService";
+import type { AdminPreferences } from "../types/admin";
 import { DEFAULT_ADMIN_METRIC_COLUMNS } from "../types/admin";
 
 export function AdminRoute(): React.JSX.Element {
@@ -32,6 +33,19 @@ export function AdminRoute(): React.JSX.Element {
   });
   const updatePreferencesMutation = useMutation({
     mutationFn: adminService.updatePreferences,
+    onMutate: async (columns) => {
+      await queryClient.cancelQueries({ queryKey: ["admin", "preferences"] });
+      const previousPreferences = queryClient.getQueryData<AdminPreferences>(["admin", "preferences"]);
+      queryClient.setQueryData<AdminPreferences>(["admin", "preferences"], {
+        sessionMetricsVisibleColumns: columns,
+      });
+      return { previousPreferences };
+    },
+    onError: (_error, _columns, context) => {
+      if (context?.previousPreferences) {
+        queryClient.setQueryData(["admin", "preferences"], context.previousPreferences);
+      }
+    },
     onSuccess: (preferences) => {
       queryClient.setQueryData(["admin", "preferences"], preferences);
     },
