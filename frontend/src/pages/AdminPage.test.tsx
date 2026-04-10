@@ -44,6 +44,8 @@ describe("AdminPage metrics column picker", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("tab", { name: "Usage" }));
+
     expect(screen.getByRole("columnheader", { name: "Session" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Owner" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "LLM calls" })).not.toBeInTheDocument();
