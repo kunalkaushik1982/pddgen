@@ -20,6 +20,8 @@ dependencies = [
   "psycopg[binary]==3.2.10",
   "python-multipart==0.0.20",
   "sqlalchemy==2.0.41",
+  "stripe==11.6.0",
+  "razorpay==1.4.2",
   "uvicorn==0.34.3"
 ]
 

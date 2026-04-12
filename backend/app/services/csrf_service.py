@@ -56,6 +56,10 @@ class CsrfService:
         ):
             return
 
+        # Payment provider webhooks use signature verification instead of CSRF tokens.
+        if request.url.path.startswith(f"{self.settings.api_prefix}/payments/webhooks"):
+            return
+
         session_token = request.cookies.get(self.settings.auth_cookie_name)
         if not session_token:
             return

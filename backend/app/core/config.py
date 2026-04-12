@@ -263,6 +263,30 @@ class Settings(BaseSettings):
             "If latest 'Extracting screenshots' stage log is older than this, API lists the run as stalled for UX."
         ),
     )
+    payment_stripe_secret_key: str = Field(
+        default="",
+        description="Stripe secret API key (sk_...). When empty, Stripe checkout/webhooks are disabled.",
+    )
+    payment_stripe_publishable_key: str = Field(
+        default="",
+        description="Stripe publishable key (pk_...) returned to clients when useful.",
+    )
+    payment_stripe_webhook_secret: str = Field(
+        default="",
+        description="Stripe webhook signing secret (whsec_...) for /api/payments/webhooks/stripe.",
+    )
+    payment_razorpay_key_id: str = Field(
+        default="",
+        description="Razorpay key id. When empty with empty secret, Razorpay checkout is disabled.",
+    )
+    payment_razorpay_key_secret: str = Field(
+        default="",
+        description="Razorpay key secret.",
+    )
+    payment_razorpay_webhook_secret: str = Field(
+        default="",
+        description="Razorpay webhook secret for signature verification.",
+    )
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_ROOT / ".env",
