@@ -101,6 +101,8 @@ class RazorpayPaymentGateway:
         amount_minor: int | None = None
         currency: str | None = None
         client_reference_id: str | None = None
+        meta: dict[str, str] = {}
+        subscription_id: str | None = None
 
         payment_entity = _dig(payload, "payment", "entity")
         if isinstance(payment_entity, dict):
@@ -111,15 +113,24 @@ class RazorpayPaymentGateway:
             currency = str(cur).upper() if cur else None
             notes = payment_entity.get("notes") or {}
             if isinstance(notes, dict):
+                meta.update({str(k): str(v) for k, v in notes.items()})
                 cr = notes.get("client_reference_id")
                 if cr:
                     client_reference_id = str(cr)
 
         order_entity = _dig(payload, "order", "entity")
-        if client_reference_id is None and isinstance(order_entity, dict):
+        if isinstance(order_entity, dict):
             notes = order_entity.get("notes") or {}
-            if isinstance(notes, dict) and notes.get("client_reference_id"):
-                client_reference_id = str(notes.get("client_reference_id"))
+            if isinstance(notes, dict):
+                meta.update({str(k): str(v) for k, v in notes.items()})
+                if client_reference_id is None and notes.get("client_reference_id"):
+                    client_reference_id = str(notes.get("client_reference_id"))
+
+        sub_entity = _dig(payload, "subscription", "entity")
+        if isinstance(sub_entity, dict):
+            sid = sub_entity.get("id")
+            if sid:
+                subscription_id = str(sid)
 
         return PaymentWebhookEvent(
             provider=self.provider,
@@ -130,6 +141,10 @@ class RazorpayPaymentGateway:
             currency=currency,
             client_reference_id=client_reference_id,
             raw_payload=data if isinstance(data, dict) else {"payload": data},
+            metadata=meta,
+            checkout_session_id=None,
+            subscription_id=subscription_id,
+            subscription_status=None,
         )
 
 

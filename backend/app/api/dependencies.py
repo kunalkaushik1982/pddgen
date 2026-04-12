@@ -38,7 +38,8 @@ from app.services.session_chat_service import SessionChatService
 from app.services.step_extraction import StepExtractionService
 from app.services.transcript_intelligence import TranscriptIntelligenceService
 from app.portability.payments import DefaultPaymentGatewayFactory, PaymentGatewayFactoryPort, PaymentWebhookProcessorPort
-from app.services.payment_webhook_processor import LoggingPaymentWebhookProcessor
+from app.services.billing_checkout_service import BillingCheckoutService
+from app.services.billing_webhook_processor import BillingPaymentWebhookProcessor
 from app.storage.storage_service import StorageService
 
 
@@ -190,6 +191,16 @@ def get_payment_gateway_factory() -> PaymentGatewayFactoryPort:
     return DefaultPaymentGatewayFactory(settings=get_settings())
 
 
-def get_payment_webhook_processor() -> PaymentWebhookProcessorPort:
-    """Injectable webhook side-effects handler (logging by default)."""
-    return LoggingPaymentWebhookProcessor()
+def get_payment_webhook_processor(
+    db: Annotated[Session, Depends(get_db_session)],
+) -> PaymentWebhookProcessorPort:
+    """Injectable webhook side-effects handler (idempotent billing + entitlements)."""
+    return BillingPaymentWebhookProcessor(db=db)
+
+
+def get_billing_checkout_service(
+    db: Annotated[Session, Depends(get_db_session)],
+    factory: Annotated[PaymentGatewayFactoryPort, Depends(get_payment_gateway_factory)],
+) -> BillingCheckoutService:
+    """Catalog + custom checkout orchestration."""
+    return BillingCheckoutService(db=db, factory=factory)

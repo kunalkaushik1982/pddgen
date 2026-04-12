@@ -28,29 +28,48 @@ class StripePaymentGateway:
         return PaymentProvider.STRIPE
 
     def create_checkout_session(self, request: CheckoutSessionRequest) -> CheckoutSessionResult:
-        if request.amount_minor <= 0:
-            raise PaymentGatewayRejectedError("amount_minor must be positive.", provider=self.provider.value)
         currency = request.currency.strip().lower()
         if len(currency) != 3:
             raise PaymentGatewayRejectedError("currency must be a 3-letter ISO code.", provider=self.provider.value)
+
         try:
-            session = stripe.checkout.Session.create(
-                mode="payment",
-                success_url=request.success_url,
-                cancel_url=request.cancel_url,
-                client_reference_id=request.client_reference_id,
-                metadata=request.metadata,
-                line_items=[
-                    {
-                        "price_data": {
-                            "currency": currency,
-                            "unit_amount": request.amount_minor,
-                            "product_data": {"name": request.title},
-                        },
-                        "quantity": 1,
-                    }
-                ],
-            )
+            if request.checkout_mode == "subscription":
+                price_id = (request.stripe_price_id or "").strip()
+                if not price_id:
+                    raise PaymentGatewayRejectedError(
+                        "stripe_price_id is required for subscription checkout.",
+                        provider=self.provider.value,
+                    )
+                sub_meta = {**request.metadata, **request.stripe_subscription_data_metadata}
+                session = stripe.checkout.Session.create(
+                    mode="subscription",
+                    success_url=request.success_url,
+                    cancel_url=request.cancel_url,
+                    client_reference_id=request.client_reference_id,
+                    metadata=request.metadata,
+                    line_items=[{"price": price_id, "quantity": 1}],
+                    subscription_data={"metadata": sub_meta},
+                )
+            else:
+                if request.amount_minor <= 0:
+                    raise PaymentGatewayRejectedError("amount_minor must be positive.", provider=self.provider.value)
+                session = stripe.checkout.Session.create(
+                    mode="payment",
+                    success_url=request.success_url,
+                    cancel_url=request.cancel_url,
+                    client_reference_id=request.client_reference_id,
+                    metadata=request.metadata,
+                    line_items=[
+                        {
+                            "price_data": {
+                                "currency": currency,
+                                "unit_amount": request.amount_minor,
+                                "product_data": {"name": request.title},
+                            },
+                            "quantity": 1,
+                        }
+                    ],
+                )
         except stripe.error.StripeError as exc:  # type: ignore[attr-defined]
             raise PaymentGatewayRejectedError(str(exc), provider=self.provider.value) from exc
 
@@ -87,18 +106,57 @@ class StripePaymentGateway:
         event_id = str(event_dict.get("id", ""))
         event_type = str(event_dict.get("type", "unknown"))
         data_object = (event_dict.get("data") or {}).get("object") or {}
-        paid = event_type in {"checkout.session.completed", "payment_intent.succeeded"}
+        if not isinstance(data_object, dict):
+            data_object = {}
+
         amount_minor: int | None = None
         currency: str | None = None
         client_reference_id: str | None = None
-        if isinstance(data_object, dict):
+        checkout_session_id: str | None = None
+        subscription_id: str | None = None
+        subscription_status: str | None = None
+        meta: dict[str, str] = {}
+        paid = False
+
+        if event_type == "checkout.session.completed":
+            checkout_session_id = str(data_object.get("id") or "") or None
+            client_reference_id = str(data_object.get("client_reference_id") or "") or None
+            meta = {str(k): str(v) for k, v in (data_object.get("metadata") or {}).items()}
             amount_minor = data_object.get("amount_total")
+            if amount_minor is not None:
+                amount_minor = int(amount_minor)
+            cur = data_object.get("currency")
+            currency = str(cur).upper() if cur else None
+            paid = str(data_object.get("payment_status") or "") == "paid"
+            sub = data_object.get("subscription")
+            if isinstance(sub, str):
+                subscription_id = sub
+        elif event_type == "customer.subscription.updated":
+            subscription_id = str(data_object.get("id") or "") or None
+            subscription_status = str(data_object.get("status") or "") or None
+            meta = {str(k): str(v) for k, v in (data_object.get("metadata") or {}).items()}
+            client_reference_id = meta.get("user_id") or None
+            cur = data_object.get("currency")
+            currency = str(cur).upper() if cur else None
+            paid = str(data_object.get("status") or "") in {"active", "trialing"}
+        elif event_type == "payment_intent.succeeded":
+            paid = True
+            amount_minor = data_object.get("amount")
+            if amount_minor is not None:
+                amount_minor = int(amount_minor)
+            cur = data_object.get("currency")
+            currency = str(cur).upper() if cur else None
+        else:
+            amount_minor = data_object.get("amount_total") or data_object.get("amount")
             if amount_minor is not None:
                 amount_minor = int(amount_minor)
             cur = data_object.get("currency")
             currency = str(cur).upper() if cur else None
             cr = data_object.get("client_reference_id")
             client_reference_id = str(cr) if cr else None
+            meta = {str(k): str(v) for k, v in (data_object.get("metadata") or {}).items()}
+            paid = event_type in {"checkout.session.completed", "payment_intent.succeeded"}
+
         return PaymentWebhookEvent(
             provider=self.provider,
             event_type=event_type,
@@ -108,4 +166,8 @@ class StripePaymentGateway:
             currency=currency,
             client_reference_id=client_reference_id,
             raw_payload=event_dict,
+            metadata=meta,
+            checkout_session_id=checkout_session_id,
+            subscription_id=subscription_id,
+            subscription_status=subscription_status,
         )

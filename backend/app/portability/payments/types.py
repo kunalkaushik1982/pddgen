@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 
 class PaymentProvider(str, Enum):
@@ -14,9 +14,12 @@ class PaymentProvider(str, Enum):
     RAZORPAY = "razorpay"
 
 
+CheckoutMode = Literal["payment", "subscription"]
+
+
 @dataclass(frozen=True, slots=True)
 class CheckoutSessionRequest:
-    """Input for creating a payable checkout session (one-time payment)."""
+    """Input for creating a Stripe Checkout session or Razorpay order."""
 
     amount_minor: int
     currency: str
@@ -25,6 +28,14 @@ class CheckoutSessionRequest:
     client_reference_id: str
     title: str = "Payment"
     metadata: dict[str, str] = field(default_factory=dict)
+    checkout_mode: CheckoutMode = "payment"
+    """Stripe: ``payment`` (one-time) or ``subscription``; Razorpay: only ``payment`` for orders API."""
+
+    stripe_price_id: str | None = None
+    """When ``checkout_mode`` is ``subscription``, Stripe Checkout line item uses this Price id."""
+
+    stripe_subscription_data_metadata: dict[str, str] = field(default_factory=dict)
+    """Merged into Stripe ``subscription_data.metadata`` for subscription checkouts."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,3 +60,7 @@ class PaymentWebhookEvent:
     currency: str | None
     client_reference_id: str | None
     raw_payload: dict[str, Any]
+    metadata: dict[str, str] = field(default_factory=dict)
+    checkout_session_id: str | None = None
+    subscription_id: str | None = None
+    subscription_status: str | None = None
