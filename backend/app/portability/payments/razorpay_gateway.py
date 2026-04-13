@@ -137,7 +137,6 @@ class RazorpayPaymentGateway:
             raise PaymentWebhookVerificationError("Invalid Razorpay webhook JSON.", provider=self.provider.value) from exc
 
         event_name = str(data.get("event", "") or "unknown")
-        event_id = str(data.get("id") or data.get("created_at") or "razorpay-event")
         payload = data.get("payload") or {}
         amount_minor: int | None = None
         currency: str | None = None
@@ -217,6 +216,20 @@ class RazorpayPaymentGateway:
                 client_reference_id = str(meta.get("client_reference_id"))
             if event_name.startswith("subscription.") and event_name not in {"subscription.charged"}:
                 paid = subscription_status in {"active", "authenticated", "charged"}
+
+        # Idempotency key: must be unique per webhook delivery. Razorpay sends X-Razorpay-Event-Id per request.
+        # Never fall back to created_at alone — multiple events in the same second would collide and skip processing.
+        header_event_id = (_header_ci(headers, "X-Razorpay-Event-Id") or "").strip()
+        body_id = data.get("id")
+        body_id_str = str(body_id).strip() if body_id not in (None, "") else ""
+        if header_event_id:
+            event_id = header_event_id
+        elif body_id_str:
+            event_id = body_id_str
+        else:
+            ts = data.get("created_at")
+            ref = provider_payment_id or provider_order_id or subscription_id or refund_id or "unknown"
+            event_id = f"razorpay:{event_name}:{ts}:{ref}"
 
         return PaymentWebhookEvent(
             provider=self.provider,
