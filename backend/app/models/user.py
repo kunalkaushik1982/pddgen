@@ -36,6 +36,9 @@ class UserModel(Base):
     job_usage_daily: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     job_usage_daily_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    billing_gstin: Mapped[str | None] = mapped_column(String(15), nullable=True)
+    billing_legal_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    billing_state_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     auth_tokens: Mapped[list["UserAuthTokenModel"]] = relationship(
         back_populates="user",

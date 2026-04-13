@@ -6,7 +6,9 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AuthLegalFooter } from "../components/legal/AuthLegalFooter";
 import { uiCopy } from "../constants/uiCopy";
+import { useToast } from "../providers/ToastProvider";
 
 type RegisterPageProps = {
   disabled?: boolean;
@@ -15,12 +17,18 @@ type RegisterPageProps = {
 };
 
 export function RegisterPage({ disabled, message, onRegister }: RegisterPageProps): React.JSX.Element {
+  const { showToast } = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
+  const [agreedToPolicies, setAgreedToPolicies] = useState(false);
 
   const submitRegister = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!agreedToPolicies) {
+      showToast("error", "Please accept the Terms, Privacy Policy, and refund information to create an account.");
+      return;
+    }
     void onRegister(username, password, email.trim());
   };
 
@@ -70,7 +78,22 @@ export function RegisterPage({ disabled, message, onRegister }: RegisterPageProp
             />
           </label>
 
-          <button type="submit" className="button-primary auth-cta-primary" disabled={disabled}>
+          <label className="register-terms-consent">
+            <input
+              type="checkbox"
+              checked={agreedToPolicies}
+              onChange={(event) => setAgreedToPolicies(event.target.checked)}
+              aria-required="true"
+            />
+            <span>
+              I agree to the{" "}
+              <Link to="/legal/terms">Terms and Conditions</Link> and{" "}
+              <Link to="/legal/privacy">Privacy Policy</Link>, and acknowledge the{" "}
+              <Link to="/legal/refunds">Cancellation and Refunds</Link> information.
+            </span>
+          </label>
+
+          <button type="submit" className="button-primary auth-cta-primary" disabled={disabled || !agreedToPolicies}>
             Create account
           </button>
         </form>
@@ -79,6 +102,7 @@ export function RegisterPage({ disabled, message, onRegister }: RegisterPageProp
           Back to sign in
         </Link>
       </section>
+      <AuthLegalFooter />
     </main>
   );
 }

@@ -43,6 +43,16 @@ const IndexRedirect = lazy(async () => {
   return { default: module.IndexRedirect };
 });
 
+const BillingRoute = lazy(async () => {
+  const module = await import("./routes/BillingRoute");
+  return { default: module.BillingRoute };
+});
+
+const LegalRoute = lazy(async () => {
+  const module = await import("./routes/LegalRoute");
+  return { default: module.LegalRoute };
+});
+
 function RouteLoadingFallback(): React.JSX.Element {
   return (
     <section className="panel">
@@ -64,6 +74,7 @@ export function AppRouter(): React.JSX.Element {
           <Route path="/auth/forgot" element={withRouteBoundary("Authentication", <AuthRoute />)} />
           <Route path="/auth/register" element={withRouteBoundary("Authentication", <AuthRoute />)} />
           <Route path="/auth" element={withRouteBoundary("Authentication", <AuthRoute />)} />
+          <Route path="/legal/:slug" element={withRouteBoundary("Legal", <LegalRoute />)} />
           <Route element={withRouteBoundary("Application Shell", <AppFrame />)}>
             <Route index element={withRouteBoundary("Home", <IndexRedirect />)} />
             <Route path="/about" element={withRouteBoundary("About", <AboutRoute />)} />
@@ -71,6 +82,7 @@ export function AppRouter(): React.JSX.Element {
             <Route path="/admin" element={withRouteBoundary("Admin", <AdminRoute />)} />
             <Route path="/workspace" element={withRouteBoundary("Workspace", <WorkspaceRoute />)} />
             <Route path="/projects" element={withRouteBoundary("My Projects", <ProjectsRoute />)} />
+            <Route path="/billing" element={withRouteBoundary("Billing", <BillingRoute />)} />
             <Route path="/session" element={withRouteBoundary("Session Detail", <SessionRoute />)} />
             <Route path="/session/:sessionId" element={withRouteBoundary("Session Detail", <SessionRoute />)} />
           </Route>

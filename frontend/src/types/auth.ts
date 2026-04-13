@@ -12,4 +12,7 @@ export type User = {
   isAdmin: boolean;
   /** When true, the app shows only the admin console (no workspace/projects/session). */
   adminConsoleOnly?: boolean;
+  billingGstin?: string | null;
+  billingLegalName?: string | null;
+  billingStateCode?: string | null;
 };

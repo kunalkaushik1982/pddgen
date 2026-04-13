@@ -216,4 +216,7 @@ def _build_user_response(user: UserModel) -> UserResponse:
         created_at=user.created_at,
         is_admin=user.username in settings.admin_usernames,
         admin_console_only=user.admin_console_only,
+        billing_gstin=user.billing_gstin,
+        billing_legal_name=user.billing_legal_name,
+        billing_state_code=user.billing_state_code,
     )

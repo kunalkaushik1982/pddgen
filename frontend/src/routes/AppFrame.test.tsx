@@ -49,4 +49,32 @@ describe("AppFrame", () => {
     expect(screen.queryByText("Workspace content")).not.toBeInTheDocument();
     expect(screen.getByText("Metrics content")).toBeInTheDocument();
   });
+
+  it("allows admin-console-only users to open billing", () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        id: "admin-1",
+        username: "admin",
+        email: "admin@example.com",
+        createdAt: "2026-04-10T00:00:00Z",
+        isAdmin: true,
+        adminConsoleOnly: true,
+      },
+      isLoading: false,
+      logout: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/billing"]}>
+        <Routes>
+          <Route element={<AppFrame />}>
+            <Route path="/billing" element={<div>Billing content</div>} />
+            <Route path="/metrics" element={<div>Metrics content</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Billing content")).toBeInTheDocument();
+  });
 });

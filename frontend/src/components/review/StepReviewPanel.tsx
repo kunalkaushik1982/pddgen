@@ -26,9 +26,15 @@ export function StepReviewPanel({
 }: StepReviewPanelProps): React.JSX.Element {
   const primaryScreenshot =
     step.screenshots.find((stepScreenshot) => stepScreenshot.isPrimary) ?? step.screenshots[0] ?? null;
+  const sortedCandidates = [...step.candidateScreenshots].sort((left, right) => left.sequenceNumber - right.sequenceNumber);
+  const fallbackCandidate = !primaryScreenshot && sortedCandidates.length > 0 ? sortedCandidates[0] : null;
   const secondaryScreenshots = primaryScreenshot
     ? step.screenshots.filter((stepScreenshot) => stepScreenshot.id !== primaryScreenshot.id)
     : [];
+  const secondaryCandidates =
+    fallbackCandidate && sortedCandidates.length > 1
+      ? sortedCandidates.filter((candidate) => candidate.id !== fallbackCandidate.id)
+      : [];
 
   return (
     <article className="step-card">
@@ -114,6 +120,50 @@ export function StepReviewPanel({
                           </button>
                         </div>
                       ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : fallbackCandidate ? (
+          <div className="stack">
+            <div className="step-screenshot-section">
+              <div className="step-section-title">Generated screenshot</div>
+              <p className="muted" style={{ margin: "0 0 8px", fontSize: "0.88rem" }}>
+                Candidate frames are available. Open Edit mode and choose “Add screenshot to step” if this is not promoted to primary
+                evidence yet.
+              </p>
+              <div className="screenshot-card screenshot-card-primary">
+                <div className="screenshot-preview screenshot-preview-primary">
+                  <span className="screenshot-badge">Preview</span>
+                  <AuthenticatedArtifactImage
+                    artifactId={fallbackCandidate.artifactId}
+                    previewUrl={fallbackCandidate.artifact.previewUrl}
+                    alt={`Generated screenshot candidate for step ${step.stepNumber}`}
+                  />
+                </div>
+                <div className="artifact-meta">
+                  {fallbackCandidate.timestamp} | {fallbackCandidate.selectionMethod}
+                </div>
+              </div>
+            </div>
+            {secondaryCandidates.length > 0 ? (
+              <div className="step-screenshot-section">
+                <div className="step-section-title">Other generated frames</div>
+                <div className="screenshot-grid">
+                  {secondaryCandidates.map((candidate) => (
+                    <div key={candidate.id} className="screenshot-card">
+                      <div className="screenshot-preview">
+                        <AuthenticatedArtifactImage
+                          artifactId={candidate.artifactId}
+                          previewUrl={candidate.artifact.previewUrl}
+                          alt={`Screenshot candidate for step ${step.stepNumber}`}
+                        />
+                      </div>
+                      <div className="artifact-meta">
+                        {candidate.timestamp} | {candidate.sourceRole}
+                      </div>
                     </div>
                   ))}
                 </div>

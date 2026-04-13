@@ -263,6 +263,28 @@ class Settings(BaseSettings):
             "If latest 'Extracting screenshots' stage log is older than this, API lists the run as stalled for UX."
         ),
     )
+    billing_gst_invoice_enabled: bool = Field(
+        default=False,
+        description="When true, issue GST invoice rows on successful INR (or configured) payments.",
+    )
+    billing_seller_legal_name: str = Field(default="", description="Legal name on tax invoices.")
+    billing_seller_gstin: str = Field(default="", description="15-char GSTIN of the seller (India).")
+    billing_seller_address: str = Field(default="", description="Multiline registered address on invoices.")
+    billing_seller_state_code: str = Field(
+        default="",
+        description="Two-digit state code for seller (e.g. KA for Karnataka) for GST supply type.",
+    )
+    billing_default_hsn_sac: str = Field(default="998313", description="Default HSN/SAC for SaaS/IaaS-style supplies.")
+    billing_default_gst_rate_bps: int = Field(
+        default=1800,
+        ge=0,
+        le=30000,
+        description="GST rate in basis points (1800 = 18%) for inclusive tax split on INR.",
+    )
+    billing_supply_default: str = Field(
+        default="intrastate",
+        description="When buyer state is unknown: intrastate or interstate for IGST vs CGST/SGST split.",
+    )
     payment_stripe_secret_key: str = Field(
         default="",
         description="Stripe secret API key (sk_...). When empty, Stripe checkout/webhooks are disabled.",
@@ -286,6 +308,13 @@ class Settings(BaseSettings):
     payment_razorpay_webhook_secret: str = Field(
         default="",
         description="Razorpay webhook secret for signature verification.",
+    )
+    payment_checkout_redirect_allowlist: list[str] = Field(
+        default_factory=list,
+        description=(
+            "If non-empty JSON array in env, success_url and cancel_url must start with one of these prefixes "
+            "(e.g. https://app.example.com). Empty = no check (dev only)."
+        ),
     )
 
     model_config = SettingsConfigDict(

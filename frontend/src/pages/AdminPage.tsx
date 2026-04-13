@@ -14,6 +14,9 @@ import type {
 } from "../types/admin";
 import { formatGenerationTimeSummary } from "../utils/formatWallDuration";
 
+import { BillingCatalogTab } from "../components/admin/BillingCatalogTab";
+import { BillingComplianceTab } from "../components/admin/BillingComplianceTab";
+
 type AdminPageProps = {
   users: AdminUserSummary[];
   jobs: AdminJobSummary[];
@@ -117,7 +120,7 @@ const metricColumnDefinitions: ColumnDefinition[] = [
   { id: "updated_at", label: "Updated", render: (row) => new Date(row.updatedAt).toLocaleString() },
 ];
 
-type AdminTabId = "overview" | "quotas" | "usage" | "jobs";
+type AdminTabId = "overview" | "quotas" | "usage" | "jobs" | "catalog" | "compliance";
 
 export function AdminPage({
   users,
@@ -145,6 +148,8 @@ export function AdminPage({
 
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, { lifetime: number; daily: number }>>({});
   const showQuotasTab = Boolean(isAdminView && onUpdateUserQuota);
+  const showCatalogTab = Boolean(isAdminView);
+  const showComplianceTab = Boolean(isAdminView);
   const [activeTab, setActiveTab] = useState<AdminTabId>("overview");
 
   useEffect(() => {
@@ -160,6 +165,18 @@ export function AdminPage({
       setActiveTab("overview");
     }
   }, [showQuotasTab, activeTab]);
+
+  useEffect(() => {
+    if (!showCatalogTab && activeTab === "catalog") {
+      setActiveTab("overview");
+    }
+  }, [showCatalogTab, activeTab]);
+
+  useEffect(() => {
+    if (!showComplianceTab && activeTab === "compliance") {
+      setActiveTab("overview");
+    }
+  }, [showComplianceTab, activeTab]);
 
   const toggleColumn = async (columnId: AdminMetricsColumnId) => {
     const nextColumns = visibleMetricColumns.includes(columnId)
@@ -218,6 +235,32 @@ export function AdminPage({
           >
             Jobs
           </button>
+          {showCatalogTab ? (
+            <button
+              type="button"
+              id="admin-tab-catalog"
+              role="tab"
+              aria-selected={activeTab === "catalog"}
+              aria-controls="admin-panel-catalog"
+              className={`admin-page-tab ${activeTab === "catalog" ? "admin-page-tab-active" : ""}`}
+              onClick={() => setActiveTab("catalog")}
+            >
+              Catalog
+            </button>
+          ) : null}
+          {showComplianceTab ? (
+            <button
+              type="button"
+              id="admin-tab-compliance"
+              role="tab"
+              aria-selected={activeTab === "compliance"}
+              aria-controls="admin-panel-compliance"
+              className={`admin-page-tab ${activeTab === "compliance" ? "admin-page-tab-active" : ""}`}
+              onClick={() => setActiveTab("compliance")}
+            >
+              Compliance
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -444,6 +487,10 @@ export function AdminPage({
           )}
         </section>
       ) : null}
+
+      {activeTab === "catalog" && showCatalogTab ? <BillingCatalogTab /> : null}
+
+      {activeTab === "compliance" && showComplianceTab ? <BillingComplianceTab /> : null}
 
       {activeTab === "jobs" ? (
         <section className="panel stack admin-tab-panel" id="admin-panel-jobs" role="tabpanel" aria-labelledby="admin-tab-jobs">

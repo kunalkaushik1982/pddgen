@@ -5,7 +5,10 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\models\__init__.
 
 from app.models.action_log import ActionLogModel
 from app.models.billing_checkout_session import BillingCheckoutSessionModel
+from app.models.billing_dispute import BillingDisputeModel
+from app.models.billing_invoice import BillingInvoiceCounterModel, BillingInvoiceModel
 from app.models.billing_product import BillingProductModel
+from app.models.billing_refund import BillingRefundModel
 from app.models.artifact import ArtifactModel
 from app.models.background_job_run import BackgroundJobRunModel
 from app.models.diagram_layout import DiagramLayoutModel
@@ -30,7 +33,11 @@ __all__ = [
     "ArtifactModel",
     "ActionLogModel",
     "BillingCheckoutSessionModel",
+    "BillingDisputeModel",
+    "BillingInvoiceCounterModel",
+    "BillingInvoiceModel",
     "BillingProductModel",
+    "BillingRefundModel",
     "BackgroundJobRunModel",
     "DiagramLayoutModel",
     "DraftSessionModel",

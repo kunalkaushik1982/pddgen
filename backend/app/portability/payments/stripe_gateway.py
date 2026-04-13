@@ -115,6 +115,12 @@ class StripePaymentGateway:
         checkout_session_id: str | None = None
         subscription_id: str | None = None
         subscription_status: str | None = None
+        provider_payment_id: str | None = None
+        provider_order_id: str | None = None
+        refund_id: str | None = None
+        dispute_id: str | None = None
+        refund_status: str | None = None
+        dispute_status: str | None = None
         meta: dict[str, str] = {}
         paid = False
 
@@ -131,6 +137,9 @@ class StripePaymentGateway:
             sub = data_object.get("subscription")
             if isinstance(sub, str):
                 subscription_id = sub
+            pi = data_object.get("payment_intent")
+            if isinstance(pi, str):
+                provider_payment_id = pi
         elif event_type == "customer.subscription.updated":
             subscription_id = str(data_object.get("id") or "") or None
             subscription_status = str(data_object.get("status") or "") or None
@@ -146,6 +155,38 @@ class StripePaymentGateway:
                 amount_minor = int(amount_minor)
             cur = data_object.get("currency")
             currency = str(cur).upper() if cur else None
+            pi = data_object.get("id")
+            if isinstance(pi, str):
+                provider_payment_id = pi
+            meta = {str(k): str(v) for k, v in (data_object.get("metadata") or {}).items()}
+            client_reference_id = meta.get("user_id") or client_reference_id
+        elif event_type in {"refund.created", "refund.updated"}:
+            refund_id = str(data_object.get("id") or "") or None
+            refund_status = str(data_object.get("status") or "") or None
+            pi = data_object.get("payment_intent")
+            if isinstance(pi, str):
+                provider_payment_id = pi
+            amt = data_object.get("amount")
+            if amt is not None:
+                amount_minor = int(amt)
+            cur = data_object.get("currency")
+            currency = str(cur).upper() if cur else None
+            meta = {str(k): str(v) for k, v in (data_object.get("metadata") or {}).items()}
+            client_reference_id = meta.get("user_id") or None
+            paid = False
+        elif event_type.startswith("charge.dispute."):
+            dispute_id = str(data_object.get("id") or "") or None
+            dispute_status = str(data_object.get("status") or "") or None
+            pi = data_object.get("payment_intent")
+            if isinstance(pi, str):
+                provider_payment_id = pi
+            amt = data_object.get("amount")
+            if amt is not None:
+                amount_minor = int(amt)
+            cur = data_object.get("currency")
+            currency = str(cur).upper() if cur else None
+            meta = {str(k): str(v) for k, v in (data_object.get("metadata") or {}).items()}
+            paid = False
         else:
             amount_minor = data_object.get("amount_total") or data_object.get("amount")
             if amount_minor is not None:
@@ -170,4 +211,10 @@ class StripePaymentGateway:
             checkout_session_id=checkout_session_id,
             subscription_id=subscription_id,
             subscription_status=subscription_status,
+            provider_payment_id=provider_payment_id,
+            provider_order_id=provider_order_id,
+            refund_id=refund_id,
+            dispute_id=dispute_id,
+            refund_status=refund_status,
+            dispute_status=dispute_status,
         )

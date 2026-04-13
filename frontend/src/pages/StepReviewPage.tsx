@@ -77,19 +77,25 @@ export function StepReviewPage({
     initialReviewMode,
     sessionId: session?.id ?? null,
   });
+  const sortedProcessGroups = React.useMemo(
+    () => [...session.processGroups].sort((left, right) => left.displayOrder - right.displayOrder),
+    [session.processGroups],
+  );
+  const firstProcessGroupId = sortedProcessGroups[0]?.id ?? null;
   const stepCountByProcessGroup = React.useMemo(() => {
     const counts = new Map<string, number>();
     for (const step of session.processSteps) {
-      if (!step.processGroupId) {
-        continue;
+      if (step.processGroupId) {
+        counts.set(step.processGroupId, (counts.get(step.processGroupId) ?? 0) + 1);
       }
-      counts.set(step.processGroupId, (counts.get(step.processGroupId) ?? 0) + 1);
+    }
+    const orphanCount = session.processSteps.filter((row) => !row.processGroupId).length;
+    if (orphanCount > 0 && firstProcessGroupId) {
+      counts.set(firstProcessGroupId, (counts.get(firstProcessGroupId) ?? 0) + orphanCount);
     }
     return counts;
-  }, [session.processSteps]);
-  const availableProcessGroups = [...session.processGroups]
-    .sort((left, right) => left.displayOrder - right.displayOrder)
-    .filter((group) => {
+  }, [session.processSteps, firstProcessGroupId]);
+  const availableProcessGroups = sortedProcessGroups.filter((group) => {
       const stepCount = stepCountByProcessGroup.get(group.id) ?? 0;
       const normalizedTitle = group.title.trim().toLowerCase();
       const isDefaultUnnamedGroup = /^process\s+\d+$/.test(normalizedTitle);
@@ -114,7 +120,16 @@ export function StepReviewPage({
   const activeProcessGroup =
     availableProcessGroups.find((group) => group.id === selectedProcessGroupId) ?? availableProcessGroups[0] ?? null;
   const filteredSteps = activeProcessGroup
-    ? session.processSteps.filter((step) => (step.processGroupId ?? null) === activeProcessGroup.id)
+    ? session.processSteps.filter((step) => {
+        const groupId = step.processGroupId ?? null;
+        if (groupId === activeProcessGroup.id) {
+          return true;
+        }
+        if (!groupId && firstProcessGroupId === activeProcessGroup.id) {
+          return true;
+        }
+        return false;
+      })
     : session.processSteps;
   const filteredNotes = activeProcessGroup
     ? session.processNotes.filter((note) => (note.processGroupId ?? null) === activeProcessGroup.id)
@@ -134,9 +149,17 @@ export function StepReviewPage({
   const currentCandidate = stepEditor.currentCandidate;
   const applications = Array.from(new Set(filteredSteps.map((step) => step.applicationName).filter(Boolean)));
   const editedSteps = filteredSteps.filter((step) => step.editedByBa);
-  const screenshotCount = filteredSteps.reduce((total, step) => total + step.screenshots.length, 0);
+  const countStepScreenshotEvidence = (step: ProcessStep): number =>
+    step.screenshots.length > 0 ? step.screenshots.length : step.candidateScreenshots.length;
+  const screenshotCount = filteredSteps.reduce((total, step) => total + countStepScreenshotEvidence(step), 0);
   const primaryScreenshotCount = filteredSteps.reduce(
-    (total, step) => total + step.screenshots.filter((screenshot) => screenshot.isPrimary).length,
+    (total, step) =>
+      total +
+      (step.screenshots.length > 0
+        ? step.screenshots.filter((screenshot) => screenshot.isPrimary).length
+        : step.candidateScreenshots.length > 0
+          ? 1
+          : 0),
     0,
   );
   const summaryHeading = activeProcessGroup?.title || filteredNotes[0]?.text || uiCopy.summaryHeadingFallback;
@@ -146,9 +169,15 @@ export function StepReviewPage({
   const summaryNotes = activeProcessGroup ? filteredNotes : session.processNotes;
   const summaryApplications = Array.from(new Set(summarySteps.map((step) => step.applicationName).filter(Boolean)));
   const summaryEditedSteps = summarySteps.filter((step) => step.editedByBa);
-  const summaryScreenshotCount = summarySteps.reduce((total, step) => total + step.screenshots.length, 0);
+  const summaryScreenshotCount = summarySteps.reduce((total, step) => total + countStepScreenshotEvidence(step), 0);
   const summaryPrimaryScreenshotCount = summarySteps.reduce(
-    (total, step) => total + step.screenshots.filter((screenshot) => screenshot.isPrimary).length,
+    (total, step) =>
+      total +
+      (step.screenshots.length > 0
+        ? step.screenshots.filter((screenshot) => screenshot.isPrimary).length
+        : step.candidateScreenshots.length > 0
+          ? 1
+          : 0),
     0,
   );
   const summaryPanelHeading = activeProcessGroup?.title || summaryNotes[0]?.text || uiCopy.summaryHeadingFallback;

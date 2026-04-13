@@ -6,6 +6,7 @@
 import React, { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { AuthLegalFooter } from "../components/legal/AuthLegalFooter";
 import { uiCopy } from "../constants/uiCopy";
 
 type ResetPasswordPageProps = {
@@ -67,6 +68,7 @@ export function ResetPasswordPage({
           Request a new reset link
         </Link>
       </section>
+      <AuthLegalFooter />
     </main>
   );
 }

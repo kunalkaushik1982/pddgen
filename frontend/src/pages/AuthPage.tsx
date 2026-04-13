@@ -6,6 +6,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { AuthLegalFooter } from "../components/legal/AuthLegalFooter";
 import { uiCopy } from "../constants/uiCopy";
 import { useToast } from "../providers/ToastProvider";
 
@@ -207,6 +208,7 @@ export function AuthPage({
           Forgot password?
         </Link>
       </section>
+      <AuthLegalFooter />
     </main>
   );
 }

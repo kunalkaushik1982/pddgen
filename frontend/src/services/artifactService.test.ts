@@ -1,18 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { artifactService } from "./artifactService";
 
 describe("artifactService.resolveArtifactUrl", () => {
-  const originalOrigin = window.location.origin;
-
-  afterEach(() => {
-    vi.stubGlobal("location", { ...window.location, origin: originalOrigin });
-  });
-
-  it("resolves /api preview paths against page origin (production-style relative API base)", () => {
-    vi.stubGlobal("location", { ...window.location, origin: "https://app.example.com" });
+  it("resolves /api preview paths against API base (see VITE_API_BASE_URL / appConfig fallback)", () => {
     const out = artifactService.resolveArtifactUrl("/api/uploads/artifacts/x/preview?sig=1");
-    expect(out).toBe("https://app.example.com/api/uploads/artifacts/x/preview?sig=1");
+    expect(out).toBe("http://localhost:8000/api/uploads/artifacts/x/preview?sig=1");
   });
 
   it("passes through absolute http(s) URLs", () => {

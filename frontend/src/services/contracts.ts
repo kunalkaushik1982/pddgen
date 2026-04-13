@@ -192,6 +192,9 @@ export type BackendUser = {
   created_at: string;
   is_admin: boolean;
   admin_console_only?: boolean;
+  billing_gstin?: string | null;
+  billing_legal_name?: string | null;
+  billing_state_code?: string | null;
 };
 
 export type BackendAdminUserSummary = {

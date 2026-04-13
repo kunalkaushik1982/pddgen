@@ -12,6 +12,7 @@ from worker.bootstrap import get_backend_settings
 from worker.pipeline.stages.stage_context import DraftGenerationContext
 from worker.pipeline.types import DerivedScreenshotRecord, ScreenshotCandidateRecord, StepRecord
 from worker.pipeline.stages.screenshot_selection import (
+    select_best_candidate_record,
     select_step_screenshot_slots,
 )
 from worker.pipeline.stages.screenshot_timing import (
@@ -244,8 +245,39 @@ class ScreenshotDerivationStage:
                 candidate_screenshots=candidate_screenshots,
                 selected_count=self.settings.screenshot_selected_count,
             )
+            if not derived_screenshots and candidate_screenshots:
+                best = select_best_candidate_record(step, candidate_screenshots)
+                if best:
+                    derived_screenshots = [
+                        {
+                            "artifact": best["artifact"],
+                            "role": "during",
+                            "sequence_number": 1,
+                            "timestamp": best["timestamp"],
+                            "selection_method": "fallback-primary",
+                            "is_primary": True,
+                        }
+                    ]
+                    logger.info(
+                        "Applied fallback primary screenshot from candidate pool",
+                        extra={
+                            "event": "draft_generation.screenshot_fallback_primary",
+                            "step_number": step.get("step_number"),
+                        },
+                    )
             step["_candidate_screenshots"] = candidate_screenshots
             step["_derived_screenshots"] = derived_screenshots
+            if not derived_screenshots:
+                logger.warning(
+                    "Screenshot candidates exist but no derived primary could be assigned; skipping step screenshot fields",
+                    extra={
+                        "event": "draft_generation.screenshot_derived_empty",
+                        "step_number": step.get("step_number"),
+                        "candidate_count": len(candidate_screenshots),
+                    },
+                )
+                step["_derived_screenshots"] = []
+                continue
             primary_screenshot = next((item for item in derived_screenshots if item["is_primary"]), derived_screenshots[0])
             step["screenshot_id"] = primary_screenshot["artifact"].id
             step["timestamp"] = primary_screenshot["timestamp"]

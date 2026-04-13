@@ -29,13 +29,16 @@ class CheckoutSessionRequest:
     title: str = "Payment"
     metadata: dict[str, str] = field(default_factory=dict)
     checkout_mode: CheckoutMode = "payment"
-    """Stripe: ``payment`` (one-time) or ``subscription``; Razorpay: only ``payment`` for orders API."""
+    """``payment`` (one-time) or ``subscription`` (Stripe Checkout or Razorpay Subscriptions API)."""
 
     stripe_price_id: str | None = None
     """When ``checkout_mode`` is ``subscription``, Stripe Checkout line item uses this Price id."""
 
     stripe_subscription_data_metadata: dict[str, str] = field(default_factory=dict)
     """Merged into Stripe ``subscription_data.metadata`` for subscription checkouts."""
+
+    razorpay_plan_id: str | None = None
+    """When ``checkout_mode`` is ``subscription``, Razorpay ``plan_id`` for ``subscription.create``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,3 +67,9 @@ class PaymentWebhookEvent:
     checkout_session_id: str | None = None
     subscription_id: str | None = None
     subscription_status: str | None = None
+    provider_payment_id: str | None = None
+    provider_order_id: str | None = None
+    refund_id: str | None = None
+    dispute_id: str | None = None
+    refund_status: str | None = None
+    dispute_status: str | None = None

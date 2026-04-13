@@ -41,6 +41,8 @@ class DefaultScreenshotContextBuilder:
                 transcripts_by_meeting_map=transcripts_by_meeting_map,
                 preferred_transcripts_by_group_meeting_map=preferred_transcripts_by_group_meeting_map,
             )
+            if not resolved_transcript_artifact_id and len(transcript_artifacts) == 1:
+                resolved_transcript_artifact_id = transcript_artifacts[0].id
             step_candidate: StepRecord = {
                 "id": step.id,
                 "process_group_id": step.process_group_id,

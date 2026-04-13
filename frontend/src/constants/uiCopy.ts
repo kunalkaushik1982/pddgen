@@ -7,6 +7,7 @@ export const uiCopy = {
   adminLabel: "Admin",
   metricsLabel: "Metrics",
   aboutLabel: "About",
+  billingLabel: "Billing",
   loadingSessionSubtitle: "Loading session...",
   loadingApplicationMessage: "Loading application...",
   defaultDraftTitle: "Untitled PDD Session",

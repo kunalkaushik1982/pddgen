@@ -60,6 +60,9 @@ class UserResponse(BaseModel):
     created_at: datetime
     is_admin: bool = False
     admin_console_only: bool = False
+    billing_gstin: str | None = None
+    billing_legal_name: str | None = None
+    billing_state_code: str | None = None
 
 
 class AuthResponse(BaseModel):

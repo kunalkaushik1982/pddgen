@@ -299,6 +299,9 @@ export function mapUser(user: BackendUser): User {
     createdAt: user.created_at,
     isAdmin: user.is_admin,
     adminConsoleOnly: user.admin_console_only ?? false,
+    billingGstin: user.billing_gstin ?? null,
+    billingLegalName: user.billing_legal_name ?? null,
+    billingStateCode: user.billing_state_code ?? null,
   };
 }
 

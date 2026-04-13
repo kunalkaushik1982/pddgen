@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { AuthLegalFooter } from "../components/legal/AuthLegalFooter";
 import { uiCopy } from "../constants/uiCopy";
 
 type ForgotPasswordPageProps = {
@@ -67,6 +68,7 @@ export function ForgotPasswordPage({
           instead.
         </p>
       </section>
+      <AuthLegalFooter />
     </main>
   );
 }

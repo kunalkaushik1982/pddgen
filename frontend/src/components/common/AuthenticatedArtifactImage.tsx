@@ -22,7 +22,7 @@ export function AuthenticatedArtifactImage({
 
   useEffect(() => {
     setLoadState("loading");
-  }, [artifactId]);
+  }, [artifactId, previewUrl]);
 
   if (loadState === "error") {
     return <span className="muted">Image unavailable.</span>;

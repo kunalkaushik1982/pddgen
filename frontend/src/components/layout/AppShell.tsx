@@ -15,8 +15,8 @@ type AppShellProps = PropsWithChildren<{
   statusLabel?: string;
   userLabel?: string;
   userEmail?: string | null;
-  activeView?: "workspace" | "history" | "session" | "admin" | "metrics" | "about";
-  onSelectView?: (view: "workspace" | "history" | "session" | "admin" | "metrics" | "about") => void;
+  activeView?: "workspace" | "history" | "session" | "admin" | "metrics" | "about" | "billing";
+  onSelectView?: (view: "workspace" | "history" | "session" | "admin" | "metrics" | "about" | "billing") => void;
   /** Hide workspace/projects/session nav; show admin (and About in menu) only. */
   adminConsoleOnly?: boolean;
   showAdminView?: boolean;
@@ -106,6 +106,13 @@ export function AppShell({
                     onClick={() => onSelectView("session")}
                   >
                     Session Detail
+                  </button>
+                  <button
+                    type="button"
+                    className={activeView === "billing" ? "button-primary" : "button-secondary"}
+                    onClick={() => onSelectView("billing")}
+                  >
+                    Billing
                   </button>
                 </>
               )}
