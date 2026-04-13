@@ -195,6 +195,12 @@ export type BackendUser = {
   billing_gstin?: string | null;
   billing_legal_name?: string | null;
   billing_state_code?: string | null;
+  quota_lifetime_bonus?: number;
+  quota_daily_bonus?: number;
+  job_usage_lifetime?: number;
+  job_usage_daily?: number;
+  effective_lifetime_cap?: number;
+  effective_daily_cap?: number;
 };
 
 export type BackendAdminUserSummary = {

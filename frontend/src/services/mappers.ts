@@ -302,6 +302,12 @@ export function mapUser(user: BackendUser): User {
     billingGstin: user.billing_gstin ?? null,
     billingLegalName: user.billing_legal_name ?? null,
     billingStateCode: user.billing_state_code ?? null,
+    quotaLifetimeBonus: user.quota_lifetime_bonus ?? 0,
+    quotaDailyBonus: user.quota_daily_bonus ?? 0,
+    jobUsageLifetime: user.job_usage_lifetime ?? 0,
+    jobUsageDaily: user.job_usage_daily ?? 0,
+    effectiveLifetimeCap: user.effective_lifetime_cap ?? 0,
+    effectiveDailyCap: user.effective_daily_cap ?? 0,
   };
 }
 

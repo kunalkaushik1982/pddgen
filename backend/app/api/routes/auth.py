@@ -208,6 +208,8 @@ def _clear_csrf_cookie(response: Response, csrf: CsrfService) -> None:
 
 
 def _build_user_response(user: UserModel) -> UserResponse:
+    effective_lifetime_cap = int(settings.user_quota_lifetime_jobs) + int(user.quota_lifetime_bonus or 0)
+    effective_daily_cap = int(settings.user_quota_daily_jobs) + int(user.quota_daily_bonus or 0)
     return UserResponse(
         id=user.id,
         username=user.username,
@@ -219,4 +221,10 @@ def _build_user_response(user: UserModel) -> UserResponse:
         billing_gstin=user.billing_gstin,
         billing_legal_name=user.billing_legal_name,
         billing_state_code=user.billing_state_code,
+        quota_lifetime_bonus=int(user.quota_lifetime_bonus or 0),
+        quota_daily_bonus=int(user.quota_daily_bonus or 0),
+        job_usage_lifetime=int(user.job_usage_lifetime or 0),
+        job_usage_daily=int(user.job_usage_daily or 0),
+        effective_lifetime_cap=max(0, effective_lifetime_cap),
+        effective_daily_cap=max(0, effective_daily_cap),
     )

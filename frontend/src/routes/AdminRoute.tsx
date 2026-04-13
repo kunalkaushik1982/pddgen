@@ -79,10 +79,28 @@ export function AdminRoute(): React.JSX.Element {
     sessionMetricsVisibleColumns: preferencesQuery.data?.sessionMetricsVisibleColumns ?? DEFAULT_ADMIN_METRIC_COLUMNS,
     metricsSelectedOwnerId: selectedOwnerId,
   };
+  const nonAdminUsers = user.isAdmin
+    ? []
+    : [
+        {
+          id: user.id,
+          username: user.username,
+          createdAt: user.createdAt,
+          isAdmin: user.isAdmin,
+          totalJobs: (jobsQuery.data ?? []).length,
+          activeJobs: (jobsQuery.data ?? []).filter((job) => job.status === "processing").length,
+          quotaLifetimeBonus: user.quotaLifetimeBonus ?? 0,
+          quotaDailyBonus: user.quotaDailyBonus ?? 0,
+          jobUsageLifetime: user.jobUsageLifetime ?? 0,
+          jobUsageDaily: user.jobUsageDaily ?? 0,
+          effectiveLifetimeCap: user.effectiveLifetimeCap ?? 0,
+          effectiveDailyCap: user.effectiveDailyCap ?? 0,
+        },
+      ];
 
   return (
     <AdminPage
-      users={usersQuery.data ?? []}
+      users={user.isAdmin ? (usersQuery.data ?? []) : nonAdminUsers}
       jobs={jobsQuery.data ?? []}
       sessionMetrics={metricsQuery.data ?? []}
       visibleMetricColumns={currentPreferences.sessionMetricsVisibleColumns}

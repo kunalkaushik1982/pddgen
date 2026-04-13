@@ -63,6 +63,12 @@ class UserResponse(BaseModel):
     billing_gstin: str | None = None
     billing_legal_name: str | None = None
     billing_state_code: str | None = None
+    quota_lifetime_bonus: int = 0
+    quota_daily_bonus: int = 0
+    job_usage_lifetime: int = 0
+    job_usage_daily: int = 0
+    effective_lifetime_cap: int = 0
+    effective_daily_cap: int = 0
 
 
 class AuthResponse(BaseModel):
