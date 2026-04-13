@@ -1,24 +1,36 @@
+import { appConfig } from "../config/appConfig";
 import { API_BASE_URL, buildAuthHeaders } from "./http";
+
+function siteOrigin(): string {
+  return typeof window !== "undefined" && window.location?.origin ? window.location.origin : appConfig.apiOriginFallback;
+}
+
+/**
+ * Build an absolute URL for signed artifact previews and `<img src>`.
+ * - Dev: `apiBaseUrl` is absolute (e.g. `http://localhost:8000/api`) — resolve against that host.
+ * - Production: `apiBaseUrl` is often relative (`/api` from Vite) — `new URL(path, "/api/")` throws;
+ *   resolve path against the **page origin** so nginx can proxy `/api` on the same host.
+ */
+export function resolveArtifactPreviewUrl(url: string, apiBaseUrl: string, origin: string): string {
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  const baseUrl = apiBaseUrl.replace(/\/+$/, "");
+  if (/^https?:\/\//i.test(baseUrl)) {
+    return new URL(path, `${baseUrl}/`).toString();
+  }
+  return new URL(path, `${origin}/`).toString();
+}
 
 export const artifactService = {
   getArtifactContentUrl(artifactId: string): string {
     return `${API_BASE_URL}/uploads/artifacts/${artifactId}/content`;
   },
 
-  /**
-   * Turn API preview paths (e.g. `/api/uploads/artifacts/...`) into an absolute URL for `<img src>`.
-   * Resolve against the **API** base (VITE_API_BASE_URL), not the SPA origin: in dev the app runs on
-   * :5173 while the API is on :8000; using `window.location.origin` sent preview requests to Vite (404).
-   * Same-origin production deployments still work when VITE_API_BASE_URL matches that host.
-   */
   resolveArtifactUrl(url: string): string {
-    const trimmed = url.trim();
-    if (/^https?:\/\//i.test(trimmed)) {
-      return trimmed;
-    }
-    const base = `${API_BASE_URL.replace(/\/+$/, "")}/`;
-    const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-    return new URL(path, base).toString();
+    return resolveArtifactPreviewUrl(url, API_BASE_URL, siteOrigin());
   },
 
   async fetchArtifactBlob(artifactId: string): Promise<Blob> {
