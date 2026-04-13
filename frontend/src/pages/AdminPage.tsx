@@ -135,6 +135,13 @@ export function AdminPage({
   isLoading = false,
   onUpdateUserQuota,
 }: AdminPageProps): React.JSX.Element {
+  const totalLifetimeRemaining = users.reduce(
+    (sum, user) => sum + Math.max(0, user.effectiveLifetimeCap - user.jobUsageLifetime),
+    0,
+  );
+  const totalDailyRemaining = users.reduce((sum, user) => sum + Math.max(0, user.effectiveDailyCap - user.jobUsageDaily), 0);
+  const totalLifetimeCap = users.reduce((sum, user) => sum + user.effectiveLifetimeCap, 0);
+  const totalDailyCap = users.reduce((sum, user) => sum + user.effectiveDailyCap, 0);
   const totalAiCostInr = sessionMetrics.reduce((sum, row) => sum + (row.actualAiCostInr ?? 0), 0);
   const totalProcessingCostInr = sessionMetrics.reduce((sum, row) => sum + row.processingCostInr, 0);
   const totalStorageCostInr = sessionMetrics.reduce((sum, row) => sum + row.storageCostInr, 0);
@@ -288,6 +295,22 @@ export function AdminPage({
             <div className="panel">
               <strong>{jobs.filter((job) => job.status === "processing").length}</strong>
               <div className="artifact-meta">Running</div>
+            </div>
+          </div>
+          <div className="admin-cost-summary-grid">
+            <div className="admin-cost-summary-card">
+              <div className="artifact-meta">Lifetime credits remaining</div>
+              <strong>{totalLifetimeRemaining}</strong>
+              <div className="artifact-meta">
+                Used {Math.max(0, totalLifetimeCap - totalLifetimeRemaining)} / {totalLifetimeCap}
+              </div>
+            </div>
+            <div className="admin-cost-summary-card">
+              <div className="artifact-meta">Daily credits remaining</div>
+              <strong>{totalDailyRemaining}</strong>
+              <div className="artifact-meta">
+                Used {Math.max(0, totalDailyCap - totalDailyRemaining)} / {totalDailyCap}
+              </div>
             </div>
           </div>
         </section>

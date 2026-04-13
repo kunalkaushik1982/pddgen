@@ -156,7 +156,7 @@ export function BillingPage(): React.JSX.Element {
           place of supply (e.g. KA).
         </p>
         {configQuery.data?.billingGstInvoiceEnabled ? (
-          <div className="status-toast status-toast-info" role="status">
+          <div className="message-banner" role="status">
             GST invoicing is enabled: ensure your legal name and state match your records.
           </div>
         ) : null}
@@ -242,12 +242,12 @@ export function BillingPage(): React.JSX.Element {
           orders; subscriptions may redirect to Razorpay or Stripe depending on the product.
         </p>
         {paid === "1" ? (
-          <div className="status-toast status-toast-info" role="status">
+          <div className="message-banner" role="status">
             Payment completed. If credits did not update within a minute, contact support with your session time.
           </div>
         ) : null}
         {searchParams.get("cancel") === "1" ? (
-          <div className="status-toast status-toast-info" role="status">
+          <div className="message-banner" role="status">
             Checkout cancelled.
           </div>
         ) : null}
