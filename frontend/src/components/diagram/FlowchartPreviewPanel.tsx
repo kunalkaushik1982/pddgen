@@ -59,7 +59,7 @@ function readCssVariable(name: string, fallback: string): string {
 }
 
 function getDiagramEdgeColor(): string {
-  return readCssVariable("--button-primary-start", "#7c3aed");
+  return readCssVariable("--button-primary-bg", "#7c3aed");
 }
 
 function getDiagramGridColor(theme: DiagramCanvasTheme): string {

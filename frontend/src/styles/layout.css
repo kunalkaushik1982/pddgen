@@ -11,19 +11,24 @@
 
 .app-header {
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 32px;
 }
 
-.app-header-actions {
+.app-header-top {
   display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.app-header-nav {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 12px;
-  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--accent-border);
 }
 
 .app-user-menu-field {
@@ -72,13 +77,15 @@
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  min-width: 160px;
-  padding: 8px;
+  min-width: 240px;
+  padding: 16px;
   border: 1px solid var(--accent-border);
   border-radius: 16px;
-  background: var(--surface-strong);
-  box-shadow: var(--panel-shadow);
-  z-index: 20;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
 }
 
 .app-user-menu-item {
@@ -380,9 +387,9 @@
 }
 
 .admin-page-tab-active {
-  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  background: var(--button-primary-bg);
   color: var(--button-primary-text);
-  box-shadow: 0 10px 24px var(--button-primary-shadow);
+  
 }
 
 .admin-tab-panel:focus-visible {

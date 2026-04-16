@@ -135,16 +135,6 @@ export function StepEditorDialog({
                 </div>
 
                 <div className="candidate-carousel-body">
-                  <div className="screenshot-preview candidate-preview candidate-preview-editor">
-                    <AuthenticatedArtifactImage
-                      artifactId={currentCandidate.artifactId}
-                      alt={`Candidate screenshot ${candidateIndex + 1} for step ${step.stepNumber}`}
-                    />
-                  </div>
-                  <div className="artifact-meta">
-                    {currentCandidate.timestamp} | source {currentCandidate.sourceRole} |{" "}
-                    {currentCandidate.isSelected ? "already selected" : "available"}
-                  </div>
                   <div className="button-row">
                     <button type="button" className="button-secondary" onClick={onPreviousCandidate}>
                       Previous
@@ -181,6 +171,16 @@ export function StepEditorDialog({
                         </button>
                       </>
                     )}
+                  </div>
+                  <div className="artifact-meta">
+                    {currentCandidate.timestamp} | source {currentCandidate.sourceRole} |{" "}
+                    {currentCandidate.isSelected ? "already selected" : "available"}
+                  </div>
+                  <div className="screenshot-preview candidate-preview candidate-preview-editor">
+                    <AuthenticatedArtifactImage
+                      artifactId={currentCandidate.artifactId}
+                      alt={`Candidate screenshot ${candidateIndex + 1} for step ${step.stepNumber}`}
+                    />
                   </div>
                 </div>
               </div>

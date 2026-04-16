@@ -1,4 +1,55 @@
 /* src/styles/auth.css */
+
+/* Define the default Auth theme variables (Dark Mode) */
+:root {
+  --auth-bg-primary: #000000;
+  --auth-bg-secondary: #0d0d0d;
+  --auth-bg-focus: #111111;
+  --auth-text-primary: #ffffff;
+  --auth-text-secondary: #888888;
+  --auth-text-muted: #555555;
+  --auth-text-subtle: #444444;
+  --auth-text-placeholder: #333333;
+  --auth-border-subtle: #222222;
+  --auth-border-focus: #555555;
+  --auth-link-primary: #34d399; /* Green from the mockup */
+  --auth-link-secondary: #a8c7fa; /* Light blue link */
+  --auth-btn-primary-bg: #ffffff;
+  --auth-btn-primary-text: #000000;
+  --auth-btn-social-bg: #18181A;
+  --auth-btn-social-hover: #252528;
+  --auth-logo-bg: rgba(255, 255, 255, 0.05);
+  --auth-logo-border: rgba(255, 255, 255, 0.1);
+  --auth-error-bg: rgba(220, 38, 38, 0.1);
+  --auth-error-border: rgba(220, 38, 38, 0.2);
+  --auth-error-text: #f87171;
+}
+
+/* Define Light theme overrides inside a data attribute */
+[data-theme="light"] {
+  --auth-bg-primary: #ffffff;
+  --auth-bg-secondary: #f4f4f5;
+  --auth-bg-focus: #ffffff;
+  --auth-text-primary: #000000;
+  --auth-text-secondary: #555555;
+  --auth-text-muted: #888888;
+  --auth-text-subtle: #cccccc;
+  --auth-text-placeholder: #aaaaaa;
+  --auth-border-subtle: #e4e4e7;
+  --auth-border-focus: #111111;
+  --auth-link-primary: #059669; /* Darker green */
+  --auth-link-secondary: #2563eb; /* Standard blue */
+  --auth-btn-primary-bg: #000000;
+  --auth-btn-primary-text: #ffffff;
+  --auth-btn-social-bg: #f9fafb;
+  --auth-btn-social-hover: #e5e7eb;
+  --auth-logo-bg: rgba(0, 0, 0, 0.03);
+  --auth-logo-border: rgba(0, 0, 0, 0.1);
+  --auth-error-bg: rgba(220, 38, 38, 0.05);
+  --auth-error-border: rgba(220, 38, 38, 0.3);
+  --auth-error-text: #dc2626;
+}
+
 .auth-shell-dark {
   position: absolute;
   top: 0;
@@ -9,11 +60,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #000000;
-  color: #ffffff;
+  background: var(--auth-bg-primary);
+  color: var(--auth-text-primary);
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   padding: 24px;
   z-index: 1000; /* Ensure it stays above any root background colors */
+  transition: background 0.2s, color 0.2s;
 }
 
 .auth-box {
@@ -35,13 +87,13 @@
 .auth-header-logo-icon {
   width: 48px;
   height: 48px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--auth-logo-bg);
+  border: 1px solid var(--auth-logo-border);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--auth-text-primary);
 }
 
 .auth-header-title {
@@ -54,7 +106,7 @@
 
 .auth-header-subtitle {
   text-align: center;
-  color: #888;
+  color: var(--auth-text-secondary);
   font-size: 13px;
   margin: 12px 0 0;
   line-height: 1.5;
@@ -80,12 +132,12 @@
 
 .auth-label-dark {
   font-size: 13px;
-  color: #888;
+  color: var(--auth-text-secondary);
 }
 
 .auth-forgot-link {
   font-size: 13px;
-  color: #34d399; /* Green from the mockup */
+  color: var(--auth-link-primary);
   text-decoration: none;
 }
 .auth-forgot-link:hover {
@@ -101,7 +153,7 @@
 .auth-input-icon {
   position: absolute;
   left: 12px;
-  color: #888;
+  color: var(--auth-text-secondary);
   display: flex;
   align-items: center;
   pointer-events: none;
@@ -114,31 +166,31 @@
 
 .auth-input-dark {
   width: 100%;
-  background: #0d0d0d;
-  border: 1px solid #222;
+  background: var(--auth-bg-secondary);
+  border: 1px solid var(--auth-border-subtle);
   border-radius: 8px;
-  color: #fff;
+  color: var(--auth-text-primary);
   padding: 14px 12px 14px 40px;
   font-size: 14px;
   font-family: inherit;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s;
   box-sizing: border-box;
 }
 
 .auth-input-dark:focus {
   outline: none;
-  border-color: #555;
-  background: #111;
+  border-color: var(--auth-border-focus);
+  background: var(--auth-bg-focus);
 }
 
 .auth-input-dark::placeholder {
-  color: #333;
+  color: var(--auth-text-placeholder);
 }
 
 .auth-submit-dark {
   margin-top: 4px;
-  background: #fff;
-  color: #000;
+  background: var(--auth-btn-primary-bg);
+  color: var(--auth-btn-primary-text);
   border: none;
   border-radius: 8px;
   padding: 14px;
@@ -161,7 +213,7 @@
   display: flex;
   align-items: center;
   text-align: center;
-  color: #444;
+  color: var(--auth-text-subtle);
   font-size: 12px;
 }
 
@@ -169,7 +221,7 @@
 .auth-divider::after {
   content: "";
   flex: 1;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--auth-border-subtle);
 }
 
 .auth-divider:not(:empty)::before {
@@ -191,9 +243,9 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #18181A;
-  color: #fff;
-  border: none;
+  background: var(--auth-btn-social-bg);
+  color: var(--auth-text-primary);
+  border: 1px solid var(--auth-border-subtle);
   border-radius: 8px;
   padding: 12px;
   font-size: 14px;
@@ -204,7 +256,7 @@
 }
 
 .auth-social-btn:hover:not(:disabled) {
-  background: #252528;
+  background: var(--auth-btn-social-hover);
 }
 .auth-social-btn:disabled {
   opacity: 0.5;
@@ -214,12 +266,12 @@
 .auth-footer-text {
   text-align: center;
   font-size: 13px;
-  color: #555;
+  color: var(--auth-text-muted);
   margin-top: -8px;
 }
 
 .auth-footer-link {
-  color: #fff;
+  color: var(--auth-text-primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -228,11 +280,42 @@
 }
 
 .status-banner-dark {
-  background: rgba(220, 38, 38, 0.1);
-  border: 1px solid rgba(220, 38, 38, 0.2);
-  color: #f87171;
+  background: var(--auth-error-bg);
+  border: 1px solid var(--auth-error-border);
+  color: var(--auth-error-text);
   padding: 12px;
   border-radius: 8px;
   font-size: 14px;
   text-align: center;
+}
+
+.auth-legal-info {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.auth-legal-title {
+  color: var(--auth-text-secondary);
+  font-size: 13px;
+}
+
+.auth-legal-links-row {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.auth-legal-links-row a {
+  color: var(--auth-link-secondary);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth-legal-links-row a:hover {
+  color: var(--auth-text-primary);
 }

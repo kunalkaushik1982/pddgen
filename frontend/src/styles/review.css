@@ -43,9 +43,9 @@
 }
 
 .review-mode-tab-active {
-  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  background: var(--button-primary-bg);
   color: var(--button-primary-text);
-  box-shadow: 0 10px 24px var(--button-primary-shadow);
+  
 }
 
 .review-subsection-stack {
@@ -90,9 +90,9 @@
 
 .process-group-pill-active {
   border-color: transparent;
-  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  background: var(--button-primary-bg);
   color: var(--button-primary-text);
-  box-shadow: 0 10px 24px var(--button-primary-shadow);
+  
 }
 
 .review-workspace-tabs {
@@ -116,9 +116,9 @@
 }
 
 .review-workspace-tab-active {
-  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  background: var(--button-primary-bg);
   color: var(--button-primary-text);
-  box-shadow: 0 10px 24px var(--button-primary-shadow);
+  
 }
 
 .summary-document {
@@ -609,9 +609,9 @@
 }
 
 .review-step-button-active {
-  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  background: var(--button-primary-bg);
   color: var(--button-primary-text);
-  box-shadow: 0 10px 24px var(--button-primary-shadow);
+  
 }
 
 .step-list-editing {
@@ -843,6 +843,9 @@
   position: sticky;
   top: 0;
   align-self: start;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .editor-form-column {
@@ -911,7 +914,7 @@
   z-index: 1;
   padding: 6px 10px;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  background: var(--button-primary-bg);
   color: var(--button-primary-text);
   font-size: 0.8rem;
   font-weight: 600;
