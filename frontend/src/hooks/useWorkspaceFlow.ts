@@ -46,7 +46,7 @@ export function useWorkspaceFlow() {
   );
 
   const requiredUploadSelected =
-    uploads.videoFiles.length > 0 && uploads.transcriptFiles.length > 0 && Boolean(uploads.templateFile);
+    uploads.transcriptFiles.length > 0 && Boolean(uploads.templateFile);
   const hasUploadedDraftReady =
     Boolean(uploadSessionId) && uploadItems.length > 0 && uploadItems.every((item) => item.status === "uploaded");
 
@@ -55,8 +55,8 @@ export function useWorkspaceFlow() {
       if (uploadSessionId) {
         throw new Error("Inputs are already uploaded for this draft. Continue with Generate Draft.");
       }
-      if (uploads.videoFiles.length === 0 || uploads.transcriptFiles.length === 0 || !uploads.templateFile) {
-        throw new Error("At least one video, one transcript, and one template are required.");
+      if (uploads.transcriptFiles.length === 0 || !uploads.templateFile) {
+        throw new Error("At least one transcript and one template are required. Video is optional.");
       }
 
       const session = await sessionService.createDraftSession({ title, ownerId, diagramType, documentType });

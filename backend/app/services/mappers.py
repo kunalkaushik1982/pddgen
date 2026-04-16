@@ -57,8 +57,14 @@ def _parse_json_object(value: str) -> dict:
 
 
 def _has_required_uploads(session: DraftSessionModel) -> bool:
+    """Return True when the minimum required artifacts are present.
+
+    Video is intentionally *optional*: when absent the screenshot derivation
+    stage will be skipped gracefully, but the draft can still be generated
+    from the transcript alone.
+    """
     kinds = {artifact.kind for artifact in session.artifacts}
-    return {"video", "transcript", "template"}.issubset(kinds)
+    return {"transcript", "template"}.issubset(kinds)
 
 
 def _latest_action_log_by_type(session: DraftSessionModel, event_type: str):
