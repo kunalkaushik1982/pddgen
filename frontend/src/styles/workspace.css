@@ -585,6 +585,35 @@
   flex-shrink: 0;
 }
 
+.button-group {
+  display: inline-flex;
+  gap: 0; /* Force no gap between gathered buttons */
+}
+
+.button-group > button,
+.button-group > div > button {
+  border-radius: 0;
+  margin: 0; /* Force no margin */
+}
+
+/* Prevent double borders in the middle */
+.button-group > button:not(:last-child),
+.button-group > div:not(:last-child) > button {
+  border-right-width: 0;
+}
+
+.button-group > button:first-child,
+.button-group > div:first-child > button {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+.button-group > button:last-child,
+.button-group > div:last-child > button {
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
 .history-action-button {
   min-width: 116px;
   justify-content: center;

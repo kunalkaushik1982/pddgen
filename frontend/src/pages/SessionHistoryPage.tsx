@@ -111,40 +111,43 @@ export function SessionHistoryPage({
                   </div>
                 </div>
                 <div className="button-row history-card-actions">
-                  <button
-                    type="button"
-                    className="button-secondary history-action-button"
-                    disabled={actionsDisabledForSession || !canOpenSession(session.status)}
-                    onClick={() => onOpenView(session.id)}
-                  >
-                    View
-                  </button>
-                  <button
-                    type="button"
-                    className="button-primary history-action-button"
-                    disabled={actionsDisabledForSession || !canOpenSession(session.status)}
-                    onClick={() => onOpenEdit(session.id)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="button-secondary history-action-button"
-                    disabled={actionsDisabledForSession || !canOpenSession(session.status)}
-                    aria-pressed={isExtendingThisSession}
-                    onClick={() => onOpenExtend(session.id)}
-                  >
-                    Extend
-                  </button>
-                  <button
-                    type="button"
-                    className="button-secondary history-action-button"
-                    disabled={actionsDisabledForSession || !canOpenSession(session.status) || isGeneratingScreenshotsThisSession}
-                    aria-busy={isGeneratingScreenshotsThisSession}
-                    onClick={() => onGenerateScreenshots(session.id)}
-                  >
-                    {isGeneratingScreenshotsThisSession ? "Generating..." : "Generate SS"}
-                  </button>
+                  <div className="button-group">
+                    <button
+                      type="button"
+                      className="button-secondary history-action-button"
+                      disabled={actionsDisabledForSession || !canOpenSession(session.status)}
+                      onClick={() => onOpenView(session.id)}
+                    >
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      className="button-primary history-action-button"
+                      disabled={actionsDisabledForSession || !canOpenSession(session.status)}
+                      onClick={() => onOpenEdit(session.id)}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="button-group">
+                    <button
+                      type="button"
+                      className="button-secondary history-action-button"
+                      disabled={actionsDisabledForSession || !canOpenSession(session.status)}
+                      aria-pressed={isExtendingThisSession}
+                      onClick={() => onOpenExtend(session.id)}
+                    >
+                      Extend
+                    </button>
+                    <button
+                      type="button"
+                      className="button-secondary history-action-button"
+                      disabled={actionsDisabledForSession || !canOpenSession(session.status) || isGeneratingScreenshotsThisSession}
+                      aria-busy={isGeneratingScreenshotsThisSession}
+                      onClick={() => onGenerateScreenshots(session.id)}
+                    >
+                      {isGeneratingScreenshotsThisSession ? "Generating..." : "Generate SS"}
+                    </button>
                   {session.canRetry ? (
                       <button
                         type="button"
@@ -155,6 +158,7 @@ export function SessionHistoryPage({
                       Retry
                     </button>
                   ) : null}
+                  </div>
                   <div
                     className="history-export-menu"
                     ref={openExportMenuSessionId === session.id ? exportMenuRef : null}
