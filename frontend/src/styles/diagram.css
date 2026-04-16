@@ -68,7 +68,7 @@
 
 .diagram-preview-canvas-theme-blueprint {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--button-primary-start) 28%, var(--preview-bg) 72%) 0%, var(--preview-bg) 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--button-primary-bg) 28%, var(--preview-bg) 72%) 0%, var(--preview-bg) 100%);
 }
 
 .diagram-preview-canvas-theme-plain {
@@ -210,7 +210,7 @@
   border: 1px solid var(--accent-border);
   border-right: 0;
   border-radius: 14px 0 0 14px;
-  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  background: var(--button-primary-bg);
   color: var(--button-primary-text);
   padding: 12px 10px;
   min-height: 120px;
@@ -243,7 +243,7 @@
   width: 100%;
   min-height: 100%;
   border: 1px solid var(--accent-border);
-  background: color-mix(in srgb, var(--preview-bg-strong) 86%, var(--button-primary-start) 14%);
+  background: color-mix(in srgb, var(--preview-bg-strong) 86%, var(--button-primary-bg) 14%);
   color: var(--app-text);
   font-size: 0.92rem;
   line-height: 1.35;
@@ -361,7 +361,7 @@
 }
 
 .diagram-preview-canvas .react-flow__edge-path {
-  stroke: var(--button-primary-start);
+  stroke: var(--button-primary-bg);
   stroke-width: 2px;
   fill: none;
 }

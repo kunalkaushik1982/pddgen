@@ -4,32 +4,32 @@
  */
 
 :root {
+  /* Default to dark terminal */
   color-scheme: dark;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   line-height: 1.5;
   font-weight: 400;
-  --app-text: #efe9ff;
-  --app-muted: #b8acd9;
-  --app-bg:
-    radial-gradient(circle at top left, rgba(139, 92, 246, 0.22), transparent 28%),
-    radial-gradient(circle at top right, rgba(168, 85, 247, 0.18), transparent 24%),
-    linear-gradient(180deg, #160f26 0%, #0d0a16 100%);
-  --panel-bg: rgba(28, 21, 44, 0.9);
-  --panel-border: rgba(148, 119, 255, 0.22);
-  --panel-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
-  --surface-soft: rgba(24, 17, 40, 0.88);
-  --surface-strong: rgba(24, 18, 38, 0.98);
-  --surface-card: rgba(21, 17, 34, 0.92);
-  --overlay-bg: rgba(5, 2, 10, 0.7);
-  --preview-bg: #140f22;
-  --preview-bg-strong: #181128;
-  --button-secondary-bg: #2a1f43;
-  --button-secondary-text: #efe9ff;
-  --button-primary-text: #faf5ff;
-  --button-primary-start: #7c3aed;
-  --button-primary-end: #4f46e5;
-  --button-primary-shadow: rgba(91, 33, 182, 0.35);
-  --accent-border: rgba(148, 119, 255, 0.24);
+
+  --app-bg: #000000;
+  --app-text: #ffffff;
+  --app-muted: #888888;
+  --panel-bg: #000000;
+  --panel-border: #222222;
+  --panel-shadow: none;
+  --surface-soft: #0d0d0d;
+  --surface-strong: #111111;
+  --surface-card: #0d0d0d;
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --preview-bg: #0d0d0d;
+  --preview-bg-strong: #111111;
+  
+  --button-secondary-bg: #18181A;
+  --button-secondary-text: #ffffff;
+  --button-primary-bg: #ffffff;
+  --button-primary-text: #000000;
+  
+  --accent-border: #222222;
+  
   --status-info-text: #60a5fa;
   --status-success-text: #4ade80;
   --status-warning-text: #fbbf24;
@@ -38,17 +38,189 @@
   --status-success-bg: rgba(22, 163, 74, 0.16);
   --status-warning-bg: rgba(217, 119, 6, 0.14);
   --status-error-bg: rgba(220, 38, 38, 0.14);
-  --summary-card-bg: rgba(255, 255, 255, 0.98);
-  --summary-card-text: #1c1630;
-  --summary-card-subtle: #2f2551;
-  --toast-info-bg: rgba(44, 29, 87, 0.96);
-  --toast-info-text: #f3ecff;
-  --toast-info-border: rgba(167, 139, 250, 0.34);
-  --toast-error-bg: rgba(95, 24, 33, 0.96);
-  --toast-error-text: #ffe4ea;
-  --toast-error-border: rgba(251, 113, 133, 0.34);
-  color: var(--app-text);
-  background: var(--app-bg);
+  
+  --summary-card-bg: #0d0d0d;
+  --summary-card-text: #ffffff;
+  --summary-card-subtle: #888888;
+  
+  --toast-info-bg: #111111;
+  --toast-info-text: #ffffff;
+  --toast-info-border: #222222;
+  --toast-error-bg: #111111;
+  --toast-error-text: #f87171;
+  --toast-error-border: rgba(248, 113, 113, 0.34);
+}
+
+[data-theme="terminal-light"] {
+  color-scheme: light;
+  --app-bg: #ffffff;
+  --app-text: #000000;
+  --app-muted: #555555;
+  --panel-bg: #ffffff;
+  --panel-border: #e4e4e7;
+  --panel-shadow: none;
+  --surface-soft: #f4f4f5;
+  --surface-strong: #ffffff;
+  --surface-card: #f4f4f5;
+  --overlay-bg: rgba(255, 255, 255, 0.8);
+  --preview-bg: #f4f4f5;
+  --preview-bg-strong: #ffffff;
+  
+  --button-secondary-bg: #f9fafb;
+  --button-secondary-text: #000000;
+  --button-primary-bg: #000000;
+  --button-primary-text: #ffffff;
+  
+  --accent-border: #e4e4e7;
+  
+  --status-info-text: #1d4ed8;
+  --status-success-text: #166534;
+  --status-warning-text: #92400e;
+  --status-error-text: #b91c1c;
+  --status-info-bg: rgba(37, 99, 235, 0.12);
+  --status-success-bg: rgba(22, 163, 74, 0.12);
+  --status-warning-bg: rgba(217, 119, 6, 0.12);
+  --status-error-bg: rgba(220, 38, 38, 0.12);
+  
+  --summary-card-bg: #f4f4f5;
+  --summary-card-text: #000000;
+  --summary-card-subtle: #555555;
+  
+  --toast-info-bg: #ffffff;
+  --toast-info-text: #000000;
+  --toast-info-border: #e4e4e7;
+  --toast-error-bg: #ffffff;
+  --toast-error-text: #dc2626;
+  --toast-error-border: rgba(220, 38, 38, 0.3);
+}
+
+[data-theme="aurora-green"] {
+  color-scheme: dark;
+  --app-bg: radial-gradient(circle at 10% 0%, rgba(16, 185, 129, 0.25) 0%, transparent 40%), radial-gradient(circle at 90% 100%, rgba(6, 78, 59, 0.4) 0%, transparent 50%), #0f172a;
+  --app-text: #f8fafc;
+  --app-muted: #94a3b8;
+  --panel-bg: rgba(30, 41, 59, 0.5);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --panel-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+  --surface-soft: rgba(255, 255, 255, 0.05);
+  --surface-strong: rgba(255, 255, 255, 0.1);
+  --surface-card: rgba(30, 41, 59, 0.6);
+  --overlay-bg: rgba(15, 23, 42, 0.85);
+  --preview-bg: rgba(15, 23, 42, 0.6);
+  --preview-bg-strong: rgba(15, 23, 42, 0.9);
+  
+  --button-secondary-bg: rgba(255, 255, 255, 0.1);
+  --button-secondary-text: #f8fafc;
+  --button-primary-bg: #10b981;
+  --button-primary-text: #ffffff;
+  
+  --accent-border: rgba(255, 255, 255, 0.1);
+  
+  --status-info-text: #38bdf8;
+  --status-success-text: #34d399;
+  --status-warning-text: #fbbf24;
+  --status-error-text: #f87171;
+  --status-info-bg: rgba(56, 189, 248, 0.15);
+  --status-success-bg: rgba(52, 211, 153, 0.15);
+  --status-warning-bg: rgba(251, 191, 36, 0.15);
+  --status-error-bg: rgba(248, 113, 113, 0.15);
+  
+  --summary-card-bg: rgba(255, 255, 255, 0.03);
+  --summary-card-text: #f8fafc;
+  --summary-card-subtle: #94a3b8;
+  
+  --toast-info-bg: rgba(30, 41, 59, 0.95);
+  --toast-info-text: #f8fafc;
+  --toast-info-border: rgba(255, 255, 255, 0.1);
+  --toast-error-bg: rgba(69, 10, 10, 0.95);
+  --toast-error-text: #fca5a5;
+  --toast-error-border: rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="emerald-obsidian"] {
+  color-scheme: dark;
+  --app-bg: #030a06;
+  --app-text: #ffffff;
+  --app-muted: #889990;
+  --panel-bg: #061710;
+  --panel-border: #133425;
+  --panel-shadow: none;
+  --surface-soft: #0a2117;
+  --surface-strong: #0d2b1f;
+  --surface-card: #081d14;
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --preview-bg: #061710;
+  --preview-bg-strong: #030a06;
+  
+  --button-secondary-bg: #133425;
+  --button-secondary-text: #ffffff;
+  --button-primary-bg: #059669;
+  --button-primary-text: #ffffff;
+  
+  --accent-border: #133425;
+  
+  --status-info-text: #60a5fa;
+  --status-success-text: #34d399;
+  --status-warning-text: #fbbf24;
+  --status-error-text: #f87171;
+  --status-info-bg: rgba(59, 130, 246, 0.15);
+  --status-success-bg: rgba(16, 185, 129, 0.15);
+  --status-warning-bg: rgba(245, 158, 11, 0.15);
+  --status-error-bg: rgba(239, 68, 68, 0.15);
+  
+  --summary-card-bg: #0a2117;
+  --summary-card-text: #ffffff;
+  --summary-card-subtle: #889990;
+  
+  --toast-info-bg: #081d14;
+  --toast-info-text: #ffffff;
+  --toast-info-border: #133425;
+  --toast-error-bg: #2a0808;
+  --toast-error-text: #fca5a5;
+  --toast-error-border: rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="cyber-matrix"] {
+  color-scheme: dark;
+  --app-bg: #000000;
+  --app-text: #22c55e;
+  --app-muted: #166534;
+  --panel-bg: transparent;
+  --panel-border: #166534;
+  --panel-shadow: 0 0 16px rgba(22, 163, 74, 0.05);
+  --surface-soft: rgba(34, 197, 94, 0.04);
+  --surface-strong: rgba(34, 197, 94, 0.1);
+  --surface-card: transparent;
+  --overlay-bg: rgba(0, 0, 0, 0.9);
+  --preview-bg: #000000;
+  --preview-bg-strong: #000000;
+  
+  --button-secondary-bg: transparent;
+  --button-secondary-text: #22c55e;
+  --button-primary-bg: #22c55e;
+  --button-primary-text: #000000;
+  
+  --accent-border: #166534;
+  
+  --status-info-text: #3b82f6;
+  --status-success-text: #4ade80;
+  --status-warning-text: #eab308;
+  --status-error-text: #ef4444;
+  --status-info-bg: transparent;
+  --status-success-bg: transparent;
+  --status-warning-bg: transparent;
+  --status-error-bg: transparent;
+  
+  --summary-card-bg: transparent;
+  --summary-card-text: #4ade80;
+  --summary-card-subtle: #166534;
+  
+  --toast-info-bg: #000000;
+  --toast-info-text: #22c55e;
+  --toast-info-border: #166534;
+  --toast-error-bg: #000000;
+  --toast-error-text: #ef4444;
+  --toast-error-border: #7f1d1d;
 }
 
 * {
@@ -61,6 +233,8 @@ body {
   min-height: 100vh;
   color: var(--app-text);
   background: var(--app-bg);
+  background-attachment: fixed;
+  transition: background 0.2s, color 0.2s;
 }
 
 button,
@@ -77,10 +251,12 @@ button {
 .panel {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 20px;
   box-shadow: var(--panel-shadow);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .panel h2,
@@ -104,11 +280,20 @@ button {
 .field-group textarea,
 .field-group select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 14px 12px;
   border: 1px solid var(--accent-border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--surface-soft);
   color: var(--app-text);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.field-group input:focus,
+.field-group textarea:focus,
+.field-group select:focus {
+  outline: none;
+  border-color: var(--button-primary-bg);
+  background: var(--surface-strong);
 }
 
 .field-inline {
@@ -132,20 +317,22 @@ button {
 .button-danger,
 .button-link {
   border: 0;
-  border-radius: 999px;
-  padding: 10px 16px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border-radius: 8px;
+  padding: 12px 16px;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  font-weight: 600;
 }
 
 .button-primary {
   color: var(--button-primary-text);
-  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
-  box-shadow: 0 10px 24px var(--button-primary-shadow);
+  background: var(--button-primary-bg);
+  border: 1px solid var(--accent-border);
 }
 
 .button-secondary {
   color: var(--button-secondary-text);
   background: var(--button-secondary-bg);
+  border: 1px solid var(--accent-border);
 }
 
 .button-danger {
@@ -155,23 +342,25 @@ button {
 }
 
 .button-link {
-  color: #c4b5fd;
+  color: var(--app-text);
   background: transparent;
   padding-left: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .button-primary:hover,
 .button-secondary:hover,
 .button-danger:hover,
 .button-link:hover {
-  transform: translateY(-1px);
+  opacity: 0.9;
 }
 
 .button-primary:disabled,
 .button-secondary:disabled,
 .button-danger:disabled {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.5;
   transform: none;
 }
 
@@ -182,10 +371,9 @@ button {
   z-index: 80;
   width: min(460px, calc(100vw - 32px));
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: 8px;
   border: 1px solid;
-  box-shadow: var(--panel-shadow);
-  backdrop-filter: blur(18px);
+  box-shadow: none;
   animation: status-toast-in 180ms ease-out;
 }
 
@@ -218,7 +406,7 @@ button {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--surface-soft);
   color: var(--app-text);
   border: 1px solid var(--accent-border);
@@ -228,15 +416,15 @@ button {
 .message-banner {
   padding: 12px 14px;
   border: 1px solid var(--accent-border);
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--surface-soft);
   color: var(--app-text);
 }
 
 .message-banner.error {
-  border-color: rgba(248, 113, 113, 0.34);
-  background: rgba(95, 24, 33, 0.22);
-  color: #ffe4ea;
+  border-color: rgba(220, 38, 38, 0.3);
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--status-error-text);
 }
 
 .artifact-list,
@@ -253,7 +441,7 @@ button {
 .note-card,
 .timeline-card {
   border: 1px solid var(--accent-border);
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 14px;
   background: var(--surface-card);
 }
@@ -267,11 +455,10 @@ button {
 
 .empty-state {
   padding: 18px;
-  border-radius: 16px;
+  border-radius: 8px;
   border: 1px solid var(--accent-border);
-  background: color-mix(in srgb, var(--surface-soft) 88%, white 12%);
+  background: var(--surface-soft);
   color: var(--app-text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 @media (max-width: 960px) {
