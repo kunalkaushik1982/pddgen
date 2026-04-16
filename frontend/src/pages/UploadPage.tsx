@@ -205,7 +205,7 @@ export function UploadPage({
 
           <div className="upload-grid">
             <label className="field-group upload-field-card">
-              <span>Recording videos</span>
+              <span>Recording videos <span className="badge-optional">(optional)</span></span>
               <input
                 ref={videoInputRef}
                 type="file"
@@ -213,6 +213,7 @@ export function UploadPage({
                 multiple
                 onChange={(event) => onFilesChange("videoFiles", event.target.files)}
               />
+              <span className="field-hint">Without a video, screenshots will be skipped.</span>
             </label>
 
             <label className="field-group upload-field-card">
@@ -238,7 +239,7 @@ export function UploadPage({
           </div>
 
           <div className="artifact-meta">
-            Selected: {displayVideoFiles.length} video(s), {displayTranscriptFiles.length} transcript(s),{" "}
+            Selected: {displayVideoFiles.length} video(s) {displayVideoFiles.length === 0 ? <span className="muted">(optional — no screenshots without video)</span> : null}, {displayTranscriptFiles.length} transcript(s),{" "}
             {displayTemplateFile ? "1 template" : "0 templates"}
           </div>
 
@@ -257,7 +258,7 @@ export function UploadPage({
                           <span className="selected-evidence-size">({formatFileSize(pair.videoFile.size)})</span>
                         </>
                       ) : (
-                        <span className="selected-evidence-missing">No video selected</span>
+                        <span className="selected-evidence-missing selected-evidence-missing-optional">No video (optional)</span>
                       )}
                       <span className="selected-evidence-divider">|</span>
                       {pair.transcriptFile ? (
@@ -346,9 +347,10 @@ export function UploadPage({
             </div>
           ) : null}
 
-          {displayVideoFiles.length > 1 || displayTranscriptFiles.length > 1 ? (
+          {displayTranscriptFiles.length > 1 ? (
             <div className="artifact-meta">
-              Multiple videos and transcripts are paired by upload order during screenshot extraction.
+              Multiple transcripts are paired with videos by upload order during screenshot extraction.
+              {displayVideoFiles.length === 0 ? " Upload a video to enable screenshot generation." : ""}
             </div>
           ) : null}
 

@@ -112,7 +112,7 @@ export function MeetingsPanel({
 
         <div className="meetings-evidence-row">
           <label className="app-user-menu-field meetings-field meetings-file-field">
-            <span>Video</span>
+            <span>Video <span className="badge-optional">(optional)</span></span>
             <input
               ref={videoInputRef}
               type="file"
@@ -136,7 +136,7 @@ export function MeetingsPanel({
           <button
             type="button"
             className="button-primary meetings-upload-button"
-            disabled={isBusy || (transcriptFiles.length === 0 && videoFiles.length === 0)}
+            disabled={isBusy || transcriptFiles.length === 0}
             onClick={() => void (async () => {
               try {
                 const uploadBatchId =

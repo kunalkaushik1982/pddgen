@@ -151,7 +151,11 @@ def generate_session_screenshots(
         if not video_artifacts:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="At least one video artifact is required before generating screenshots.",
+                detail=(
+                    "No video artifact found for this session. "
+                    "Upload a recording video first — screenshots are derived from video frames. "
+                    "Video is optional for draft generation but required to generate screenshots."
+                ),
             )
         settings = get_settings()
         reserved = False

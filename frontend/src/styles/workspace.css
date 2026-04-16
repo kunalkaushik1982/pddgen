@@ -269,6 +269,31 @@
   flex-shrink: 0;
 }
 
+/* Video is optional — de-emphasise the "no video" label further */
+.selected-evidence-missing-optional {
+  color: var(--app-muted);
+  opacity: 0.7;
+  font-style: italic;
+  flex-shrink: 0;
+}
+
+/* Inline "(optional)" badge next to a field label */
+.badge-optional {
+  display: inline;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--app-muted);
+  font-style: italic;
+}
+
+/* Small hint line beneath a file-input field */
+.field-hint {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--app-muted);
+  margin-top: 4px;
+}
+
 .selected-evidence-size {
   color: var(--app-muted);
   flex-shrink: 0;
