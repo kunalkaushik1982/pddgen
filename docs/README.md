@@ -185,6 +185,8 @@ So the immediate blockers for the first full local run are:
 - current processing status: [docs/processing-status.md](C:\Users\work\Documents\PddGenerator\docs\processing-status.md)
 - workflow-boundary strategy: [docs/workflow-boundary-strategy.md](C:\Users\work\Documents\PddGenerator\docs\workflow-boundary-strategy.md)
 - workflow intelligence roadmap: [docs/workflow-intelligence-roadmap.md](C:\Users\work\Documents\PddGenerator\docs\workflow-intelligence-roadmap.md)
+- developer onboarding: [docs/developer-onboarding.md](C:\Users\work\Documents\PddGenerator\docs\developer-onboarding.md)
+- codebase scan conversation: [docs/2026-04-17-codebase-scan-conversation.md](C:\Users\work\Documents\PddGenerator\docs\2026-04-17-codebase-scan-conversation.md)
 - sample templates: [docs/templates/README.md](C:\Users\work\Documents\PddGenerator\docs\templates\README.md)
 - multi-process session design: [docs/multi-process-session-design.md](C:\Users\work\Documents\PddGenerator\docs\multi-process-session-design.md)
 - architecture details: [docs/architecture.md](C:\Users\work\Documents\PddGenerator\docs\architecture.md)
