@@ -17,4 +17,5 @@ RUN pip install --no-cache-dir -r /tmp/backend-requirements.txt -r /tmp/worker-r
 COPY backend /app/backend
 COPY worker /app/worker
 
-CMD ["python", "-m", "celery", "-A", "worker.celery_app", "worker", "--loglevel=info"]
+# Concurrency=2 for 2-core VPS (1 task per core)
+CMD ["python", "-m", "celery", "-A", "worker.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
