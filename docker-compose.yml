@@ -45,9 +45,19 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - /root/pddgen/storage:/app/storage
+      - ./storage:/app/storage
     ports:
       - "8002:8000"
+    environment:
+      - PRODUCTION_MODE=true
+      - WEB_CONCURRENCY=5
+      - PDD_GENERATOR_DATABASE_URL=postgresql+psycopg://pddgen:pddgen_secure_password@postgres:5432/pddgen_db
+      - PDD_GENERATOR_REDIS_URL=redis://redis:6379/1
+      - PDD_GENERATOR_AUTH_PUBLIC_APP_URL=http://localhost:8082
+      - PDD_GENERATOR_AUTH_API_PUBLIC_BASE_URL=http://localhost:8082/api
+      - PDD_GENERATOR_USER_QUOTA_LIFETIME_JOBS=1000
+      - PDD_GENERATOR_USER_QUOTA_DAILY_JOBS=100
+      - PDD_GENERATOR_LOCAL_STORAGE_ROOT=/app/storage/local
 
   worker:
     build:
@@ -65,7 +75,12 @@ services:
       backend:
         condition: service_started
     volumes:
-      - /root/pddgen/storage:/app/storage
+      - ./storage:/app/storage
+    environment:
+      - CELERY_CONCURRENCY=6
+      - PDD_GENERATOR_DATABASE_URL=postgresql+psycopg://pddgen:pddgen_secure_password@postgres:5432/pddgen_db
+      - PDD_GENERATOR_REDIS_URL=redis://redis:6379/1
+      - PDD_GENERATOR_LOCAL_STORAGE_ROOT=/app/storage/local
 
   frontend:
     build:
@@ -73,6 +88,7 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         VITE_API_BASE_URL: /api
+        VITE_GOOGLE_CLIENT_ID: "113903842599-k4c47v59tvin0d6lcb24kckks1loj7o5.apps.googleusercontent.com"
     container_name: pddgen-frontend
     restart: unless-stopped
 
@@ -87,7 +103,7 @@ services:
       - "8082:80"
     volumes:
       - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - /root/pddgen/storage:/app/storage:ro
+      - ./storage:/app/storage:ro
 
   tunnel:
     image: cloudflare/cloudflared:latest

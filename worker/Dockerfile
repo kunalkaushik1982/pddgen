@@ -17,4 +17,4 @@ RUN pip install --no-cache-dir -r /tmp/backend-requirements.txt -r /tmp/worker-r
 COPY backend /app/backend
 COPY worker /app/worker
 
-CMD ["python", "-m", "celery", "-A", "worker.celery_app", "worker", "--loglevel=info"]
+CMD ["/bin/sh", "-c", "python -m celery -A worker.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-1}"]

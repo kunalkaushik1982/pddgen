@@ -22,3 +22,4 @@ setuptools>=75.0.0,<82
 sqlalchemy==2.0.41
 stripe==11.6.0
 uvicorn==0.34.3
+gunicorn==23.0.0

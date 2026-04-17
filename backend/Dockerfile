@@ -16,4 +16,4 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY backend /app/backend
 
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/bin/sh", "-c", "alembic upgrade head && if [ \"$PRODUCTION_MODE\" = \"true\" ]; then gunicorn app.main:app --workers ${WEB_CONCURRENCY:-4} --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000; else python -m uvicorn app.main:app --host 0.0.0.0 --port 8000; fi"]
