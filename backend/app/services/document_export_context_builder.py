@@ -852,6 +852,39 @@ class BrdDocumentExportContextBuilder(SharedWorkflowExportContextBuilder, Docume
         risks = self._build_brd_risks(process_notes)
         evidence_summary = self._build_brd_evidence_summary(process_steps, process_notes, process_sections)
 
+        overview = {
+            "process_name": draft_session.title,
+            "document_owner": draft_session.owner_id,
+            "document_status": draft_session.status,
+            "generated_at": shared_context["generated_at"],
+            "process_summary": shared_context["process_summary"],
+        }
+        process_flow = {
+            "mermaid_source": shared_context["diagram_source"],
+            "diagram_source": shared_context["diagram_source"],
+            "diagram_path": shared_context["rendered_diagram_path"],
+            "diagram_image": self._build_process_diagram_image(
+                template_document,
+                shared_context["rendered_diagram_path"],
+            ),
+            "rendered": bool(shared_context["rendered_diagram_path"]),
+        }
+        workflow_sections = [
+            {
+                "title": section["title"],
+                "summary": section["summary"],
+                "step_count": len(section.get("steps", [])),
+                "steps": section.get("steps", []),
+                "notes": section.get("notes", []),
+                "step_bullets": section.get("step_bullets", []),
+                "diagram_source": section.get("diagram_source", ""),
+                "diagram_path": section.get("diagram_path", ""),
+                "diagram_image": section.get("diagram_image"),
+                "diagram_rendered": bool(section.get("diagram_path")),
+            }
+            for section in process_sections
+        ]
+
         return {
             "session_title": draft_session.title,
             "owner_id": draft_session.owner_id,
@@ -863,7 +896,9 @@ class BrdDocumentExportContextBuilder(SharedWorkflowExportContextBuilder, Docume
                 "owner_id": draft_session.owner_id,
                 "session_id": draft_session.id,
                 "status": draft_session.status,
+                "diagram_type": getattr(draft_session, "diagram_type", None) or "flowchart",
                 "generated_at": shared_context["generated_at"],
+                "overview": overview,
                 "business_objective": (
                     f"Document the business requirements for {draft_session.title} "
                     "using the reviewed walkthrough evidence as the current-state baseline."
@@ -880,16 +915,8 @@ class BrdDocumentExportContextBuilder(SharedWorkflowExportContextBuilder, Docume
                 "business_rules": business_rules,
                 "assumptions": assumptions,
                 "risks_and_exceptions": risks,
-                "workflow_sections": [
-                    {
-                        "title": section["title"],
-                        "summary": section["summary"],
-                        "step_count": len(section.get("steps", [])),
-                        "steps": section.get("steps", []),
-                        "notes": section.get("notes", []),
-                    }
-                    for section in process_sections
-                ],
+                "process_flow": process_flow,
+                "workflow_sections": workflow_sections,
                 "evidence_summary": evidence_summary,
             },
         }
