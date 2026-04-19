@@ -19,6 +19,7 @@ Thumbs.db
 **/*.db
 
 backend/*.egg-info/
+backend/.pydeps/
 worker/*.egg-info/
 
 frontend/node_modules/

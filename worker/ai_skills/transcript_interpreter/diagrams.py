@@ -3,6 +3,22 @@ from __future__ import annotations
 from typing import Any
 
 
+def _normalize_edge_label(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def _should_keep_decision(node_id: str, outgoing_edges: list[dict[str, str]]) -> bool:
+    if len(outgoing_edges) < 2:
+        return False
+    distinct_targets = {edge["target"] for edge in outgoing_edges if edge.get("target")}
+    if len(distinct_targets) < 2:
+        return False
+    labels = {_normalize_edge_label(edge.get("label", "")) for edge in outgoing_edges}
+    if {"yes", "no"} <= labels:
+        return True
+    return True
+
+
 def normalize_diagram_view(view: dict[str, Any], view_type: str, session_title: str) -> dict[str, Any]:
     raw_nodes = view.get("nodes", []) if isinstance(view, dict) else []
     raw_edges = view.get("edges", []) if isinstance(view, dict) else []
@@ -40,6 +56,16 @@ def normalize_diagram_view(view: dict[str, Any], view_type: str, session_title: 
                 "label": str(item.get("label", "") or "").strip(),
             }
         )
+
+    outgoing_edges_by_source: dict[str, list[dict[str, str]]] = {}
+    for edge in edges:
+        outgoing_edges_by_source.setdefault(edge["source"], []).append(edge)
+
+    for node in nodes:
+        if node["category"] != "decision":
+            continue
+        if not _should_keep_decision(node["id"], outgoing_edges_by_source.get(node["id"], [])):
+            node["category"] = "process"
 
     if not nodes:
         nodes = [{"id": f"{view_type}_n1", "label": "No process steps available", "category": "process", "step_range": ""}]

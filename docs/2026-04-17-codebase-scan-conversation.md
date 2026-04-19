@@ -156,3 +156,232 @@ Most important hooks:
 12. [frontend/src/routes/WorkspaceRoute.tsx](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/src/routes/WorkspaceRoute.tsx:1)
 13. [frontend/src/routes/SessionRoute.tsx](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/src/routes/SessionRoute.tsx:1)
 14. [frontend/src/pages/StepReviewPage.tsx](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/src/pages/StepReviewPage.tsx:1)
+
+## Additional Follow-Up: Branch Setup Request
+
+The later request was to create a branch for improving diagrams in the application.
+
+The final state after that discussion was:
+
+- uncommitted documentation changes were committed on `main`
+- that commit was pushed to `origin/main`
+- the working branch was created as `feature/diagram-improvements`
+
+The commit created during that step was:
+
+- `ffdf117` with message `Add codebase onboarding docs`
+
+## Additional Follow-Up: Diagram System Scan
+
+The next request was to scan the current code that generates and edits diagrams, explain both flows, provide a Mermaid diagram, identify the current diagram solution/library, and propose better alternatives and integrations.
+
+### Diagram system summary
+
+The current diagram stack is not a single renderer. It is a layered system:
+
+1. worker-side initial diagram generation
+2. backend-side diagram model serving and persistence
+3. frontend-side layout, rendering, editing, and PNG export
+
+The important detail is that there are three persisted diagram forms:
+
+- logical graph JSON
+- layout JSON
+- a PNG artifact snapshot used for read-only preview/export reuse
+
+That split works, but it creates possible drift between the editable model and the exported image snapshot.
+
+### Current diagram creation flow
+
+- During draft generation, the worker reaches `DiagramAssemblyStage`
+- `DiagramAssemblyStage` invokes the AI `diagram_generation` skill
+- That skill returns `overview` and `detailed` flowchart graph JSON
+- The worker stores those as `overview_diagram_json` and `detailed_diagram_json`
+- When the frontend requests a diagram, the backend returns stored diagram JSON first if present
+- If stored JSON is absent or invalid, the backend falls back to deterministic flowchart construction in `ProcessDiagramService`
+- The frontend then fetches saved node layout separately and applies a browser-side layout transform for React Flow
+
+Relevant files:
+
+- [worker/pipeline/stages/diagram_assembly.py](/abs/path/c:/Users/work/Documents/PddGenerator/worker/pipeline/stages/diagram_assembly.py:1)
+- [worker/ai_skills/diagram_generation/skill.py](/abs/path/c:/Users/work/Documents/PddGenerator/worker/ai_skills/diagram_generation/skill.py:1)
+- [backend/app/services/process_diagram_service.py](/abs/path/c:/Users/work/Documents/PddGenerator/backend/app/services/process_diagram_service.py:1)
+- [backend/app/api/routes/draft_sessions.py](/abs/path/c:/Users/work/Documents/PddGenerator/backend/app/api/routes/draft_sessions.py:1)
+- [frontend/src/services/diagramService.ts](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/src/services/diagramService.ts:1)
+- [frontend/src/components/diagram/diagramLayout.ts](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/src/components/diagram/diagramLayout.ts:1)
+
+### Current diagram edit flow
+
+- The diagram editor lives in `FlowchartPreviewPanel`
+- The frontend loads the graph via `GET /diagram-model`
+- The frontend loads persisted positions and canvas settings via `GET /diagram-layout`
+- The graph is rendered with React Flow
+- The user can drag, resize, relabel, connect, delete, duplicate, and add nodes
+- On save, the frontend sends three separate writes:
+  - `PUT /diagram-model`
+  - `PUT /diagram-layout`
+  - `POST /diagram-artifact`
+- The last call stores a PNG generated in the browser using `html-to-image`
+
+Relevant files:
+
+- [frontend/src/components/diagram/FlowchartPreviewPanel.tsx](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/src/components/diagram/FlowchartPreviewPanel.tsx:1)
+- [frontend/src/components/diagram/DiagramNodes.tsx](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/src/components/diagram/DiagramNodes.tsx:1)
+- [frontend/src/components/diagram/EditableEdge.tsx](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/src/components/diagram/EditableEdge.tsx:1)
+- [backend/app/services/draft_session_diagram_service.py](/abs/path/c:/Users/work/Documents/PddGenerator/backend/app/services/draft_session_diagram_service.py:1)
+- [backend/app/services/artifact_ingestion.py](/abs/path/c:/Users/work/Documents/PddGenerator/backend/app/services/artifact_ingestion.py:1)
+- [backend/app/models/diagram_layout.py](/abs/path/c:/Users/work/Documents/PddGenerator/backend/app/models/diagram_layout.py:1)
+
+### Mermaid explanation diagram
+
+```mermaid
+flowchart TD
+    A[Draft generation starts] --> B[Worker DiagramAssemblyStage]
+    B --> C[AI diagram_generation skill]
+    C --> D[overview_diagram_json + detailed_diagram_json stored]
+
+    D --> E[Frontend opens review/editor]
+    E --> F[GET /draft-sessions/:id/diagram-model]
+    E --> G[GET /draft-sessions/:id/diagram-layout]
+
+    F --> H[ProcessDiagramService returns stored model or fallback model]
+    G --> I[DraftSessionDiagramService returns saved positions/settings]
+
+    H --> J[FlowchartPreviewPanel]
+    I --> J
+    J --> K[diagramLayout.ts builds React Flow nodes/edges]
+
+    K --> L[User edits diagram in browser]
+    L --> M[PUT /diagram-model]
+    L --> N[PUT /diagram-layout]
+    L --> O[html-to-image renders PNG]
+    O --> P[POST /diagram-artifact]
+
+    M --> Q[Persist graph JSON]
+    N --> R[Persist layout JSON]
+    P --> S[Persist diagram PNG artifact]
+
+    Q --> T[Subsequent diagram loads]
+    R --> T
+    S --> U[Export / read-only preview uses saved artifact]
+```
+
+### Current libraries and solutions in use
+
+The application currently uses:
+
+- `reactflow` for interactive flowchart rendering and editing
+- `html-to-image` for browser-side PNG generation from the rendered diagram
+- custom backend rendering logic in `ProcessDiagramService` for export-oriented image generation and fallback rendering
+- Mermaid CLI support only for sequence-diagram export fallback via `mmdc`
+
+It also has `elkjs` installed in the frontend package, but the current flowchart layout code is still primarily hand-written and not actively using ELK for automatic layout.
+
+Relevant files:
+
+- [frontend/package.json](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/package.json:1)
+- [frontend/src/components/diagram/FlowchartPreviewPanel.tsx](/abs/path/c:/Users/work/Documents/PddGenerator/frontend/src/components/diagram/FlowchartPreviewPanel.tsx:1)
+- [backend/app/services/process_diagram_service.py](/abs/path/c:/Users/work/Documents/PddGenerator/backend/app/services/process_diagram_service.py:1)
+
+### Interpretation of the current approach
+
+Strengths:
+
+- reasonable custom flowchart editor base using React Flow
+- simple backend contract for graph and layout persistence
+- manual BA editing is already supported
+
+Weaknesses:
+
+- layout is still mostly manual and brittle
+- graph JSON, layout JSON, and PNG artifact can diverge
+- the process model is generic flowchart JSON rather than a formal process standard
+- new diagram capabilities require more custom editor logic in application code
+
+## Better Options And Integration Possibilities
+
+### 1. Recommended near-term option: keep React Flow and use ELKjs properly
+
+This is the lowest-risk path for improving the current system.
+
+Recommendation:
+
+- keep React Flow as the rendering/editor layer
+- replace most of the manual layout logic in `diagramLayout.ts` with ELK-based auto-layout
+
+Why this is attractive:
+
+- minimal rewrite
+- better automatic layout
+- preserves current editor patterns and persistence contracts
+
+ELK references used in the discussion:
+
+- ELK overview: https://eclipse.dev/elk/
+- ELK getting started: https://eclipse.dev/elk/gettingstarted.html
+- ELK layout options: https://eclipse.dev/elk/reference/options.html
+- elkjs repository: https://github.com/kieler/elkjs
+
+### 2. Best standards-based process modeling option: `bpmn-js`
+
+If the long-term goal is true business process modeling rather than custom flowchart editing, `bpmn-js` is the strongest strategic option.
+
+Why:
+
+- it is a BPMN 2.0 viewer and web modeler
+- it is designed for embedding in browser applications
+- it has existing extension points for palette, rules, overlays, and properties
+
+Tradeoff:
+
+- larger migration
+- requires deciding how much BPMN fidelity the application should expose to users
+
+References used in the discussion:
+
+- toolkit overview: https://bpmn.io/toolkit/bpmn-js
+- walkthrough: https://bpmn.io/toolkit/bpmn-js/walkthrough/
+- examples: https://bpmn.io/toolkit/bpmn-js/examples/
+
+### 3. Richer custom editor option: JointJS+
+
+If the goal is a more full-featured diagram editor than React Flow while staying in custom diagram territory, JointJS+ is a strong option.
+
+Why:
+
+- richer editor and diagramming capabilities
+- React integration exists
+- better built-in support for ports, tools, palettes, and export
+
+Tradeoff:
+
+- migration cost
+- fuller experience is commercial
+
+References used in the discussion:
+
+- React integration: https://docs.jointjs.com/learn/integration/react/
+- integration overview: https://docs.jointjs.com/learn/integration/
+- product overview: https://www.jointjs.com/react-diagrams
+
+### 4. Freeform canvas option: tldraw
+
+This was explicitly considered but not recommended as the primary diagram editor for this repository.
+
+Reason:
+
+- tldraw is excellent for whiteboard-style editing
+- this repository needs structured process/workflow diagramming more than freeform canvas work
+
+References used in the discussion:
+
+- installation: https://tldraw.dev/docs/installation
+- basic React component example: https://tldraw.dev/examples/basic/basic
+
+## Final Recommendation From The Discussion
+
+The recommendation given in the conversation was:
+
+1. short term: keep React Flow and introduce ELKjs-based layout
+2. medium term: stop relying on PNG artifacts as the primary export truth and render export deterministically from model plus layout
+3. strategic option: move toward BPMN with `bpmn-js` if standards-based process modeling becomes a real product goal

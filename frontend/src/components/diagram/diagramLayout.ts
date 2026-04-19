@@ -3,6 +3,7 @@
  * Full filepath: C:\Users\work\Documents\PddGenerator\frontend\src\components\diagram\diagramLayout.ts
  */
 
+import ELK from "elkjs/lib/elk.bundled.js";
 import { MarkerType, Position, type Edge, type Node } from "reactflow";
 
 import type { DiagramLayoutNodePosition, DiagramModel } from "../../types/diagram";
@@ -15,6 +16,7 @@ const COLUMN_GAP = 52;
 const ROW_GAP = 120;
 const NODES_PER_ROW = 4;
 const HANDLE_SLOTS = 4;
+const elk = new ELK();
 
 function estimateNodeMinHeight(label: string, category: string): number {
   if (category === "decision") {
@@ -88,6 +90,29 @@ function buildOverviewNodes(model: DiagramModel): Node[] {
       },
     };
   });
+}
+
+function buildNodeData(model: DiagramModel, node: DiagramModel["nodes"][number], zeroBasedIndex: number): Node {
+  const category = zeroBasedIndex === 0 ? "start" : node.category;
+  const label = zeroBasedIndex === 0 ? `Start\n${node.label}` : node.label;
+
+  return {
+    id: node.id,
+    type: category,
+    position: { x: 0, y: 0 },
+    sourcePosition: category === "decision" ? Position.Right : Position.Bottom,
+    targetPosition: Position.Top,
+    data: {
+      label,
+      stepRange: node.stepRange,
+      category,
+      viewType: model.viewType,
+    },
+    style: {
+      width: getNodeWidth(node),
+      minHeight: getNodeHeight(node, label, category),
+    },
+  };
 }
 
 function getOverviewHandles(sourceNode: Node, targetNode: Node): { sourceHandle: string; targetHandle: string } {
@@ -196,64 +221,13 @@ export function buildOverviewEdges(model: DiagramModel, nodes: Node[]): Edge[] {
 }
 
 async function buildDetailedLayout(model: DiagramModel): Promise<{ nodes: Node[]; edges: Edge[] }> {
-  const positions = new Map<string, { x: number; y: number }>();
-  const centerX = 470;
-  const leftX = 70;
-  const rightX = 870;
-  const linearStepGap = 180;
-  const branchBlockHeight = 420;
-  let currentMainY = 0;
-
-  const stepNodeIds = model.nodes
-    .map((node) => node.id)
-    .filter((id) => id.startsWith("s"))
-    .sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
-
-  for (const stepNodeId of stepNodeIds) {
-    const stepIndex = Number(stepNodeId.slice(1));
-    const hasBranch = model.nodes.some((node) => node.id === `d${stepIndex}`);
-
-    positions.set(stepNodeId, { x: centerX, y: currentMainY });
-
-    if (!hasBranch) {
-      currentMainY += linearStepGap;
-      continue;
-    }
-
-    positions.set(`d${stepIndex}`, { x: centerX, y: currentMainY + 110 });
-    positions.set(`c${stepIndex}`, { x: leftX, y: currentMainY + 145 });
-    positions.set(`r${stepIndex}`, { x: leftX, y: currentMainY + 275 });
-    positions.set(`m${stepIndex}`, { x: rightX, y: currentMainY + 205 });
-
-    currentMainY += branchBlockHeight;
-  }
-
-  if (model.nodes.some((node) => node.id === "end")) {
-    positions.set("end", { x: centerX, y: currentMainY + 20 });
-  }
-
-  const nodes: Node[] = model.nodes.map((node, zeroBasedIndex) => {
-    const category = zeroBasedIndex === 0 ? "start" : node.category;
-    const position = positions.get(node.id) ?? { x: centerX, y: zeroBasedIndex * linearStepGap };
-
-    return {
-      id: node.id,
-      type: category,
-      position,
-      sourcePosition: category === "decision" ? Position.Right : Position.Bottom,
-      targetPosition: category === "decision" ? Position.Top : Position.Top,
-      data: {
-        label: zeroBasedIndex === 0 ? `Start\n${node.label}` : node.label,
-        stepRange: node.stepRange,
-        category,
-        viewType: model.viewType,
-      },
-      style: {
-        width: getNodeWidth(node),
-        minHeight: getNodeHeight(node, zeroBasedIndex === 0 ? `Start\n${node.label}` : node.label, category),
-      },
-    };
-  });
+  const fallbackNodes: Node[] = model.nodes.map((node, zeroBasedIndex) => ({
+    ...buildNodeData(model, node, zeroBasedIndex),
+    position: {
+      x: 470,
+      y: zeroBasedIndex * 180,
+    },
+  }));
 
   const edges: Edge[] = model.edges.map((edge) => ({
     id: edge.id,
@@ -280,7 +254,53 @@ async function buildDetailedLayout(model: DiagramModel): Promise<{ nodes: Node[]
     targetHandle: edge.targetHandle,
   }));
 
-  return { nodes, edges };
+  try {
+    const elkLayout = await elk.layout({
+      id: "root",
+      layoutOptions: {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.spacing.nodeNode": "100",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "140",
+        "elk.spacing.edgeNode": "48",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+        "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+        "elk.contentAlignment": "[H_CENTER, V_TOP]",
+      },
+      children: model.nodes.map((node, zeroBasedIndex) => {
+        const reactFlowNode = buildNodeData(model, node, zeroBasedIndex);
+        return {
+          id: node.id,
+          width: getRenderedNodeWidth(reactFlowNode),
+          height: getRenderedNodeHeight(reactFlowNode),
+        };
+      }),
+      edges: model.edges.map((edge) => ({
+        id: edge.id,
+        sources: [edge.source],
+        targets: [edge.target],
+      })),
+    });
+
+    const positionedNodes = fallbackNodes.map((node) => {
+      const elkNode = elkLayout.children?.find((child) => child.id === node.id);
+      if (!elkNode) {
+        return node;
+      }
+      return {
+        ...node,
+        position: {
+          x: snapToGrid(elkNode.x ?? node.position.x),
+          y: snapToGrid(elkNode.y ?? node.position.y),
+        },
+      };
+    });
+
+    return { nodes: positionedNodes, edges };
+  } catch {
+    return { nodes: fallbackNodes, edges };
+  }
 }
 
 function applySavedPositions(nodes: Node[], savedPositions: DiagramLayoutNodePosition[]): Node[] {
