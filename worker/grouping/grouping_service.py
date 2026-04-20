@@ -14,7 +14,7 @@ from app.core.observability import get_logger
 from app.models.artifact import ArtifactModel
 from app.models.draft_session import DraftSessionModel
 from app.models.process_group import ProcessGroupModel
-from app.services.process_group_service import ProcessGroupService
+from app.services.draft_session.process_group_service import ProcessGroupService
 from worker.ai_skills.process_summary_generation.schemas import ProcessSummaryGenerationRequest
 from worker.ai_skills.registry import AISkillRegistry
 from worker.ai_skills.workflow_capability_tagging.schemas import WorkflowCapabilityTaggingRequest
@@ -134,6 +134,7 @@ class ProcessGroupingService:
         notes_by_transcript: dict[str, list[NoteRecord]],
         evidence_segments: list[EvidenceSegment] | None = None,
         workflow_boundary_decisions: list[WorkflowBoundaryDecision] | None = None,
+        capability_classification_enabled: bool = True,
     ) -> ProcessGroupingResult:
         return assign_groups(
             self,
@@ -144,4 +145,5 @@ class ProcessGroupingService:
             notes_by_transcript=notes_by_transcript,
             evidence_segments=evidence_segments,
             workflow_boundary_decisions=workflow_boundary_decisions,
+            capability_classification_enabled=capability_classification_enabled,
         )

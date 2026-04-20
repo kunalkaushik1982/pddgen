@@ -89,8 +89,11 @@ class AuthCsrfFlowTests(unittest.TestCase):
         settings = get_settings()
         original_debug = settings.app_debug
         original_reset_enabled = settings.auth_password_reset_enabled
+        original_smtp_host = settings.smtp_host
         settings.app_debug = True
         settings.auth_password_reset_enabled = True
+        # Avoid the SMTP branch so debug mode can return reset_token in JSON (see AuthService.request_password_reset).
+        settings.smtp_host = ""
         try:
             response = self.client.post(
                 "/api/auth/register",
@@ -124,6 +127,7 @@ class AuthCsrfFlowTests(unittest.TestCase):
         finally:
             settings.app_debug = original_debug
             settings.auth_password_reset_enabled = original_reset_enabled
+            settings.smtp_host = original_smtp_host
 
     def test_google_login_with_access_token(self) -> None:
         settings = get_settings()
@@ -143,7 +147,7 @@ class AuthCsrfFlowTests(unittest.TestCase):
             mock_client_cm = MagicMock()
             mock_client_cm.__enter__.return_value = mock_client
             mock_client_cm.__exit__.return_value = None
-            with patch("app.services.auth_service.httpx.Client", return_value=mock_client_cm):
+            with patch("app.services.auth.auth_service.httpx.Client", return_value=mock_client_cm):
                 response = self.client.post(
                     "/api/auth/google",
                     json={"access_token": "ya29.mock-access-token-1234567890"},

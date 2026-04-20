@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.mappers import _has_required_uploads
+from app.services.draft_session.mappers import _has_required_uploads
 
 
 # ---------------------------------------------------------------------------

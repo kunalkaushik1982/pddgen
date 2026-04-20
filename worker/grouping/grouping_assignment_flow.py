@@ -54,6 +54,7 @@ def assign_groups(
     notes_by_transcript: dict[str, list[NoteRecord]],
     evidence_segments: list[EvidenceSegment] | None = None,
     workflow_boundary_decisions: list[WorkflowBoundaryDecision] | None = None,
+    capability_classification_enabled: bool = True,
 ) -> ProcessGroupingResult:
     process_groups: list[ProcessGroupModel] = []
     transcript_group_ids: dict[str, str] = {}
@@ -161,6 +162,7 @@ def assign_groups(
         ai_skill_registry=service._ai_skill_registry,
         process_summary_generation_skill=service._process_summary_generation_skill,
         workflow_capability_tagging_skill=service._workflow_capability_tagging_skill,
+        capability_classification_enabled=capability_classification_enabled,
         logger=logger,
     )
     capability_tags_by_group = {

@@ -57,6 +57,15 @@ export function WorkspaceRoute(): React.JSX.Element {
             showSubmitButton={false}
             actionBar={
               <div className="session-actions-row">
+                <label className="artifact-meta" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={flow.includeDiagramInDraft}
+                    onChange={(event) => flow.setIncludeDiagramInDraft(event.target.checked)}
+                    disabled={flow.uploadPending || flow.generatePending}
+                  />
+                  Include diagram in draft generation
+                </label>
                 <button
                   type="button"
                   className="button-secondary"

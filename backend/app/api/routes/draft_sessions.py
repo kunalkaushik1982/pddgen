@@ -29,6 +29,7 @@ from app.schemas.draft_session import (
     DiagramLayoutResponse,
     DiagramModelResponse,
     DraftSessionListItemResponse,
+    GenerateDraftSessionRequest,
     DraftSessionResponse,
     ProcessStepResponse,
     SaveDiagramArtifactRequest,
@@ -38,16 +39,16 @@ from app.schemas.draft_session import (
     SessionQuestionRequest,
 )
 from app.schemas.process_step import CandidateScreenshotSelectRequest, ProcessStepUpdateRequest, StepScreenshotUpdateRequest
-from app.services.action_log_service import ActionLogService
-from app.services.artifact_ingestion import ArtifactIngestionService
-from app.services.draft_session_diagram_service import DraftSessionDiagramService
-from app.services.draft_session_review_service import DraftSessionReviewService
-from app.services.job_dispatcher import JobDispatcherService
-from app.services.mappers import map_draft_session, map_draft_session_list_item, map_process_step
-from app.services.pipeline_orchestrator import PipelineOrchestratorService
-from app.services.process_diagram_service import ProcessDiagramService
-from app.services.session_chat_service import SessionChatService
-from app.services.user_quota_service import refund_job_unit, reserve_job_unit
+from app.services.platform.action_log_service import ActionLogService
+from app.services.artifacts.artifact_ingestion import ArtifactIngestionService
+from app.services.draft_session.draft_session_diagram_service import DraftSessionDiagramService
+from app.services.draft_session.draft_session_review_service import DraftSessionReviewService
+from app.services.generation.job_dispatcher import JobDispatcherService
+from app.services.draft_session.mappers import map_draft_session, map_draft_session_list_item, map_process_step
+from app.services.generation.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.generation.process_diagram_service import ProcessDiagramService
+from app.services.chat.session_chat_service import SessionChatService
+from app.services.draft_session.user_quota_service import refund_job_unit, reserve_job_unit
 
 router = APIRouter(prefix="/draft-sessions", tags=["draft-sessions"])
 logger = get_logger(__name__)
@@ -65,6 +66,7 @@ def list_draft_sessions(
         .options(
             selectinload(DraftSessionModel.artifacts),
             selectinload(DraftSessionModel.action_logs),
+            selectinload(DraftSessionModel.llm_usage_events),
         )
         .order_by(DraftSessionModel.updated_at.desc())
     )
@@ -83,6 +85,7 @@ def generate_draft_session(
     dispatcher: Annotated[JobDispatcherService, Depends(get_job_dispatcher_service)],
     action_log: Annotated[ActionLogService, Depends(get_action_log_service)],
     current_user: Annotated[UserModel, Depends(require_workspace_user)],
+    payload: GenerateDraftSessionRequest | None = None,
 ) -> DraftSessionResponse:
     """Queue background generation for process steps, notes, and screenshots."""
     settings = get_settings()
@@ -110,6 +113,7 @@ def generate_draft_session(
                 event_type="generation_queued",
                 title="Draft generation queued",
                 detail="Transcript interpretation and screenshot derivation queued.",
+                metadata={"include_diagram": payload.include_diagram} if payload and payload.include_diagram is not None else None,
                 actor=current_user.username,
             )
             db.commit()

@@ -33,6 +33,7 @@ pdd.session_id
 pdd.status
 pdd.diagram_type
 pdd.generated_at
+pdd.multi_process
 pdd.step_count
 pdd.note_count
 pdd.overview.process_name
@@ -41,6 +42,7 @@ pdd.overview.document_status
 pdd.overview.generated_at
 pdd.overview.process_summary
 pdd.as_is_steps
+pdd.process_sections
 pdd.to_be_recommendations
 pdd.process_flow.mermaid_source
 pdd.process_flow.diagram_path
@@ -105,9 +107,18 @@ process_steps
 process_notes
 ```
 
+## Multi-process sessions (`pdd.multi_process`)
+
+When more than one workflow section exists (`len(pdd.process_sections) > 1`), the context sets **`pdd.multi_process`** to `true`. Use **`{% if pdd.multi_process %}`** in the template to branch:
+
+- **Multi:** loop **`{% for section in pdd.process_sections %}`** and render per-section steps, `section.diagram_image` / `section.diagram_source`, and `section.notes`, then global **`pdd.to_be_recommendations`** once at the end.
+- **Single:** use **`pdd.as_is_steps`**, **`pdd.process_flow`**, and **`pdd.business_rules`** as in the lean structure below.
+
+The bundled sample **`flowlens-pdd-template.docx`** / **`pdd-enterprise-multishot-template.docx`** follows this pattern (regenerate via `python docs/templates/build_flowlens_pdd_template.py`). The backend no longer rewrites `word/document.xml` at export time for PDD.
+
 ## Recommended Lean Template Structure
 
-Use this structure in a Word document if you want a cleaner stakeholder-ready PDD:
+Use this structure in a Word document if you want a cleaner stakeholder-ready PDD (single-process body):
 
 ```text
 PROCESS DESIGN DOCUMENT

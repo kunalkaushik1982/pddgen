@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from app.core.observability import bind_log_context, get_logger
-from app.services.action_log_service import ActionLogService
+from app.services.platform.action_log_service import ActionLogService
 from sqlalchemy.orm import Session
 from worker.ai_skills.diagram_generation.schemas import DiagramGenerationRequest
 from worker.ai_skills.registry import AISkillRegistry
@@ -32,6 +32,14 @@ class DiagramAssemblyStage:
 
     def run(self, db: Session, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="diagram_assembly"):
+            if not context.inputs.include_diagram:
+                context.overview_diagram_json = ""
+                context.detailed_diagram_json = ""
+                logger.info(
+                    "Diagram assembly skipped by run option.",
+                    extra={"event": "draft_generation.stage_skipped", "include_diagram": False},
+                )
+                return
             self.action_log_service.record(
                 db,
                 session_id=context.inputs.session_id,

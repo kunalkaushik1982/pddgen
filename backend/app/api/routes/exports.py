@@ -20,9 +20,9 @@ from app.api.dependencies import (
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.draft_session import OutputDocumentResponse
-from app.services.action_log_service import ActionLogService
-from app.services.document_renderer import DocumentRendererService
-from app.services.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.platform.action_log_service import ActionLogService
+from app.services.documents.document_renderer import DocumentRendererService
+from app.services.generation.pipeline_orchestrator import PipelineOrchestratorService
 from app.storage.storage_service import StorageService
 
 router = APIRouter(prefix="/exports", tags=["exports"])

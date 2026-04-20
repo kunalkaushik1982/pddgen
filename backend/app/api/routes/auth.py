@@ -23,8 +23,8 @@ from app.schemas.auth import (
     RegisterRequest,
     UserResponse,
 )
-from app.services.auth_service import AuthService
-from app.services.csrf_service import CsrfService
+from app.services.auth.auth_service import AuthService
+from app.services.platform.csrf_service import CsrfService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()

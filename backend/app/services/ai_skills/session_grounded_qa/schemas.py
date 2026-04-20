@@ -9,7 +9,7 @@ class SessionGroundedQARequest:
     session_title: str
     process_group_id: str | None
     question: str
-    evidence: list[dict[str, object]]
+    evidence: list[dict[str, str]]
 
 
 @dataclass(slots=True)

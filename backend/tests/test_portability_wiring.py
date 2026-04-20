@@ -6,7 +6,7 @@ import unittest
 
 from app.core.config import Settings
 from app.portability.auth_registry import build_auth_provider_registry, build_identity_provider
-from app.services.auth_provider_registry import AuthProviderRegistry
+from app.services.auth.auth_provider_registry import AuthProviderRegistry
 
 
 class PortabilityAuthRegistryTests(unittest.TestCase):

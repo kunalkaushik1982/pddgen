@@ -5,7 +5,7 @@ from collections import Counter
 
 from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
-from app.services.action_log_service import ActionLogService
+from app.services.platform.action_log_service import ActionLogService
 from sqlalchemy.orm import Session
 from worker.grouping.canonical_merge import CanonicalProcessMergeService
 from worker.pipeline.stages.stage_context import DraftGenerationContext
@@ -77,6 +77,7 @@ class ProcessGroupingStage:
                 notes_by_transcript=context.notes_by_transcript,
                 evidence_segments=context.evidence_segments,
                 workflow_boundary_decisions=context.workflow_boundary_decisions,
+                capability_classification_enabled=context.inputs.capability_classification_enabled,
             )
             context.process_groups = grouping_result.process_groups
             ambiguous_assignments = [assignment for assignment in grouping_result.assignment_details if bool(assignment.get("is_ambiguous"))]

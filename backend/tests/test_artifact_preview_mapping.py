@@ -5,9 +5,28 @@ import importlib.util
 from pathlib import Path
 import sys
 import types
+import typing
 import unittest
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "app" / "services" / "mappers.py"
+MODULE_PATH = Path(__file__).resolve().parents[1] / "app" / "services" / "draft_session" / "mappers.py"
+
+_MAPPER_STUB_KEYS = (
+    "app",
+    "app.api",
+    "app.api.dependencies",
+    "app.models",
+    "app.models.artifact",
+    "app.models.draft_session",
+    "app.models.process_group",
+    "app.models.process_note",
+    "app.models.process_step",
+    "app.models.process_step_screenshot_candidate",
+    "app.models.process_step_screenshot",
+    "app.schemas.common",
+    "app.schemas.draft_session",
+)
+_mapper_stub_depth = 0
+_mapper_stub_saved: dict[str, types.ModuleType | None] | None = None
 
 
 def load_module(name: str, path: Path):
@@ -20,6 +39,11 @@ def load_module(name: str, path: Path):
 
 
 def install_mapper_stubs():
+    global _mapper_stub_depth, _mapper_stub_saved
+    if _mapper_stub_depth == 0:
+        _mapper_stub_saved = {k: sys.modules.get(k) for k in _MAPPER_STUB_KEYS}
+    _mapper_stub_depth += 1
+
     app_module = types.ModuleType("app")
     app_module.__path__ = []  # type: ignore[attr-defined]
     api_module = types.ModuleType("app.api")
@@ -89,6 +113,9 @@ def install_mapper_stubs():
     process_step_candidate_module.ProcessStepScreenshotCandidateModel = object
     process_step_screenshot_module.ProcessStepScreenshotModel = object
     schemas_common_module.EvidenceReference = types.SimpleNamespace(model_validate=lambda value: value)
+    schemas_common_module.ArtifactKind = typing.Literal["video", "transcript", "template", "sop", "diagram", "screenshot"]
+    schemas_common_module.ConfidenceLevel = typing.Literal["high", "medium", "low", "unknown"]
+    schemas_common_module.WorkflowDocumentType = typing.Literal["pdd", "sop", "brd"]
     schemas_draft_session_module.ActionLogResponse = object
     schemas_draft_session_module.ArtifactResponse = ArtifactResponse
     schemas_draft_session_module.CandidateScreenshotResponse = CandidateScreenshotResponse
@@ -99,6 +126,13 @@ def install_mapper_stubs():
     schemas_draft_session_module.ProcessGroupResponse = object
     schemas_draft_session_module.ProcessStepResponse = object
     schemas_draft_session_module.StepScreenshotResponse = StepScreenshotResponse
+
+    class FakeOutputDocumentResponse:
+        @staticmethod
+        def model_validate(obj):
+            return obj
+
+    schemas_draft_session_module.OutputDocumentResponse = FakeOutputDocumentResponse
 
     sys.modules["app"] = app_module
     sys.modules["app.api"] = api_module
@@ -115,12 +149,31 @@ def install_mapper_stubs():
     sys.modules["app.schemas.draft_session"] = schemas_draft_session_module
 
 
+def _restore_mapper_stubs() -> None:
+    global _mapper_stub_depth, _mapper_stub_saved
+    if _mapper_stub_depth == 0:
+        return
+    _mapper_stub_depth -= 1
+    if _mapper_stub_depth == 0 and _mapper_stub_saved is not None:
+        for key, previous in _mapper_stub_saved.items():
+            if previous is None:
+                sys.modules.pop(key, None)
+            else:
+                sys.modules[key] = previous
+        _mapper_stub_saved = None
+    sys.modules.pop("artifact_preview_mapping_test", None)
+
+
 def load_mapper_module():
     install_mapper_stubs()
     return load_module("artifact_preview_mapping_test", MODULE_PATH)
 
 
 class ArtifactPreviewMappingTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        while _mapper_stub_depth > 0:
+            _restore_mapper_stubs()
+
     def test_map_step_screenshot_includes_preview_url(self) -> None:
         module = load_mapper_module()
         artifact = types.SimpleNamespace(

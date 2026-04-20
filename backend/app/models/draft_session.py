@@ -45,6 +45,7 @@ class DraftSessionModel(Base):
     draft_generation_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     screenshot_generation_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     screenshot_generation_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    export_text_enrichment_json: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
 
     artifacts: Mapped[list["ArtifactModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     meetings: Mapped[list["MeetingModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")

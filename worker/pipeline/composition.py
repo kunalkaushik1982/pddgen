@@ -5,11 +5,11 @@ from app.models.action_log import ActionLogModel
 from app.portability.job_messaging.enqueue_producers.celery_enqueue import CeleryJobEnqueueAdapter, build_celery_app_for_enqueue
 from app.portability.job_messaging.locks.redis_lock import build_redis_distributed_lock
 from app.portability.job_messaging.run_guards.session_run_guard import build_draft_run_guard, build_screenshot_run_guard
-from app.services.action_log_service import ActionLogService
-from app.services.job_dispatcher import JobDispatcherService
-from app.services.process_group_service import ProcessGroupService
-from app.services.step_extraction import StepExtractionService
-from app.services.transcript_intelligence import TranscriptIntelligenceService
+from app.services.platform.action_log_service import ActionLogService
+from app.services.generation.job_dispatcher import JobDispatcherService
+from app.services.draft_session.process_group_service import ProcessGroupService
+from app.services.generation.step_extraction import StepExtractionService
+from app.services.generation.transcript_intelligence import TranscriptIntelligenceService
 from sqlalchemy.orm import Session
 from worker import bootstrap as _bootstrap  # noqa: F401
 from worker.ai_skills.registry import build_default_ai_skill_registry
@@ -28,6 +28,7 @@ from worker.grouping.strategy_registry import WorkflowIntelligenceStrategyRegist
 from worker.media.transcript_normalizer import TranscriptNormalizer
 from worker.media.video_frame_extractor import VideoFrameExtractor
 from worker.pipeline.repositories import SqlAlchemyDraftSessionRepository
+from worker.pipeline.stages.document_export_enrichment import DocumentExportTextEnrichmentStage
 from worker.pipeline.stages.input_stages import EvidenceSegmentationStage, SessionPreparationStage
 from worker.pipeline.stages.output_stages import DiagramAssemblyStage, FailureStage, PersistenceStage, ScreenshotDerivationStage
 from worker.pipeline.stages.persistence_screenshots import persist_step_screenshots
@@ -206,6 +207,7 @@ def build_draft_generation_use_case(*, task_id: str | None) -> DraftGenerationUs
                 action_log_service=action_log,
                 ai_skill_registry=skill_registry,
             ),
+            DocumentExportTextEnrichmentStage(),
         ],
         persister=DraftPersistenceAdapter(PersistenceStage()),
         failure_recorder=FailureRecorderAdapter(FailureStage()),

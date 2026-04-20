@@ -14,8 +14,8 @@ from __future__ import annotations
 import importlib
 
 from app.core.config import Settings
-from app.services.auth_provider_registry import AuthProviderRegistry, ProviderFactory
-from app.services.auth_types import IdentityProvider
+from app.services.auth.auth_provider_registry import AuthProviderRegistry, ProviderFactory
+from app.services.auth.auth_types import IdentityProvider
 
 
 class ExtensibleAuthProviderRegistry(AuthProviderRegistry):

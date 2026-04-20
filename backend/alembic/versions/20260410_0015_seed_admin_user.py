@@ -26,7 +26,7 @@ def upgrade() -> None:
     if row is not None:
         return
 
-    from app.services.password_identity_provider import PasswordIdentityProvider
+    from app.services.auth.password_identity_provider import PasswordIdentityProvider
 
     user_id = str(uuid4())
     password_hash = PasswordIdentityProvider._hash_password("admin")

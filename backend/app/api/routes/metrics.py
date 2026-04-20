@@ -21,9 +21,9 @@ from app.schemas.admin import (
     MetricsOwnerOptionResponse,
 )
 from app.schemas.draft_session import DraftSessionListItemResponse
-from app.services.mappers import map_draft_session_list_item
-from app.services.pipeline_orchestrator import PipelineOrchestratorService
-from app.services.usage_metrics_service import list_admin_session_metrics
+from app.services.draft_session.mappers import map_draft_session_list_item
+from app.services.generation.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.admin.usage_metrics_service import list_admin_session_metrics
 
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])

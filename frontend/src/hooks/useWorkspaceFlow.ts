@@ -20,6 +20,7 @@ export function useWorkspaceFlow() {
   const { showToast } = useToast();
   const draftState = useWorkspaceDraft();
   const [isUploadingInputs, setIsUploadingInputs] = useState(false);
+  const [includeDiagramInDraft, setIncludeDiagramInDraft] = useState(true);
   const draftSessionsQuery = useDraftSessions();
 
   const {
@@ -153,7 +154,8 @@ export function useWorkspaceFlow() {
   });
 
   const generateMutation = useMutation({
-    mutationFn: async (sessionId: string) => sessionService.generateDraftSession(sessionId),
+    mutationFn: async ({ sessionId, includeDiagram }: { sessionId: string; includeDiagram: boolean }) =>
+      sessionService.generateDraftSession(sessionId, { includeDiagram }),
     onSuccess: async (session) => {
       setUploadSessionId(null);
       setUploadItems([]);
@@ -246,9 +248,11 @@ export function useWorkspaceFlow() {
     },
     generateDraft: () => {
       if (uploadSessionId) {
-        generateMutation.mutate(uploadSessionId);
+        generateMutation.mutate({ sessionId: uploadSessionId, includeDiagram: includeDiagramInDraft });
       }
     },
+    includeDiagramInDraft,
+    setIncludeDiagramInDraft,
     removeSelectedFile,
     resumeDraft,
     deleteDraft,

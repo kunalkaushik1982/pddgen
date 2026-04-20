@@ -7,7 +7,7 @@ from fastapi import HTTPException, UploadFile
 from starlette.datastructures import Headers
 
 from app.core.config import get_settings
-from app.services.artifact_validation import ArtifactValidationService
+from app.services.artifacts.artifact_validation import ArtifactValidationService
 
 
 def build_upload(filename: str, content_type: str, content: bytes) -> UploadFile:

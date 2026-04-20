@@ -12,34 +12,34 @@ from app.core.config import get_settings
 from app.core.observability import set_log_context
 from app.db.session import get_db_session
 from app.models.user import UserModel
-from app.services.action_log_service import ActionLogService
-from app.services.csrf_service import CsrfService
-from app.services.artifact_ingestion import ArtifactIngestionService
-from app.services.artifact_validation import ArtifactValidationService
+from app.services.platform.action_log_service import ActionLogService
+from app.services.platform.csrf_service import CsrfService
+from app.services.artifacts.artifact_ingestion import ArtifactIngestionService
+from app.services.artifacts.artifact_validation import ArtifactValidationService
 from app.portability.auth_registry import build_identity_provider
 from app.portability.http_client import build_llm_http_client
-from app.services.auth_service import AuthService
-from app.services.database_session_service import DatabaseSessionService
-from app.services.draft_session_diagram_service import DraftSessionDiagramService
-from app.services.draft_session_review_service import DraftSessionReviewService
+from app.services.auth.auth_service import AuthService
+from app.services.platform.database_session_service import DatabaseSessionService
+from app.services.draft_session.draft_session_diagram_service import DraftSessionDiagramService
+from app.services.draft_session.draft_session_review_service import DraftSessionReviewService
 from app.portability.job_messaging.locks.redis_lock import build_redis_distributed_lock
 from app.portability.job_messaging.run_guards.session_run_guard import build_draft_run_guard, build_screenshot_run_guard
 from app.portability.job_messaging.wiring import build_job_enqueue_port
-from app.services.document_pdf_converter import DocumentPdfConverter
-from app.services.document_renderer import DocumentRendererService
-from app.services.document_template_renderer import DocumentTemplateRenderer
-from app.services.job_dispatcher import JobDispatcherService
-from app.services.meeting_service import MeetingService
-from app.services.pipeline_orchestrator import PipelineOrchestratorService
-from app.services.process_diagram_service import ProcessDiagramService
-from app.services.process_group_service import ProcessGroupService
-from app.services.screenshot_mapping import ScreenshotMappingService
-from app.services.session_chat_service import SessionChatService
-from app.services.step_extraction import StepExtractionService
-from app.services.transcript_intelligence import TranscriptIntelligenceService
+from app.services.documents.document_pdf_converter import DocumentPdfConverter
+from app.services.documents.document_renderer import DocumentRendererService
+from app.services.documents.document_template_renderer import DocumentTemplateRenderer
+from app.services.generation.job_dispatcher import JobDispatcherService
+from app.services.draft_session.meeting_service import MeetingService
+from app.services.generation.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.generation.process_diagram_service import ProcessDiagramService
+from app.services.draft_session.process_group_service import ProcessGroupService
+from app.services.generation.screenshot_mapping import ScreenshotMappingService
+from app.services.chat.session_chat_service import SessionChatService
+from app.services.generation.step_extraction import StepExtractionService
+from app.services.generation.transcript_intelligence import TranscriptIntelligenceService
 from app.portability.payments import DefaultPaymentGatewayFactory, PaymentGatewayFactoryPort, PaymentWebhookProcessorPort
-from app.services.billing_checkout_service import BillingCheckoutService
-from app.services.billing_webhook_processor import BillingPaymentWebhookProcessor
+from app.services.billing.billing_checkout_service import BillingCheckoutService
+from app.services.billing.billing_webhook_processor import BillingPaymentWebhookProcessor
 from app.storage.storage_service import StorageService
 
 

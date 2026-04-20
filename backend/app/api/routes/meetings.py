@@ -12,7 +12,7 @@ from app.api.dependencies import get_meeting_service, require_workspace_user
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.meeting import CreateMeetingRequest, MeetingResponse, ReorderMeetingsRequest, UpdateMeetingRequest
-from app.services.meeting_service import MeetingService
+from app.services.draft_session.meeting_service import MeetingService
 
 
 router = APIRouter(prefix="/draft-sessions/{session_id}/meetings", tags=["meetings"])

@@ -35,6 +35,7 @@ def refresh_group_summaries(
     ai_skill_registry: Any,
     process_summary_generation_skill: Any,
     workflow_capability_tagging_skill: Any,
+    capability_classification_enabled: bool = True,
     logger: Any,
 ) -> tuple[Any, Any]:
     if not process_groups:
@@ -104,6 +105,7 @@ def refresh_group_summaries(
             accepted_ai_confidence=accepted_ai_confidence,
             ai_skill_registry=ai_skill_registry,
             workflow_capability_tagging_skill=workflow_capability_tagging_skill,
+            capability_classification_enabled=capability_classification_enabled,
             logger=logger,
         )
         process_group.capability_tags_json = json.dumps(capability_tags)
@@ -120,8 +122,12 @@ def resolve_capability_tags(
     accepted_ai_confidence: set[str],
     ai_skill_registry: Any,
     workflow_capability_tagging_skill: Any,
+    capability_classification_enabled: bool,
     logger: Any,
 ) -> tuple[list[str], Any]:
+    if not capability_classification_enabled:
+        fallback_tags = fallback_capability_tags(workflow_profiles=workflow_profiles)
+        return (fallback_tags if fallback_tags else [process_title]), workflow_capability_tagging_skill
     if workflow_capability_tagging_skill is None:
         workflow_capability_tagging_skill = ai_skill_registry.create("workflow_capability_tagging")
     logger.info(

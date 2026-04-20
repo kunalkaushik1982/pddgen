@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 class TranscriptToStepsRequest:
     transcript_artifact_id: str
     transcript_text: str
+    max_steps: int | None = None
 
 
 @dataclass(slots=True)

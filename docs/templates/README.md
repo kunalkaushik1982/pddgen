@@ -4,8 +4,14 @@ This folder contains sample uploadable Word templates for document-output testin
 
 Current sample templates:
 
+- `flowlens-pdd-template.docx`
+  - sample PDD template for the `pdd` document builder (single- and multi-process)
+  - regenerate via `python docs/templates/build_flowlens_pdd_template.py` (also refreshes `test-assets/pdd-enterprise-multishot-template.docx`)
+  - uses `pdd.multi_process` to choose `pdd.process_sections` loops vs `pdd.as_is_steps`
 - `flowlens-sop-template.docx`
-  - sample SOP template for the `sop` document builder
+  - sample SOP template for the `sop` document builder (single- and multi-process)
+  - regenerate via `python docs/templates/build_flowlens_sop_template.py`
+  - uses `sop.multi_process` to choose `sop.process_document_blocks` vs top-level `sop.*`
   - upload this in Workspace when `Document output` is set to `SOP`
   - renders SOP-specific sections:
     - purpose
@@ -23,9 +29,8 @@ Current sample templates:
   - regenerate via `python docs/templates/build_flowlens_brd_template.py`
   - full placeholder list: **`BRD_DOCXTPL_REFERENCE.md`**
   - renders BRD-specific sections:
-    - `brd.overview`, business objective, scope, current-state summary
-    - stakeholders, application landscape, requirements (`BR-###`)
-    - business rules, assumptions, risks
-    - `brd.workflow_sections` (per-section steps + diagrams)
+    - **`brd.canonical_sections`** — full 1–20 outline plus 4.1 / 4.2 (index-style BRD)
+    - appendix: `brd.overview`, structured requirements (`BR-###`), business rules
+    - `brd.workflow_sections` (per-section summaries)
     - `brd.process_flow` (combined diagram image)
     - evidence summary

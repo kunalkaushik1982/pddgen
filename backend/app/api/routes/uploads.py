@@ -23,14 +23,14 @@ from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.common import ArtifactKind
 from app.schemas.draft_session import ArtifactResponse, CreateDraftSessionRequest, DraftSessionResponse
-from app.services.artifact_ingestion import ArtifactIngestionService
-from app.services.action_log_service import ActionLogService
-from app.services.mappers import map_draft_session
+from app.services.artifacts.artifact_ingestion import ArtifactIngestionService
+from app.services.platform.action_log_service import ActionLogService
+from app.services.draft_session.mappers import map_draft_session
 from app.models.artifact import ArtifactModel
 from app.storage.storage_service import StorageService
-from app.services.meeting_service import MeetingService
-from app.services.process_group_service import ProcessGroupService
-from app.services.user_quota_service import refund_job_unit, reserve_job_unit
+from app.services.draft_session.meeting_service import MeetingService
+from app.services.draft_session.process_group_service import ProcessGroupService
+from app.services.draft_session.user_quota_service import refund_job_unit, reserve_job_unit
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 

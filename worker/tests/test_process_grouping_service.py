@@ -23,7 +23,7 @@ observability_module.get_logger = lambda name: _FakeLogger()
 artifact_module = types.ModuleType("app.models.artifact")
 draft_session_module = types.ModuleType("app.models.draft_session")
 process_group_model_module = types.ModuleType("app.models.process_group")
-process_group_service_module = types.ModuleType("app.services.process_group_service")
+process_group_service_module = types.ModuleType("app.services.draft_session.process_group_service")
 bootstrap_module = types.ModuleType("worker.bootstrap")
 
 
@@ -72,10 +72,10 @@ sys.modules.setdefault("app.core.observability", observability_module)
 sys.modules.setdefault("app.models.artifact", artifact_module)
 sys.modules.setdefault("app.models.draft_session", draft_session_module)
 sys.modules.setdefault("app.models.process_group", process_group_model_module)
-sys.modules.setdefault("app.services.process_group_service", process_group_service_module)
+sys.modules.setdefault("app.services.draft_session.process_group_service", process_group_service_module)
 sys.modules.setdefault("worker.bootstrap", bootstrap_module)
 
-from app.services.process_group_service import ProcessGroupService
+from app.services.draft_session.process_group_service import ProcessGroupService
 from worker.ai_skills.registry import build_default_ai_skill_registry
 from worker.grouping.grouping_service import ProcessGroupingService
 from worker.grouping.grouping_models import TranscriptWorkflowProfile

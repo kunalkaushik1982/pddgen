@@ -26,7 +26,27 @@ SKILL_PATH = (
     / "session_grounded_qa"
     / "skill.py"
 )
-SESSION_CHAT_PATH = Path(__file__).resolve().parents[1] / "app" / "services" / "session_chat_service.py"
+SESSION_CHAT_PATH = Path(__file__).resolve().parents[1] / "app" / "services" / "chat" / "session_chat_service.py"
+
+_BACKEND_STUB_KEYS = (
+    "app",
+    "app.core",
+    "app.core.config",
+    "app.core.observability",
+    "app.core.llm_usage",
+    "app.services",
+    "app.services.ai_skills",
+    "app.services.ai_skills.session_grounded_qa",
+    "app.services.ai_skills.session_grounded_qa.schemas",
+    "app.services.ai_skills.session_grounded_qa.skill",
+    "app.models",
+    "app.models.draft_session",
+    "app.storage",
+    "app.storage.storage_service",
+    "httpx",
+)
+_backend_stub_depth = 0
+_backend_stub_saved: dict[str, types.ModuleType | None] | None = None
 
 
 def load_module(name: str, path: Path):
@@ -43,6 +63,11 @@ def load_schemas_module():
 
 
 def install_backend_stubs():
+    global _backend_stub_depth, _backend_stub_saved
+    if _backend_stub_depth == 0:
+        _backend_stub_saved = {k: sys.modules.get(k) for k in _BACKEND_STUB_KEYS}
+    _backend_stub_depth += 1
+
     app_module = types.ModuleType("app")
     app_module.__path__ = []  # type: ignore[attr-defined]
     core_module = types.ModuleType("app.core")
@@ -142,6 +167,26 @@ def install_backend_stubs():
     return FakeSettings
 
 
+def _restore_backend_stubs() -> None:
+    global _backend_stub_depth, _backend_stub_saved
+    if _backend_stub_depth == 0:
+        return
+    _backend_stub_depth -= 1
+    if _backend_stub_depth == 0 and _backend_stub_saved is not None:
+        for key, previous in _backend_stub_saved.items():
+            if previous is None:
+                sys.modules.pop(key, None)
+            else:
+                sys.modules[key] = previous
+        _backend_stub_saved = None
+        for name in (
+            "session_grounded_qa_schemas_test",
+            "session_grounded_qa_skill_test",
+            "session_chat_service_test",
+        ):
+            sys.modules.pop(name, None)
+
+
 def load_skill_module():
     install_backend_stubs()
     return load_module("session_grounded_qa_skill_test", SKILL_PATH)
@@ -173,6 +218,10 @@ class StubClient:
 
 
 class SessionGroundedQATests(unittest.TestCase):
+    def tearDown(self) -> None:
+        while _backend_stub_depth > 0:
+            _restore_backend_stubs()
+
     def test_session_grounded_qa_request_keeps_inputs(self) -> None:
         schemas = load_schemas_module()
         request = schemas.SessionGroundedQARequest(

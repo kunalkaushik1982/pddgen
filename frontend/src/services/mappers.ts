@@ -234,6 +234,10 @@ export function mapDraftSessionListItem(session: BackendDraftSessionListItem): D
     failureDetail: session.failure_detail,
     resumeReady: session.resume_ready,
     canRetry: session.can_retry,
+    llmCallCount: session.llm_call_count ?? 0,
+    totalPromptTokens: session.total_prompt_tokens ?? 0,
+    totalCompletionTokens: session.total_completion_tokens ?? 0,
+    totalTokensReported: session.total_tokens_reported ?? 0,
   };
 }
 

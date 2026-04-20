@@ -5,7 +5,7 @@ from collections import Counter
 from typing import TypedDict
 
 from app.core.observability import bind_log_context, get_logger
-from app.services.action_log_service import ActionLogService
+from app.services.platform.action_log_service import ActionLogService
 from sqlalchemy.orm import Session
 from worker.pipeline.stages.stage_context import DraftGenerationContext
 from worker.media.transcript_normalizer import TranscriptNormalizer

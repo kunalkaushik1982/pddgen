@@ -35,15 +35,15 @@ Use `{{ brd.<field> }}` in your Word document.
 | `brd.overview.document_owner` | Owner id |
 | `brd.overview.document_status` | Session status |
 | `brd.overview.generated_at` | Same as `brd.generated_at` |
-| `brd.overview.process_summary` | Narrative AS-IS summary (multi-section aware) |
+| `brd.overview.process_summary` | Business-facing executive summary from session evidence (multi-section aware; not PDD “AS-IS” wording) |
 
 ### Narrative sections
 
 | Field | Description |
 |-------|-------------|
 | `brd.business_objective` | Auto-generated BRD objective paragraph |
-| `brd.scope` | Scope paragraph derived from steps/sections |
-| `brd.current_state_summary` | Same text as `brd.overview.process_summary` (alias for wording flexibility) |
+| `brd.scope` | BRD scope paragraph (initiative / workflow areas; not SOP-style scope) |
+| `brd.current_state_summary` | Same text as `brd.overview.process_summary` (alias for template flexibility) |
 
 ### Structured lists
 
@@ -124,6 +124,31 @@ Example:
 | `brd.evidence_summary.workflow_sections` | Count |
 | `brd.evidence_summary.observed_steps` | Count |
 | `brd.evidence_summary.captured_notes` | Count |
+
+### `brd.canonical_sections` — 20-section outline (matches index + CRM sample)
+
+Reference assets under `input/BRD/brdtemplatedefinitiontranscriptgeneratedbrd/` use the same headings: **BRD_Index_Definitions_Examples.docx** (definitions/examples per section) and **CRM_BRD_Detailed.docx** (filled example).
+
+`brd.canonical_sections` is a **list of 22** rows (sections **4.1** and **4.2** sit under section 4). Each item has:
+
+| Key | Description |
+|-----|-------------|
+| `ref` | `"1"` … `"20"` or `"4.1"`, `"4.2"` |
+| `slug` | Stable id, e.g. `executive_summary`, `in_scope`, `functional_requirements` |
+| `title` | Heading text without the leading number |
+| `body` | Auto-filled from session data where possible; short placeholders otherwise |
+
+Example — one heading per section:
+
+```jinja
+{% for row in brd.canonical_sections %}
+{{ row.ref }} {{ row.title }}
+{{ row.body }}
+
+{% endfor %}
+```
+
+Rough mapping from walkthrough-backed fields: summary → §1–3; scope → §4; workflow section titles → §4.1; §4.2 placeholder; stakeholders → §5; step text → §6; `brd.requirements` (Functional) → §7; other requirement categories → §8; diagram source + image hint → §9; step actions narrative → §10; applications → §11; assumptions / risks → §12 / §15; §13–14, §16–§19 placeholders; stakeholder list → §20.
 
 ## Shipping a custom BRD template
 

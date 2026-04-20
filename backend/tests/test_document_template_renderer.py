@@ -6,8 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from app.services.document_export_context_builder import BrdDocumentExportContextBuilder, SopDocumentExportContextBuilder
-from app.services.document_template_renderer import DocumentTemplateRenderer
+from app.services.documents.document_export_context_builder import (
+    BrdDocumentExportContextBuilder,
+    PddDocumentExportContextBuilder,
+    SopDocumentExportContextBuilder,
+)
+from app.services.documents.document_template_renderer import DocumentTemplateRenderer
 
 
 class _StubProcessDiagramService:
@@ -35,7 +39,151 @@ class _LocalCopyStorageService:
         return destination
 
 
+def _db_with_no_diagram_layout():
+    """Avoid MagicMock truthy one_or_none() breaking JSON load in diagram render path."""
+    db = MagicMock()
+    db.query.return_value.filter.return_value.one_or_none.return_value = None
+    return db
+
+
 class DocumentTemplateRendererTests(unittest.TestCase):
+    def test_pdd_renderer_single_process_exports_as_is_path(self):
+        template_path = Path(__file__).resolve().parents[2] / "docs" / "templates" / "flowlens-pdd-template.docx"
+        self.assertTrue(template_path.exists(), "Expected flowlens PDD sample template to exist.")
+
+        stub = _StubProcessDiagramService()
+        renderer = DocumentTemplateRenderer(
+            process_diagram_service=stub,
+            context_builder=PddDocumentExportContextBuilder(process_diagram_service=stub),
+        )
+        draft_session = SimpleNamespace(
+            id="pdd-1",
+            title="Invoice Entry",
+            owner_id="owner",
+            status="draft",
+            document_type="pdd",
+            diagram_type="flowchart",
+            artifacts=[
+                SimpleNamespace(
+                    kind="template",
+                    storage_path=str(template_path),
+                    name="flowlens-pdd-template.docx",
+                )
+            ],
+            process_groups=[],
+            process_steps=[
+                SimpleNamespace(
+                    process_group_id=None,
+                    step_number=1,
+                    application_name="SAP",
+                    action_text="Post the invoice",
+                    source_data_note="",
+                    timestamp="00:00:01",
+                    start_timestamp="00:00:01",
+                    end_timestamp="00:00:10",
+                    supporting_transcript_text="",
+                    confidence="high",
+                    evidence_references="[]",
+                    step_screenshots=[],
+                    screenshot_id="",
+                ),
+            ],
+            process_notes=[],
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "pdd-single.docx"
+            renderer.render_docx_file(
+                _db_with_no_diagram_layout(),
+                draft_session,
+                output_path,
+                storage_service=_LocalCopyStorageService(),
+            )
+            with zipfile.ZipFile(output_path) as archive:
+                document_xml = archive.read("word/document.xml").decode("utf-8")
+            self.assertIn("3. AS-IS Steps", document_xml)
+            self.assertIn("Post the invoice", document_xml)
+            self.assertIn("5. Process Flow Diagram", document_xml)
+
+    def test_pdd_renderer_multi_process_exports_process_sections(self):
+        template_path = Path(__file__).resolve().parents[2] / "docs" / "templates" / "flowlens-pdd-template.docx"
+        self.assertTrue(template_path.exists(), "Expected flowlens PDD sample template to exist.")
+
+        stub = _StubProcessDiagramService()
+        renderer = DocumentTemplateRenderer(
+            process_diagram_service=stub,
+            context_builder=PddDocumentExportContextBuilder(process_diagram_service=stub),
+        )
+        draft_session = SimpleNamespace(
+            id="pdd-mp",
+            title="End-to-End",
+            owner_id="owner",
+            status="draft",
+            document_type="pdd",
+            diagram_type="flowchart",
+            artifacts=[
+                SimpleNamespace(
+                    kind="template",
+                    storage_path=str(template_path),
+                    name="flowlens-pdd-template.docx",
+                )
+            ],
+            process_groups=[
+                SimpleNamespace(id="g1", title="Create Order", display_order=0),
+                SimpleNamespace(id="g2", title="Fulfill Order", display_order=1),
+            ],
+            process_steps=[
+                SimpleNamespace(
+                    process_group_id="g1",
+                    step_number=1,
+                    application_name="SAP",
+                    action_text="Enter the order header",
+                    source_data_note="",
+                    timestamp="00:00:01",
+                    start_timestamp="00:00:01",
+                    end_timestamp="00:00:10",
+                    supporting_transcript_text="",
+                    confidence="high",
+                    evidence_references="[]",
+                    step_screenshots=[],
+                    screenshot_id="",
+                ),
+                SimpleNamespace(
+                    process_group_id="g2",
+                    step_number=2,
+                    application_name="SAP",
+                    action_text="Pick and confirm delivery",
+                    source_data_note="",
+                    timestamp="00:01:00",
+                    start_timestamp="00:01:00",
+                    end_timestamp="00:02:00",
+                    supporting_transcript_text="",
+                    confidence="high",
+                    evidence_references="[]",
+                    step_screenshots=[],
+                    screenshot_id="",
+                ),
+            ],
+            process_notes=[],
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "pdd-multi.docx"
+            renderer.render_docx_file(
+                _db_with_no_diagram_layout(),
+                draft_session,
+                output_path,
+                storage_service=_LocalCopyStorageService(),
+            )
+            with zipfile.ZipFile(output_path) as archive:
+                document_xml = archive.read("word/document.xml").decode("utf-8")
+            self.assertIn("3. Process Sections", document_xml)
+            self.assertIn("Create Order", document_xml)
+            self.assertIn("Fulfill Order", document_xml)
+            self.assertIn("Enter the order header", document_xml)
+            self.assertIn("Pick and confirm delivery", document_xml)
+            self.assertNotIn("3. AS-IS Steps", document_xml)
+
     def test_sop_renderer_creates_sop_specific_export(self):
         template_path = Path(__file__).resolve().parents[2] / "docs" / "templates" / "flowlens-sop-template.docx"
         self.assertTrue(template_path.exists(), "Expected SOP sample template to exist.")
@@ -105,7 +253,7 @@ class DocumentTemplateRendererTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "sop-output.docx"
             renderer.render_docx_file(
-                MagicMock(),
+                _db_with_no_diagram_layout(),
                 draft_session,
                 output_path,
                 storage_service=_LocalCopyStorageService(),
@@ -121,6 +269,88 @@ class DocumentTemplateRendererTests(unittest.TestCase):
             self.assertIn("Confirm payment terms before saving the vendor record.", document_xml)
             self.assertIn("Open the vendor master transaction", document_xml)
             self.assertNotIn("pdd.overview.process_name", document_xml)
+
+    def test_sop_renderer_multi_process_repeats_body_per_group(self):
+        template_path = Path(__file__).resolve().parents[2] / "docs" / "templates" / "flowlens-sop-template.docx"
+        self.assertTrue(template_path.exists(), "Expected SOP sample template to exist.")
+
+        stub = _StubProcessDiagramService()
+        renderer = DocumentTemplateRenderer(
+            process_diagram_service=stub,
+            context_builder=SopDocumentExportContextBuilder(process_diagram_service=stub),
+        )
+        draft_session = SimpleNamespace(
+            id="session-sop-mp",
+            title="Order-to-Cash",
+            owner_id="tester",
+            status="review",
+            document_type="sop",
+            diagram_type="sequence",
+            artifacts=[
+                SimpleNamespace(
+                    kind="template",
+                    storage_path=str(template_path),
+                    name="flowlens-sop-template.docx",
+                )
+            ],
+            process_groups=[
+                SimpleNamespace(id="g-a", title="Order capture", display_order=0),
+                SimpleNamespace(id="g-b", title="Billing", display_order=1),
+            ],
+            process_steps=[
+                SimpleNamespace(
+                    process_group_id="g-a",
+                    step_number=1,
+                    application_name="SAP GUI",
+                    action_text="Enter the customer order",
+                    source_data_note="",
+                    timestamp="00:00:10",
+                    start_timestamp="00:00:10",
+                    end_timestamp="00:00:32",
+                    supporting_transcript_text="",
+                    confidence="high",
+                    evidence_references="[]",
+                    step_screenshots=[],
+                    screenshot_id="",
+                ),
+                SimpleNamespace(
+                    process_group_id="g-b",
+                    step_number=2,
+                    application_name="SAP GUI",
+                    action_text="Generate and post the invoice",
+                    source_data_note="",
+                    timestamp="00:01:00",
+                    start_timestamp="00:01:00",
+                    end_timestamp="00:01:30",
+                    supporting_transcript_text="",
+                    confidence="high",
+                    evidence_references="[]",
+                    step_screenshots=[],
+                    screenshot_id="",
+                ),
+            ],
+            process_notes=[],
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "sop-multi.docx"
+            renderer.render_docx_file(
+                _db_with_no_diagram_layout(),
+                draft_session,
+                output_path,
+                storage_service=_LocalCopyStorageService(),
+            )
+            self.assertTrue(output_path.exists(), "Expected SOP export to be created.")
+
+            with zipfile.ZipFile(output_path) as archive:
+                document_xml = archive.read("word/document.xml").decode("utf-8")
+
+            self.assertIn("Order-to-Cash", document_xml)
+            self.assertIn("Order capture", document_xml)
+            self.assertIn("Billing", document_xml)
+            self.assertIn("Enter the customer order", document_xml)
+            self.assertIn("Generate and post the invoice", document_xml)
+            self.assertGreaterEqual(document_xml.count("Purpose"), 2)
 
     def test_brd_renderer_creates_brd_specific_export(self):
         template_path = Path(__file__).resolve().parents[2] / "docs" / "templates" / "flowlens-brd-template.docx"
@@ -207,6 +437,116 @@ class DocumentTemplateRendererTests(unittest.TestCase):
             self.assertIn("BR-001", document_xml)
             self.assertIn("Order data must be validated before save.", document_xml)
             self.assertNotIn("sop.purpose", document_xml)
+            self.assertNotIn("AS-IS", document_xml)
+            self.assertIn("business context", document_xml.lower())
+
+    def test_brd_renderer_multi_process_repeats_body_per_group(self):
+        template_path = Path(__file__).resolve().parents[2] / "docs" / "templates" / "flowlens-brd-template.docx"
+        self.assertTrue(template_path.exists(), "Expected BRD sample template to exist.")
+
+        stub = _StubProcessDiagramService()
+        renderer = DocumentTemplateRenderer(
+            process_diagram_service=stub,
+            context_builder=BrdDocumentExportContextBuilder(process_diagram_service=stub),
+        )
+        draft_session = SimpleNamespace(
+            id="session-mp",
+            title="Combined Initiative",
+            owner_id="tester",
+            status="review",
+            document_type="brd",
+            diagram_type="sequence",
+            artifacts=[
+                SimpleNamespace(
+                    kind="template",
+                    storage_path=str(template_path),
+                    name="flowlens-brd-template.docx",
+                )
+            ],
+            process_groups=[
+                SimpleNamespace(id="g-a", title="Order Entry", display_order=0),
+                SimpleNamespace(id="g-b", title="Billing", display_order=1),
+            ],
+            process_steps=[
+                SimpleNamespace(
+                    process_group_id="g-a",
+                    step_number=1,
+                    application_name="SAP GUI",
+                    action_text="Create the sales order",
+                    source_data_note="",
+                    timestamp="00:00:10",
+                    start_timestamp="00:00:10",
+                    end_timestamp="00:00:32",
+                    supporting_transcript_text="",
+                    confidence="high",
+                    evidence_references="[]",
+                    step_screenshots=[],
+                    screenshot_id="",
+                ),
+                SimpleNamespace(
+                    process_group_id="g-b",
+                    step_number=2,
+                    application_name="SAP GUI",
+                    action_text="Post invoice to accounting",
+                    source_data_note="",
+                    timestamp="00:01:00",
+                    start_timestamp="00:01:00",
+                    end_timestamp="00:01:30",
+                    supporting_transcript_text="",
+                    confidence="high",
+                    evidence_references="[]",
+                    step_screenshots=[],
+                    screenshot_id="",
+                ),
+            ],
+            process_notes=[],
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "brd-multi.docx"
+            renderer.render_docx_file(
+                MagicMock(),
+                draft_session,
+                output_path,
+                storage_service=_LocalCopyStorageService(),
+            )
+            self.assertTrue(output_path.exists(), "Expected BRD export to be created.")
+
+            with zipfile.ZipFile(output_path) as archive:
+                document_xml = archive.read("word/document.xml").decode("utf-8")
+
+            self.assertIn("Combined Initiative", document_xml)
+            self.assertIn("Order Entry", document_xml)
+            self.assertIn("Billing", document_xml)
+            self.assertGreaterEqual(document_xml.count("Standard BRD sections"), 2)
+
+    def test_brd_canonical_sections_matches_index_shape(self):
+        rows = BrdDocumentExportContextBuilder._build_brd_canonical_sections(
+            overview={"process_summary": "Executive summary narrative."},
+            business_objective="Business objectives paragraph.",
+            scope="Scope paragraph.",
+            current_state_summary="Background narrative.",
+            stakeholders=[{"name": "Owner", "role": "Process owner", "interest": "Approves requirements."}],
+            applications=["SAP GUI"],
+            requirements=[
+                {"category": "Functional", "statement": "The solution must support users to open the order."},
+                {"category": "System", "statement": "Preserve SAP GUI access."},
+            ],
+            assumptions=["Walkthrough reflects current practice."],
+            risks=["Validate implicit rules before build."],
+            process_flow={"diagram_source": "flowchart TD; A-->B;", "rendered": True},
+            workflow_sections=[{"title": "Sales order"}],
+            process_steps=[{"action_text": "Open the sales order transaction"}],
+        )
+        self.assertEqual(len(rows), 22)
+        self.assertEqual(rows[0]["ref"], "1")
+        self.assertEqual(rows[0]["slug"], "executive_summary")
+        self.assertIn("Executive summary narrative.", rows[0]["body"])
+        self.assertEqual(rows[4]["ref"], "4.1")
+        self.assertEqual(rows[4]["slug"], "in_scope")
+        self.assertIn("Sales order", rows[4]["body"])
+        self.assertEqual(rows[-1]["ref"], "20")
+        self.assertEqual(rows[-1]["slug"], "approval_sign_off")
 
 
 if __name__ == "__main__":

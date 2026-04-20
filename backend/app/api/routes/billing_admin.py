@@ -30,7 +30,7 @@ from app.schemas.billing_compliance import (
     BillingInvoiceDetail,
     BillingRefundPublic,
 )
-from app.services.billing_refund_initiation_service import BillingRefundInitiationError, initiate_provider_refund
+from app.services.billing.billing_refund_initiation_service import BillingRefundInitiationError, initiate_provider_refund
 
 router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
 

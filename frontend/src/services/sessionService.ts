@@ -35,9 +35,16 @@ export const sessionService = {
     return mapDraftSession(session);
   },
 
-  async generateDraftSession(sessionId: string): Promise<DraftSession> {
+  async generateDraftSession(
+    sessionId: string,
+    options?: { includeDiagram?: boolean },
+  ): Promise<DraftSession> {
     const session = await fetchJson<BackendDraftSession>(`/draft-sessions/${sessionId}/generate`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...(options?.includeDiagram !== undefined ? { include_diagram: options.includeDiagram } : {}),
+      }),
     });
     return mapDraftSession(session);
   },

@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import unittest
 
-from app.services.billing_exceptions import BillingRuleError
-from app.services.billing_url_validation import validate_checkout_redirect_urls
+from app.services.billing.billing_exceptions import BillingRuleError
+from app.services.billing.billing_url_validation import validate_checkout_redirect_urls
 
 
 class BillingUrlValidationTests(unittest.TestCase):

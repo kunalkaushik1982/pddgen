@@ -92,7 +92,7 @@ class WorkflowTitleResolutionTests(unittest.TestCase):
 
         clear_stub_modules_for_integration_tests()
 
-        from app.services.process_group_service import ProcessGroupService
+        from app.services.draft_session.process_group_service import ProcessGroupService
         from worker.ai_skills.registry import build_default_ai_skill_registry
         from worker.ai_skills.transcript_interpreter.interpreter import AITranscriptInterpreter
         from worker.grouping.grouping_identity_flow import resolve_title_with_ai

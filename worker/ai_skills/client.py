@@ -69,7 +69,7 @@ class OpenAICompatibleSkillClient:
                     skill_id=skill_id,
                     model_requested=self.settings.ai_model,
                 )
-                from app.services.usage_metrics_service import persist_llm_usage_from_response_body_standalone
+                from app.services.admin.usage_metrics_service import persist_llm_usage_from_response_body_standalone
 
                 persist_llm_usage_from_response_body_standalone(
                     session_id=sid if isinstance(sid, str) else None,

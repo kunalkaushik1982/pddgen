@@ -33,10 +33,10 @@ from app.portability.payments import (
 from app.schemas.billing import BillingProductPublic
 from app.schemas.billing_compliance import BillingInvoiceDetail, BillingInvoicePublic, BillingProfilePatchRequest
 from app.schemas.payments import PaymentCheckoutRequest, PaymentCheckoutResponse
-from app.services.billing_catalog_mapper import to_public
-from app.services.billing_checkout_service import BillingCheckoutService
-from app.services.billing_exceptions import BillingProductNotFoundError, BillingRuleError
-from app.services.gst_invoice_service import format_invoice_text
+from app.services.billing.billing_catalog_mapper import to_public
+from app.services.billing.billing_checkout_service import BillingCheckoutService
+from app.services.billing.billing_exceptions import BillingProductNotFoundError, BillingRuleError
+from app.services.billing.gst_invoice_service import format_invoice_text
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 

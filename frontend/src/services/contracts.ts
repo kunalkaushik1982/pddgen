@@ -169,6 +169,10 @@ export type BackendDraftSessionListItem = {
   failure_detail: string;
   resume_ready: boolean;
   can_retry: boolean;
+  llm_call_count: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens_reported: number;
 };
 
 export type BackendSessionAnswerCitation = {

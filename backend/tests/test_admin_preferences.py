@@ -17,7 +17,7 @@ from app.db.base import Base
 from app.db.session import get_db_session
 from app.models.user import UserModel
 import app.main as main_module
-from app.services.password_identity_provider import PasswordIdentityProvider
+from app.services.auth.password_identity_provider import PasswordIdentityProvider
 
 
 class AdminPreferencesTests(unittest.TestCase):
@@ -99,9 +99,12 @@ class AdminPreferencesTests(unittest.TestCase):
         )
 
     def test_admin_preferences_persist_updated_visible_columns(self) -> None:
+        csrf_token = self.client.cookies.get(self.settings.auth_csrf_cookie_name)
+        self.assertIsInstance(csrf_token, str)
         save = self.client.put(
             "/api/admin/preferences",
             json={"session_metrics_visible_columns": ["session", "status", "updated_at"]},
+            headers={self.settings.auth_csrf_header_name: csrf_token},
         )
         self.assertEqual(save.status_code, 200)
         self.assertEqual(

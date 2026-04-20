@@ -7,7 +7,7 @@ from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 from sqlalchemy.orm import Session
 from app.models.artifact import ArtifactModel
-from app.services.action_log_service import ActionLogService
+from app.services.platform.action_log_service import ActionLogService
 from worker.bootstrap import get_backend_settings
 from worker.pipeline.stages.stage_context import DraftGenerationContext
 from worker.pipeline.types import DerivedScreenshotRecord, ScreenshotCandidateRecord, StepRecord

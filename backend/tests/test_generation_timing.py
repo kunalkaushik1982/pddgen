@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from app.services.generation_timing import wall_duration_seconds
+from app.services.platform.generation_timing import wall_duration_seconds
 
 
 def test_wall_duration_seconds_returns_none_if_incomplete() -> None:

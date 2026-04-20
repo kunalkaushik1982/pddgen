@@ -17,7 +17,7 @@ from app.db.base import Base
 from app.db.session import get_db_session
 from app.models.user import UserModel
 import app.main as main_module
-from app.services.password_identity_provider import PasswordIdentityProvider
+from app.services.auth.password_identity_provider import PasswordIdentityProvider
 
 
 class AdminConsoleOnlyTests(unittest.TestCase):

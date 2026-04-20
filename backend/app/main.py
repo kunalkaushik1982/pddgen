@@ -14,7 +14,7 @@ from app.core.observability import configure_logging, get_logger
 from app.db.schema_validation import validate_database_schema
 from app.middleware.csrf import CSRFMiddleware
 from app.middleware.request_context import RequestContextMiddleware
-from app.services.csrf_service import CsrfService
+from app.services.platform.csrf_service import CsrfService
 
 
 logger = get_logger(__name__)

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 from app.core.config import Settings
 from app.portability.payments import DefaultPaymentGatewayFactory, PaymentProvider
 from app.portability.payments.exceptions import PaymentConfigurationError
-from app.services.csrf_service import CsrfService
+from app.services.platform.csrf_service import CsrfService
 
 
 class PaymentPortTests(unittest.TestCase):

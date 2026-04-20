@@ -96,6 +96,10 @@ export function SessionHistoryPage({
                   {generationSummary ? (
                     <div className="artifact-meta muted">Last run times: {generationSummary}</div>
                   ) : null}
+                  <div className="artifact-meta muted">
+                    Tokens: {session.totalTokensReported.toLocaleString()} (prompt {session.totalPromptTokens.toLocaleString()}
+                    {" + "}completion {session.totalCompletionTokens.toLocaleString()}) | calls {session.llmCallCount}
+                  </div>
                   <div className="history-progress">
                     <div className="history-progress-bar">
                       <div

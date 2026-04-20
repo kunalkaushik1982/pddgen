@@ -12,8 +12,8 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import get_settings
 from app.db.base import Base
 from app.models.user import UserModel
-from app.services.password_identity_provider import PasswordIdentityProvider
-from app.services.user_quota_service import reserve_job_unit
+from app.services.auth.password_identity_provider import PasswordIdentityProvider
+from app.services.draft_session.user_quota_service import reserve_job_unit
 
 
 class UserQuotaTests(unittest.TestCase):

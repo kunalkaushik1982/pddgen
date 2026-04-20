@@ -20,6 +20,10 @@ class SessionInputs:
     session_id: str
     session: DraftSessionModel
     document_type: str = "pdd"
+    include_diagram: bool = True
+    brd_lean_mode: bool = False
+    transcript_to_steps_max_steps: int | None = None
+    capability_classification_enabled: bool = True
     transcript_artifacts: list[ArtifactModel] = field(default_factory=list)
     video_artifacts: list[ArtifactModel] = field(default_factory=list)
 

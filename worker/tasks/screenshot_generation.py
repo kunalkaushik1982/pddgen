@@ -10,7 +10,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 from worker import bootstrap as _bootstrap  # noqa: F401
 from app.core.observability import bind_log_context, get_logger
 from app.db.session import SessionLocal
-from app.services.generation_timing import track_screenshot_generation_wall_time
+from app.services.platform.generation_timing import track_screenshot_generation_wall_time
 from worker.bootstrap import get_backend_settings
 from worker.celery_app import celery_app
 from worker.pipeline.stages.failure import FailureStage
@@ -49,7 +49,7 @@ def run_screenshot_generation(self, session_id: str) -> dict[str, int | str]:
                             "duration_ms": int(duration_s * 1000),
                         },
                     )
-                    from app.services.usage_metrics_service import persist_background_job_run
+                    from app.services.admin.usage_metrics_service import persist_background_job_run
 
                     persist_background_job_run(
                         session_id=session_id,

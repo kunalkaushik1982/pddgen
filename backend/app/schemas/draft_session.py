@@ -217,6 +217,16 @@ class DraftSessionListItemResponse(BaseModel):
     failure_detail: str = ""
     resume_ready: bool = False
     can_retry: bool = False
+    llm_call_count: int = 0
+    total_prompt_tokens: int = 0
+    total_completion_tokens: int = 0
+    total_tokens_reported: int = 0
+
+
+class GenerateDraftSessionRequest(BaseModel):
+    """Optional run-time options for one draft-generation request."""
+
+    include_diagram: bool | None = None
 
 
 class SessionQuestionRequest(BaseModel):

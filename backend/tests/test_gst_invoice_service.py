@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import unittest
 
-from app.services.gst_invoice_service import compute_inclusive_gst_split
+from app.services.billing.gst_invoice_service import compute_inclusive_gst_split
 
 
 class GstInvoiceServiceTests(unittest.TestCase):

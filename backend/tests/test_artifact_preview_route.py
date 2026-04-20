@@ -8,6 +8,33 @@ import unittest
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "app" / "api" / "routes" / "uploads.py"
 
+_ROUTE_STUB_KEYS = (
+    "app",
+    "app.api",
+    "app.api.dependencies",
+    "app.db",
+    "app.db.session",
+    "app.models",
+    "app.models.user",
+    "app.models.artifact",
+    "app.schemas.common",
+    "app.schemas.draft_session",
+    "app.services",
+    "app.services.artifacts.artifact_ingestion",
+    "app.services.platform.action_log_service",
+    "app.services.draft_session.mappers",
+    "app.services.draft_session.meeting_service",
+    "app.services.draft_session.process_group_service",
+    "app.storage",
+    "app.storage.storage_service",
+    "fastapi",
+    "fastapi.responses",
+    "sqlalchemy",
+    "sqlalchemy.orm",
+)
+_route_stub_depth = 0
+_route_stub_saved: dict[str, types.ModuleType | None] | None = None
+
 
 def load_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -19,6 +46,11 @@ def load_module(name: str, path: Path):
 
 
 def install_route_stubs():
+    global _route_stub_depth, _route_stub_saved
+    if _route_stub_depth == 0:
+        _route_stub_saved = {k: sys.modules.get(k) for k in _ROUTE_STUB_KEYS}
+    _route_stub_depth += 1
+
     app_module = types.ModuleType("app")
     app_module.__path__ = []  # type: ignore[attr-defined]
     api_module = types.ModuleType("app.api")
@@ -33,11 +65,11 @@ def install_route_stubs():
     schemas_draft_session_module = types.ModuleType("app.schemas.draft_session")
     services_module = types.ModuleType("app.services")
     services_module.__path__ = []  # type: ignore[attr-defined]
-    artifact_ingestion_module = types.ModuleType("app.services.artifact_ingestion")
-    action_log_module = types.ModuleType("app.services.action_log_service")
-    mappers_module = types.ModuleType("app.services.mappers")
-    meeting_service_module = types.ModuleType("app.services.meeting_service")
-    process_group_service_module = types.ModuleType("app.services.process_group_service")
+    artifact_ingestion_module = types.ModuleType("app.services.artifacts.artifact_ingestion")
+    action_log_module = types.ModuleType("app.services.platform.action_log_service")
+    mappers_module = types.ModuleType("app.services.draft_session.mappers")
+    meeting_service_module = types.ModuleType("app.services.draft_session.meeting_service")
+    process_group_service_module = types.ModuleType("app.services.draft_session.process_group_service")
     storage_pkg = types.ModuleType("app.storage")
     storage_pkg.__path__ = []  # type: ignore[attr-defined]
     storage_service_module = types.ModuleType("app.storage.storage_service")
@@ -129,11 +161,11 @@ def install_route_stubs():
     sys.modules["app.schemas.common"] = schemas_common_module
     sys.modules["app.schemas.draft_session"] = schemas_draft_session_module
     sys.modules["app.services"] = services_module
-    sys.modules["app.services.artifact_ingestion"] = artifact_ingestion_module
-    sys.modules["app.services.action_log_service"] = action_log_module
-    sys.modules["app.services.mappers"] = mappers_module
-    sys.modules["app.services.meeting_service"] = meeting_service_module
-    sys.modules["app.services.process_group_service"] = process_group_service_module
+    sys.modules["app.services.artifacts.artifact_ingestion"] = artifact_ingestion_module
+    sys.modules["app.services.platform.action_log_service"] = action_log_module
+    sys.modules["app.services.draft_session.mappers"] = mappers_module
+    sys.modules["app.services.draft_session.meeting_service"] = meeting_service_module
+    sys.modules["app.services.draft_session.process_group_service"] = process_group_service_module
     sys.modules["app.storage"] = storage_pkg
     sys.modules["app.storage.storage_service"] = storage_service_module
     sys.modules["fastapi"] = fastapi_module
@@ -142,12 +174,31 @@ def install_route_stubs():
     sys.modules["sqlalchemy.orm"] = orm_module
 
 
+def _restore_route_stubs() -> None:
+    global _route_stub_depth, _route_stub_saved
+    if _route_stub_depth == 0:
+        return
+    _route_stub_depth -= 1
+    if _route_stub_depth == 0 and _route_stub_saved is not None:
+        for key, previous in _route_stub_saved.items():
+            if previous is None:
+                sys.modules.pop(key, None)
+            else:
+                sys.modules[key] = previous
+        _route_stub_saved = None
+        sys.modules.pop("artifact_preview_route_test", None)
+
+
 def load_route_module():
     install_route_stubs()
     return load_module("artifact_preview_route_test", MODULE_PATH)
 
 
 class ArtifactPreviewRouteTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        while _route_stub_depth > 0:
+            _restore_route_stubs()
+
     def test_preview_route_streams_bytes_when_internal_redirect_is_unavailable(self) -> None:
         module = load_route_module()
 

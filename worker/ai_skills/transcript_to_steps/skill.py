@@ -82,11 +82,16 @@ class TranscriptToStepsSkill:
     def build_messages(self, request: TranscriptToStepsRequest) -> list[dict[str, str]]:
         prompt_path = Path(__file__).with_name("prompt.md")
         prompt_text = load_markdown_text(prompt_path)
+        cap_hint = (
+            f"\n\nImportant: Return at most {request.max_steps} steps. Merge repetitive micro-actions into broader business steps."
+            if request.max_steps is not None
+            else ""
+        )
         return [
             {"role": "system", "content": prompt_text},
             {
                 "role": "user",
-                "content": f"Convert this transcript into process steps and business rules.\n\nTranscript:\n{request.transcript_text}",
+                "content": f"Convert this transcript into process steps and business rules.{cap_hint}\n\nTranscript:\n{request.transcript_text}",
             },
         ]
 
@@ -117,6 +122,8 @@ class TranscriptToStepsSkill:
             for item in parsed.get("steps", [])
             if isinstance(item, dict)
         ]
+        if input.max_steps is not None:
+            steps = steps[: max(1, int(input.max_steps))]
         notes = [
             _TranscriptNote(
                 text=str(item.get("text", "") or "").strip(),

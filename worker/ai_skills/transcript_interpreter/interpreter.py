@@ -65,7 +65,13 @@ class AITranscriptInterpreter:
     def is_enabled(self) -> bool:
         return bool(self.settings.ai_enabled and self.settings.ai_api_key and self.settings.ai_base_url and self.settings.ai_model)
 
-    def interpret(self, *, transcript_artifact_id: str, transcript_text: str) -> TranscriptInterpretation | None:
+    def interpret(
+        self,
+        *,
+        transcript_artifact_id: str,
+        transcript_text: str,
+        max_steps: int | None = None,
+    ) -> TranscriptInterpretation | None:
         if not self.is_enabled():
             return None
         logger.info(
@@ -80,6 +86,7 @@ class AITranscriptInterpreter:
             TranscriptToStepsRequest(
                 transcript_artifact_id=transcript_artifact_id,
                 transcript_text=transcript_text,
+                max_steps=max_steps,
             )
         )
         return self._build_legacy_transcript_interpretation(

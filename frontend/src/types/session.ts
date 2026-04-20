@@ -107,6 +107,10 @@ export type DraftSessionListItem = {
   failureDetail: string;
   resumeReady: boolean;
   canRetry: boolean;
+  llmCallCount: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalTokensReported: number;
 };
 
 export type SessionAnswerCitation = {

@@ -153,7 +153,7 @@ class Settings(BaseSettings):
     auth_token_days: int = 7
     auth_cookie_name: str = "pdd_generator_session"
     auth_cookie_secure: bool = False
-    auth_cookie_samesite: str = "lax"
+    auth_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     auth_cookie_domain: str | None = None
     auth_csrf_protection_enabled: bool = True
     auth_csrf_cookie_name: str = "pdd_generator_csrf"
@@ -164,6 +164,27 @@ class Settings(BaseSettings):
     ai_model: str = "gpt-4o"
     ai_base_url: str = "https://api.openai.com/v1"
     ai_timeout_seconds: float = 180.0
+    ai_document_export_enrichment_enabled: bool = Field(
+        default=True,
+        description="After draft generation, run one batched LLM call to polish export placeholders (stored on session).",
+    )
+    ai_brd_lean_mode_enabled: bool = Field(
+        default=False,
+        description="When true, apply BRD lean defaults for lower token/call usage in draft generation.",
+    )
+    ai_brd_transcript_to_steps_max_steps: int = Field(
+        default=40,
+        ge=1,
+        description="Hard cap for transcript_to_steps output steps when BRD lean mode is enabled.",
+    )
+    ai_brd_run_capability_classification_only_for_multi_transcript: bool = Field(
+        default=True,
+        description="In BRD lean mode, run capability classification only when session has multiple transcripts.",
+    )
+    ai_draft_generation_include_diagram_default: bool = Field(
+        default=True,
+        description="Default diagram generation behavior when user did not provide an explicit include_diagram option.",
+    )
     # OpenAI standard API pricing for gpt-4o (per 1M tokens on platform.openai.com/docs/pricing): $2.50 in, $10 out.
     ai_prompt_usd_per_1k_tokens: float = Field(default=0.0025, description="USD per 1k prompt tokens (gpt-4o: 2.50/1M).")
     ai_completion_usd_per_1k_tokens: float = Field(default=0.01, description="USD per 1k completion tokens (gpt-4o: 10/1M).")

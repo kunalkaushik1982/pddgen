@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.dependencies import get_current_admin_user
-from app.services.pipeline_orchestrator import PipelineOrchestratorService
+from app.services.generation.pipeline_orchestrator import PipelineOrchestratorService
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.models.draft_session import DraftSessionModel
@@ -24,9 +24,9 @@ from app.schemas.admin import (
     AdminUserQuotaUpdateRequest,
 )
 from app.schemas.draft_session import DraftSessionListItemResponse
-from app.services.mappers import map_draft_session_list_item
-from app.services.usage_metrics_service import list_admin_session_metrics
-from app.services.user_quota_service import effective_limits
+from app.services.draft_session.mappers import map_draft_session_list_item
+from app.services.admin.usage_metrics_service import list_admin_session_metrics
+from app.services.draft_session.user_quota_service import effective_limits
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])

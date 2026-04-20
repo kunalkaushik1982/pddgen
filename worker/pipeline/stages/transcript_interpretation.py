@@ -4,10 +4,10 @@ from collections.abc import Sequence
 from typing import Mapping, cast
 
 from app.core.observability import bind_log_context, get_logger
-from app.services.action_log_service import ActionLogService
+from app.services.platform.action_log_service import ActionLogService
 from sqlalchemy.orm import Session
-from app.services.step_extraction import StepExtractionService
-from app.services.transcript_intelligence import TranscriptIntelligenceService
+from app.services.generation.step_extraction import StepExtractionService
+from app.services.generation.transcript_intelligence import TranscriptIntelligenceService
 from worker.ai_skills.transcript_interpreter.interpreter import AITranscriptInterpreter
 from worker.pipeline.stages.stage_context import DraftGenerationContext
 from worker.pipeline.types import NoteRecord, StepRecord
@@ -99,6 +99,7 @@ class TranscriptInterpretationStage:
                 interpretation = self.ai_transcript_interpreter.interpret(
                     transcript_artifact_id=transcript.id,
                     transcript_text=normalized_text,
+                    max_steps=context.inputs.transcript_to_steps_max_steps,
                 )
 
                 if interpretation is not None and interpretation.steps:
