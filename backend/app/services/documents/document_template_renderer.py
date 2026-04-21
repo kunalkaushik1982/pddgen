@@ -11,8 +11,10 @@ from tempfile import TemporaryDirectory
 
 from docxtpl import DocxTemplate
 from fastapi import HTTPException, status
+from jinja2.exceptions import TemplateError
 from sqlalchemy.orm import Session
 
+from app.core.observability import get_logger
 from app.models.draft_session import DraftSessionModel
 from app.services.documents.document_context_builder_interfaces import DocumentContextBuilder
 from app.services.documents.document_context_builder_registry import DocumentContextBuilderRegistry
@@ -22,6 +24,16 @@ from app.services.document_export.pdd.template_preparation import prepare_pdd_mu
 from app.services.document_export.sop.template_preparation import prepare_sop_template_if_needed
 from app.services.generation.process_diagram_service import ProcessDiagramService
 from app.storage.storage_service import StorageService
+
+logger = get_logger(__name__)
+
+_EXPORT_RENDER_FAILED_DETAIL = (
+    "Export could not render the Word template with the current session. "
+    "This usually means the session document type (PDD, BRD, or SOP) does not match the "
+    "template you uploaded—for example, a BRD template while the session is set to PDD. "
+    "Use a template that matches the document type, or align the session document type with "
+    "the template, then try export again."
+)
 
 
 class DocumentTemplateRenderer:
@@ -56,8 +68,30 @@ class DocumentTemplateRenderer:
             prepare_sop_template_if_needed(template_path, draft_session)
             doc = DocxTemplate(str(template_path))
             context_builder = self.context_builder or self.builder_registry.create(getattr(draft_session, "document_type", "pdd"))
-            doc.render(context_builder.build(db, draft_session, doc, asset_root=asset_root, storage_service=storage_service))
-            doc.save(str(output_path))
+            try:
+                context = context_builder.build(db, draft_session, doc, asset_root=asset_root, storage_service=storage_service)
+                doc.render(context)
+                doc.save(str(output_path))
+            except HTTPException:
+                raise
+            except TemplateError as exc:
+                logger.warning(
+                    "DOCX template render failed (Jinja/template mismatch)",
+                    extra={"event": "export.template_render_failed", "session_id": draft_session.id, "error": str(exc)},
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=_EXPORT_RENDER_FAILED_DETAIL,
+                ) from exc
+            except Exception as exc:
+                logger.exception(
+                    "DOCX export render failed",
+                    extra={"event": "export.render_failed", "session_id": draft_session.id},
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=_EXPORT_RENDER_FAILED_DETAIL,
+                ) from exc
 
     def _build_default_registry(self) -> DocumentContextBuilderRegistry:
         registry = DocumentContextBuilderRegistry()

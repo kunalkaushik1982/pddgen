@@ -4,7 +4,10 @@ import unittest
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+from fastapi import HTTPException
+from jinja2.exceptions import TemplateError
 
 from app.services.documents.document_export_context_builder import (
     BrdDocumentExportContextBuilder,
@@ -547,6 +550,64 @@ class DocumentTemplateRendererTests(unittest.TestCase):
         self.assertIn("Sales order", rows[4]["body"])
         self.assertEqual(rows[-1]["ref"], "20")
         self.assertEqual(rows[-1]["slug"], "approval_sign_off")
+
+    def test_render_docx_raises_422_when_template_render_fails(self):
+        template_path = Path(__file__).resolve().parents[2] / "docs" / "templates" / "flowlens-pdd-template.docx"
+        self.assertTrue(template_path.exists(), "Expected flowlens PDD sample template to exist.")
+
+        stub = _StubProcessDiagramService()
+        renderer = DocumentTemplateRenderer(
+            process_diagram_service=stub,
+            context_builder=PddDocumentExportContextBuilder(process_diagram_service=stub),
+        )
+        draft_session = SimpleNamespace(
+            id="pdd-422",
+            title="Test",
+            owner_id="owner",
+            status="review",
+            document_type="pdd",
+            diagram_type="flowchart",
+            artifacts=[
+                SimpleNamespace(
+                    kind="template",
+                    storage_path=str(template_path),
+                    name="flowlens-pdd-template.docx",
+                )
+            ],
+            process_groups=[],
+            process_steps=[
+                SimpleNamespace(
+                    process_group_id=None,
+                    step_number=1,
+                    application_name="SAP",
+                    action_text="Step one",
+                    source_data_note="",
+                    timestamp="00:00:01",
+                    start_timestamp="00:00:01",
+                    end_timestamp="00:00:10",
+                    supporting_transcript_text="",
+                    confidence="high",
+                    evidence_references="[]",
+                    step_screenshots=[],
+                    screenshot_id="",
+                )
+            ],
+            process_notes=[],
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "fail.docx"
+            with patch("app.services.documents.document_template_renderer.DocxTemplate") as mock_docx_cls:
+                mock_docx_cls.return_value.render.side_effect = TemplateError("undefined variable")
+                with self.assertRaises(HTTPException) as ctx:
+                    renderer.render_docx_file(
+                        _db_with_no_diagram_layout(),
+                        draft_session,
+                        output_path,
+                        storage_service=_LocalCopyStorageService(),
+                    )
+                self.assertEqual(ctx.exception.status_code, 422)
+                self.assertIn("document type", str(ctx.exception.detail).lower())
 
 
 if __name__ == "__main__":
