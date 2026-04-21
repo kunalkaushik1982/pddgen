@@ -164,6 +164,47 @@ class ActionLogResponse(BaseModel):
     created_at: datetime
 
 
+class ExportTextEnrichmentResponse(BaseModel):
+    """Persisted export enrichment: AI and BA-edited placeholder bodies for Word export."""
+
+    version: int = 1
+    fields: dict[str, str] = Field(default_factory=dict)
+
+
+class TokenUsageBucketResponse(BaseModel):
+    """Token aggregation bucket for one grouping dimension."""
+
+    key: str
+    calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+class TokenUsageRunResponse(BaseModel):
+    """Token usage for one generation queue window."""
+
+    run_number: int
+    started_at: datetime
+    ended_at: datetime | None = None
+    calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+class DraftSessionTokenUsageResponse(BaseModel):
+    """Session-level token usage split for transparency in review/export UI."""
+
+    calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    by_model: list[TokenUsageBucketResponse] = Field(default_factory=list)
+    by_skill: list[TokenUsageBucketResponse] = Field(default_factory=list)
+    by_run: list[TokenUsageRunResponse] = Field(default_factory=list)
+
+
 class DraftSessionResponse(BaseModel):
     """Full draft session response."""
 
@@ -191,6 +232,18 @@ class DraftSessionResponse(BaseModel):
     process_notes: list[ProcessNoteResponse]
     output_documents: list[OutputDocumentResponse]
     action_logs: list[ActionLogResponse]
+    export_text_enrichment: ExportTextEnrichmentResponse | None = None
+    token_usage: DraftSessionTokenUsageResponse = Field(default_factory=DraftSessionTokenUsageResponse)
+    enrichment_field_ids: list[str] = Field(
+        default_factory=list,
+        description="Ordered export field ids for this document_type (matches enrichment registry).",
+    )
+
+
+class PatchExportTextEnrichmentRequest(BaseModel):
+    """Merge BA edits into persisted export_text_enrichment_json.fields (export picks up merged text)."""
+
+    fields: dict[str, str] = Field(default_factory=dict)
 
 
 class DraftSessionListItemResponse(BaseModel):

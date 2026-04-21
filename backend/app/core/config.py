@@ -284,6 +284,13 @@ class Settings(BaseSettings):
             "If latest 'Extracting screenshots' stage log is older than this, API lists the run as stalled for UX."
         ),
     )
+    draft_generation_stale_after_seconds: float = Field(
+        default=600.0,
+        description=(
+            "If draft_generation_started_at is this many seconds ago and the session is still "
+            "'processing' with no completion, API reconciles to failed so the user can retry."
+        ),
+    )
     billing_gst_invoice_enabled: bool = Field(
         default=False,
         description="When true, issue GST invoice rows on successful INR (or configured) payments.",

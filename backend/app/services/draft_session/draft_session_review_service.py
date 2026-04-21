@@ -3,13 +3,20 @@ Purpose: BA review mutations for steps and screenshot selections.
 Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\draft_session_review_service.py
 """
 
+import json
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.artifact import ArtifactModel
+from app.models.draft_session import DraftSessionModel
 from app.models.process_step_screenshot import ProcessStepScreenshotModel
 from app.models.process_step_screenshot_candidate import ProcessStepScreenshotCandidateModel
+from app.schemas.draft_session import PatchExportTextEnrichmentRequest
+from app.services.document_export.enrichment.registry import field_ids_for_document_type
 from app.services.platform.action_log_service import ActionLogService
+
+_MAX_ENRICHMENT_FIELD_CHARS = 120_000
 
 
 class DraftSessionReviewService:
@@ -178,3 +185,66 @@ class DraftSessionReviewService:
         db.commit()
         db.refresh(step)
         return step
+
+    def update_export_text_enrichment(
+        self,
+        db: Session,
+        *,
+        session: DraftSessionModel,
+        payload: PatchExportTextEnrichmentRequest,
+        actor: str,
+    ) -> DraftSessionModel:
+        """Merge BA edits into ``export_text_enrichment_json``; export builders read the same store."""
+        incoming = payload.fields or {}
+        if not incoming:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update.")
+
+        allowed = set(field_ids_for_document_type(session.document_type))
+        bad_keys = [k for k in incoming if k not in allowed]
+        if bad_keys:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown enrichment field id(s) for this document type: {bad_keys}",
+            )
+
+        for key, value in incoming.items():
+            if not isinstance(value, str) or len(value) > _MAX_ENRICHMENT_FIELD_CHARS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Field {key!r} must be a string of at most {_MAX_ENRICHMENT_FIELD_CHARS} characters.",
+                )
+
+        raw = getattr(session, "export_text_enrichment_json", None)
+        envelope: dict = {"version": 1, "fields": {}}
+        if raw and str(raw).strip():
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict):
+                envelope["version"] = int(parsed["version"]) if isinstance(parsed.get("version"), int) else 1
+                prev = parsed.get("fields")
+                if isinstance(prev, dict):
+                    envelope["fields"] = {
+                        str(k): str(v) for k, v in prev.items() if isinstance(k, str) and isinstance(v, str)
+                    }
+
+        merged = dict(envelope["fields"])
+        merged.update(incoming)
+        envelope["fields"] = merged
+        session.export_text_enrichment_json = json.dumps(envelope)
+        session.status = "review"
+        db.add(session)
+
+        preview = next((v[:120] for v in incoming.values() if isinstance(v, str) and v.strip()), "")
+        self.action_log_service.record(
+            db,
+            session_id=session.id,
+            event_type="export_text_enrichment_edited",
+            title="Export sections updated",
+            detail=preview or "Enrichment fields saved.",
+            actor=actor,
+        )
+        db.commit()
+        db.refresh(session)
+        return session

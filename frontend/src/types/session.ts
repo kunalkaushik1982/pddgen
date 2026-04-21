@@ -64,6 +64,39 @@ export type PendingEvidenceBundle = {
   videoName?: string | null;
 };
 
+export type ExportTextEnrichment = {
+  version: number;
+  fields: Record<string, string>;
+};
+
+export type TokenUsageBucket = {
+  key: string;
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};
+
+export type TokenUsageRun = {
+  runNumber: number;
+  startedAt: string;
+  endedAt?: string | null;
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};
+
+export type SessionTokenUsage = {
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  byModel: TokenUsageBucket[];
+  bySkill: TokenUsageBucket[];
+  byRun: TokenUsageRun[];
+};
+
 export type DraftSession = {
   id: string;
   title: string;
@@ -85,6 +118,11 @@ export type DraftSession = {
   processNotes: ProcessNote[];
   outputDocuments: OutputDocument[];
   actionLogs: ActionLogEntry[];
+  /** Batched export placeholder bodies (AI + BA edits); merged into DOCX/PDF. */
+  exportTextEnrichment: ExportTextEnrichment | null;
+  tokenUsage: SessionTokenUsage;
+  /** Ordered keys for this ``documentType`` (BRD, SOP, etc.). */
+  enrichmentFieldIds: string[];
 };
 
 export type DraftSessionListItem = {

@@ -38,7 +38,7 @@ class ProcessNoteModel(Base):
     related_step_ids: Mapped[str] = mapped_column(Text(), default="[]")
     evidence_reference_ids: Mapped[str] = mapped_column(Text(), default="[]")
     confidence: Mapped[str] = mapped_column(String(20), default="medium")
-    inference_type: Mapped[str] = mapped_column(String(20), default="explicit")
+    inference_type: Mapped[str] = mapped_column(String(128), default="explicit")
 
     session: Mapped["DraftSessionModel"] = relationship(back_populates="process_notes")
     process_group: Mapped["ProcessGroupModel"] = relationship(back_populates="process_notes")

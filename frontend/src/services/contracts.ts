@@ -147,6 +147,37 @@ export type BackendDraftSession = {
   process_notes: BackendProcessNote[];
   output_documents: BackendOutputDocument[];
   action_logs: BackendActionLog[];
+  export_text_enrichment: { version: number; fields: Record<string, string> } | null;
+  token_usage?: {
+    calls: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    by_model: Array<{
+      key: string;
+      calls: number;
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    }>;
+    by_skill: Array<{
+      key: string;
+      calls: number;
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    }>;
+    by_run: Array<{
+      run_number: number;
+      started_at: string;
+      ended_at?: string | null;
+      calls: number;
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    }>;
+  };
+  enrichment_field_ids: string[];
 };
 
 export type BackendDraftSessionListItem = {
