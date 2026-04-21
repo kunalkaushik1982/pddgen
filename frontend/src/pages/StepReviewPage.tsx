@@ -199,6 +199,11 @@ export function StepReviewPage({
     (availableProcessGroups.length === 1 ? (availableProcessGroups[0]?.summaryText ?? "").trim() : "");
   const summaryBulletsForPanel = summarySteps.map((step) => step.actionText);
   const actionLogEntries = session.actionLogs;
+  const latestGenerationQueued = session.actionLogs.find((entry) => entry.eventType === "generation_queued");
+  const includeDiagramFromLastQueued: boolean | null =
+    latestGenerationQueued && typeof latestGenerationQueued.metadata?.include_diagram === "boolean"
+      ? latestGenerationQueued.metadata.include_diagram
+      : null;
 
   function renderLazyPanel(children: React.ReactNode, message: string) {
     return (
@@ -225,7 +230,10 @@ export function StepReviewPage({
 
       <div className="section-header-inline">
         <div>
-          <strong>{session.title}</strong>
+          <div className="session-title-line">
+            Session name: <strong>{session.title}</strong>
+            <span className="artifact-meta"> | Document type: {session.documentType.toUpperCase()}</span>
+          </div>
           <div className="artifact-meta">
             {filteredSteps.length} step(s) | status {session.status}
           </div>
@@ -276,8 +284,13 @@ export function StepReviewPage({
         </div>
       </div>
 
-      {workspace.reviewMode === "artifacts" && session.inputArtifacts.length > 0 ? (
-        <SessionArtifactsPanel artifacts={session.inputArtifacts} />
+      {workspace.reviewMode === "artifacts" ? (
+        <SessionArtifactsPanel
+          artifacts={session.inputArtifacts}
+          documentType={session.documentType}
+          diagramType={session.diagramType}
+          includeDiagramInLastDraft={includeDiagramFromLastQueued}
+        />
       ) : null}
 
       {workspace.reviewMode !== "artifacts" && showProcessStepsEmpty ? (

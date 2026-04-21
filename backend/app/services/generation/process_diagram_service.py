@@ -135,6 +135,13 @@ class ProcessDiagramService:
         if matched_group is not None:
             overview_json = getattr(matched_group, "overview_diagram_json", "") or ""
             detailed_json = getattr(matched_group, "detailed_diagram_json", "") or ""
+        # If the group row has no diagram payload yet, fall back to session-level JSON.
+        # Draft generation persists explicit empty models on the session when "include diagram"
+        # is off; if only the session row was updated, we must not rebuild from process steps.
+        if not overview_json:
+            overview_json = getattr(draft_session, "overview_diagram_json", "") or ""
+        if not detailed_json:
+            detailed_json = getattr(draft_session, "detailed_diagram_json", "") or ""
 
         return _ScopedSessionView(
             id=draft_session.id,

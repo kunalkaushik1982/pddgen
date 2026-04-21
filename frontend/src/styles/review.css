@@ -1096,3 +1096,33 @@ textarea.document-section-textarea {
   line-height: 1.45;
   resize: vertical;
 }
+
+.session-title-line {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.action-log-generation-summary {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.action-log-generation-summary .action-log-metadata-section {
+  margin-top: 0;
+}
+
+.artifacts-settings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.artifacts-settings-list li {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(0, 2fr);
+  gap: 10px;
+  align-items: start;
+}

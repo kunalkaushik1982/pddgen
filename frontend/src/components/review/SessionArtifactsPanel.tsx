@@ -1,10 +1,15 @@
 import React from "react";
 
 import { formatFileSize } from "../../selectors/uploadPresentation";
-import type { InputArtifact } from "../../types/session";
+import type { DocumentType, InputArtifact } from "../../types/session";
+import { formatDiagramTypeLabel, formatDocumentTypeLabel, formatIncludeDiagramInDraft } from "../../utils/sessionDraftLabels";
 
 type SessionArtifactsPanelProps = {
   artifacts: InputArtifact[];
+  documentType: DocumentType;
+  diagramType: "flowchart" | "sequence";
+  /** From latest `generation_queued` log when available */
+  includeDiagramInLastDraft: boolean | null;
 };
 
 type ArtifactPair = {
@@ -15,7 +20,12 @@ type ArtifactPair = {
   sortCreatedAt: string | null;
 };
 
-export function SessionArtifactsPanel({ artifacts }: SessionArtifactsPanelProps): React.JSX.Element {
+export function SessionArtifactsPanel({
+  artifacts,
+  documentType,
+  diagramType,
+  includeDiagramInLastDraft,
+}: SessionArtifactsPanelProps): React.JSX.Element {
   const videoArtifacts = artifacts.filter((artifact) => artifact.kind === "video");
   const transcriptArtifacts = artifacts.filter((artifact) => artifact.kind === "transcript");
   const templateArtifacts = artifacts.filter((artifact) => artifact.kind === "template");
@@ -99,6 +109,27 @@ export function SessionArtifactsPanel({ artifacts }: SessionArtifactsPanelProps)
         <div className="summary-document-card artifacts-document-card">
           <div className="artifacts-section">
             <div>
+              <div className="summary-document-label">Draft generation</div>
+              <h3 className="summary-document-title">Document and diagram settings</h3>
+            </div>
+            <ul className="artifacts-settings-list artifact-meta">
+              <li>
+                <span className="artifacts-pair-label">Document type</span>
+                <span className="artifacts-pair-value">{formatDocumentTypeLabel(documentType)}</span>
+              </li>
+              <li>
+                <span className="artifacts-pair-label">Diagram type</span>
+                <span className="artifacts-pair-value">{formatDiagramTypeLabel(diagramType)}</span>
+              </li>
+              <li>
+                <span className="artifacts-pair-label">Include diagram in draft generation</span>
+                <span className="artifacts-pair-value">{formatIncludeDiagramInDraft(includeDiagramInLastDraft)}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="artifacts-section">
+            <div>
               <div className="summary-document-label">Evidence Pairs</div>
               <h3 className="summary-document-title">Video and Transcript Inputs</h3>
             </div>
@@ -139,7 +170,7 @@ export function SessionArtifactsPanel({ artifacts }: SessionArtifactsPanelProps)
           <div className="artifacts-section">
             <div>
               <div className="summary-document-label">Template</div>
-              <h3 className="summary-document-title">PDD Template Used</h3>
+              <h3 className="summary-document-title">{formatDocumentTypeLabel(documentType)} template used</h3>
             </div>
             {templateArtifacts.length > 0 ? (
               <div className="artifacts-template-list">

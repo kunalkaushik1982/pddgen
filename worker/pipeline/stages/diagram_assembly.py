@@ -33,8 +33,26 @@ class DiagramAssemblyStage:
     def run(self, db: Session, context: DraftGenerationContext) -> None:
         with bind_log_context(stage="diagram_assembly"):
             if not context.inputs.include_diagram:
-                context.overview_diagram_json = ""
-                context.detailed_diagram_json = ""
+                # Persist explicit empty models so downstream read paths do not
+                # fall back to auto-building diagrams from process steps.
+                context.overview_diagram_json = json.dumps(
+                    {
+                        "diagram_type": "flowchart",
+                        "view_type": "overview",
+                        "title": context.inputs.session.title,
+                        "nodes": [],
+                        "edges": [],
+                    }
+                )
+                context.detailed_diagram_json = json.dumps(
+                    {
+                        "diagram_type": "flowchart",
+                        "view_type": "detailed",
+                        "title": context.inputs.session.title,
+                        "nodes": [],
+                        "edges": [],
+                    }
+                )
                 logger.info(
                     "Diagram assembly skipped by run option.",
                     extra={"event": "draft_generation.stage_skipped", "include_diagram": False},

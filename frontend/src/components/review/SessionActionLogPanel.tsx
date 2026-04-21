@@ -1,6 +1,7 @@
 import React from "react";
 
 import type { ActionLogEntry } from "../../types/session";
+import { formatDiagramTypeLabel, formatDocumentTypeLabel, formatIncludeDiagramInDraft } from "../../utils/sessionDraftLabels";
 
 export function SessionActionLogPanel({ entries }: { entries: ActionLogEntry[] }): React.JSX.Element {
   const [copyState, setCopyState] = React.useState<"idle" | "copied" | "failed">("idle");
@@ -47,6 +48,7 @@ export function SessionActionLogPanel({ entries }: { entries: ActionLogEntry[] }
                 <li key={entry.id} className="action-log-document-item">
                   <div className="action-log-document-title">{entry.title}</div>
                   <div className="action-log-document-detail">{entry.detail}</div>
+                  <GenerationQueuedSummary entry={entry} />
                   <WorkflowIntelligenceMetadata entry={entry} />
                   <div className="artifact-meta">
                     {entry.actor} | {new Date(entry.createdAt).toLocaleString()}
@@ -60,6 +62,49 @@ export function SessionActionLogPanel({ entries }: { entries: ActionLogEntry[] }
         <div className="empty-state">No session activity is available yet.</div>
       )}
     </section>
+  );
+}
+
+function GenerationQueuedSummary({ entry }: { entry: ActionLogEntry }): React.JSX.Element | null {
+  if (entry.eventType !== "generation_queued") {
+    return null;
+  }
+  const metadata = entry.metadata ?? {};
+  const documentType = typeof metadata.document_type === "string" ? metadata.document_type.trim() : "";
+  const diagramType = typeof metadata.diagram_type === "string" ? metadata.diagram_type.trim() : "";
+  const includeRaw = metadata.include_diagram;
+  const hasTypedMetadata = Boolean(documentType) || Boolean(diagramType) || typeof includeRaw === "boolean";
+  if (!hasTypedMetadata) {
+    return null;
+  }
+
+  return (
+    <div className="action-log-generation-summary">
+      {documentType ? (
+        <div className="action-log-metadata-section">
+          <div className="action-log-metadata-label">Document type</div>
+          <div className="action-log-chip-row">
+            <span className="action-log-chip">{formatDocumentTypeLabel(documentType)}</span>
+          </div>
+        </div>
+      ) : null}
+      {diagramType ? (
+        <div className="action-log-metadata-section">
+          <div className="action-log-metadata-label">Diagram type</div>
+          <div className="action-log-chip-row">
+            <span className="action-log-chip">{formatDiagramTypeLabel(diagramType)}</span>
+          </div>
+        </div>
+      ) : null}
+      {typeof includeRaw === "boolean" ? (
+        <div className="action-log-metadata-section">
+          <div className="action-log-metadata-label">Include diagram in draft generation</div>
+          <div className="action-log-chip-row">
+            <span className="action-log-chip">{formatIncludeDiagramInDraft(includeRaw)}</span>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -704,6 +749,15 @@ function buildMetadataClipboardText(metadata: Record<string, unknown>): string {
   const documentType = typeof metadata.document_type === "string" ? metadata.document_type.trim() : "";
   if (documentType) {
     lines.push(`Document type: ${documentType}`);
+  }
+
+  const diagramType = typeof metadata.diagram_type === "string" ? metadata.diagram_type.trim() : "";
+  if (diagramType) {
+    lines.push(`Diagram type: ${diagramType}`);
+  }
+
+  if (typeof metadata.include_diagram === "boolean") {
+    lines.push(`Include diagram in draft generation: ${metadata.include_diagram ? "yes" : "no"}`);
   }
 
   appendRecordLines(lines, "Counts", getRecord(metadata.counts));

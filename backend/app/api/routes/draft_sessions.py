@@ -109,13 +109,22 @@ def generate_draft_session(
             )
         try:
             session = service.mark_session_processing(db, session_id, owner_id=current_user.username)
+            effective_include_diagram = (
+                payload.include_diagram
+                if payload is not None and payload.include_diagram is not None
+                else settings.ai_draft_generation_include_diagram_default
+            )
             action_log.record(
                 db,
                 session_id=session.id,
                 event_type="generation_queued",
                 title="Draft generation queued",
                 detail="Transcript interpretation and screenshot derivation queued.",
-                metadata={"include_diagram": payload.include_diagram} if payload and payload.include_diagram is not None else None,
+                metadata={
+                    "document_type": (session.document_type or "pdd").strip().lower(),
+                    "diagram_type": (session.diagram_type or "flowchart").strip().lower(),
+                    "include_diagram": effective_include_diagram,
+                },
                 actor=current_user.username,
             )
             db.commit()
