@@ -14,6 +14,103 @@
   align-items: center;
 }
 
+.token-usage-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.token-usage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.token-usage-header h3 {
+  margin: 0;
+}
+
+.token-usage-header-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.token-usage-header-title {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.token-usage-root {
+  display: grid;
+  gap: 14px;
+}
+
+.token-usage-total {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.token-usage-total span {
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+
+.token-usage-details {
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  padding: 10px 12px 12px;
+}
+
+.token-usage-section-button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.token-usage-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.token-usage-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.token-usage-percent {
+  color: var(--app-muted);
+  font-size: 0.8rem;
+}
+
+.token-usage-caret {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+}
+
+.token-usage-caret-open {
+  transform: rotate(90deg);
+}
+
 .review-header-action-slot-view .session-draft-action {
   display: none;
 }
@@ -974,4 +1071,28 @@
   .candidate-preview-editor {
     min-height: 0;
   }
+}
+
+.review-step-button-document {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.review-step-button-document .review-step-button-index {
+  flex-shrink: 0;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.review-step-button-document .review-step-button-label {
+  flex: 1;
+  white-space: normal;
+}
+
+textarea.document-section-textarea {
+  width: 100%;
+  min-height: 280px;
+  line-height: 1.45;
+  resize: vertical;
 }

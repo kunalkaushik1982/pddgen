@@ -9,6 +9,7 @@ import { ReviewWorkspaceTabs } from "../components/review/ReviewWorkspaceTabs";
 import { uiCopy } from "../constants/uiCopy";
 import { SessionActionLogPanel } from "../components/review/SessionActionLogPanel";
 import { SessionArtifactsPanel } from "../components/review/SessionArtifactsPanel";
+import { DocumentSectionProcessSection } from "../components/review/DocumentSectionProcessSection";
 import { SessionDiagramSection } from "../components/review/SessionDiagramSection";
 import { SessionProcessSection } from "../components/review/SessionProcessSection";
 import { SessionSummaryPanel } from "../components/review/SessionSummaryPanel";
@@ -77,6 +78,16 @@ export function StepReviewPage({
     initialReviewMode,
     sessionId: session?.id ?? null,
   });
+  const usesExportSectionProcess = session.documentType === "brd" || session.documentType === "sop";
+  const enrichmentFieldsMerged = React.useMemo(() => {
+    const raw = session.exportTextEnrichment?.fields ?? {};
+    const out: Record<string, string> = {};
+    for (const id of session.enrichmentFieldIds) {
+      out[id] = raw[id] ?? "";
+    }
+    return out;
+  }, [session.exportTextEnrichment, session.enrichmentFieldIds]);
+  const showProcessStepsEmpty = !usesExportSectionProcess && session.processSteps.length === 0;
   const sortedProcessGroups = React.useMemo(
     () => [...session.processGroups].sort((left, right) => left.displayOrder - right.displayOrder),
     [session.processGroups],
@@ -269,7 +280,7 @@ export function StepReviewPage({
         <SessionArtifactsPanel artifacts={session.inputArtifacts} />
       ) : null}
 
-      {workspace.reviewMode !== "artifacts" && session.processSteps.length === 0 ? (
+      {workspace.reviewMode !== "artifacts" && showProcessStepsEmpty ? (
         <div className="empty-state">No steps have been generated yet.</div>
       ) : workspace.reviewMode !== "artifacts" ? (
         <div className="review-subsection-stack">
@@ -389,55 +400,78 @@ export function StepReviewPage({
           ) : null}
 
           {workspace.reviewMode === "view" && workspace.activeViewTab === "steps" ? (
-            <SessionProcessSection
-              panelId="review-view-panel-steps"
-              labelledBy="review-view-tab-steps"
-              title="Process"
-              subtitle="Read-only process step review with screenshots and evidence."
-              mode="view"
-              stepEditor={stepEditor}
-              selectedStep={selectedStep}
-              steps={filteredSteps}
-              selectedStepId={selectedStep?.id ?? null}
-              disabled={disabled}
-              onSelectStep={onSelectStep}
-              onSaveStep={handleSubmit}
-              onSetPrimaryScreenshot={async () => undefined}
-              onRemoveScreenshot={async () => undefined}
-              onSelectCandidateScreenshot={async () => undefined}
-            />
+            usesExportSectionProcess ? (
+              <DocumentSectionProcessSection
+                sessionId={session.id}
+                documentLabel={session.documentType.toUpperCase()}
+                fieldIds={session.enrichmentFieldIds}
+                fields={enrichmentFieldsMerged}
+                mode="view"
+                disabled={disabled}
+              />
+            ) : (
+              <SessionProcessSection
+                panelId="review-view-panel-steps"
+                labelledBy="review-view-tab-steps"
+                title="Process"
+                subtitle="Read-only process step review with screenshots and evidence."
+                mode="view"
+                stepEditor={stepEditor}
+                selectedStep={selectedStep}
+                steps={filteredSteps}
+                selectedStepId={selectedStep?.id ?? null}
+                disabled={disabled}
+                onSelectStep={onSelectStep}
+                onSaveStep={handleSubmit}
+                onSetPrimaryScreenshot={async () => undefined}
+                onRemoveScreenshot={async () => undefined}
+                onSelectCandidateScreenshot={async () => undefined}
+              />
+            )
           ) : null}
 
           {workspace.reviewMode === "edit" && workspace.activeEditTab === "steps" ? (
-            <SessionProcessSection
-              panelId="review-edit-panel-steps"
-              labelledBy="review-edit-tab-steps"
-              title="Process Step Editor"
-              subtitle="Review screenshots, update extracted step text, and save BA corrections."
-              mode="edit"
-              stepEditor={stepEditor}
-              selectedStep={selectedStep}
-              steps={filteredSteps}
-              selectedStepId={selectedStep?.id ?? null}
-              disabled={disabled}
-              onSelectStep={onSelectStep}
-              onSaveStep={handleSubmit}
-              onSetPrimaryScreenshot={async (stepScreenshotId) => {
-                if (!selectedStep) {
-                  return;
-                }
-                await onSetPrimaryScreenshot(selectedStep.id, stepScreenshotId);
-              }}
-              onRemoveScreenshot={async (stepScreenshotId) => {
-                if (!selectedStep) {
-                  return;
-                }
-                await onRemoveScreenshot(selectedStep.id, stepScreenshotId);
-              }}
-              onSelectCandidateScreenshot={async (step, candidate, makePrimary) => {
-                await onSelectCandidateScreenshot(step.id, candidate.id, { isPrimary: makePrimary });
-              }}
-            />
+            usesExportSectionProcess ? (
+              <DocumentSectionProcessSection
+                sessionId={session.id}
+                documentLabel={session.documentType.toUpperCase()}
+                fieldIds={session.enrichmentFieldIds}
+                fields={enrichmentFieldsMerged}
+                mode="edit"
+                disabled={disabled}
+                onAfterSave={onRefreshSession}
+              />
+            ) : (
+              <SessionProcessSection
+                panelId="review-edit-panel-steps"
+                labelledBy="review-edit-tab-steps"
+                title="Process Step Editor"
+                subtitle="Review screenshots, update extracted step text, and save BA corrections."
+                mode="edit"
+                stepEditor={stepEditor}
+                selectedStep={selectedStep}
+                steps={filteredSteps}
+                selectedStepId={selectedStep?.id ?? null}
+                disabled={disabled}
+                onSelectStep={onSelectStep}
+                onSaveStep={handleSubmit}
+                onSetPrimaryScreenshot={async (stepScreenshotId) => {
+                  if (!selectedStep) {
+                    return;
+                  }
+                  await onSetPrimaryScreenshot(selectedStep.id, stepScreenshotId);
+                }}
+                onRemoveScreenshot={async (stepScreenshotId) => {
+                  if (!selectedStep) {
+                    return;
+                  }
+                  await onRemoveScreenshot(selectedStep.id, stepScreenshotId);
+                }}
+                onSelectCandidateScreenshot={async (step, candidate, makePrimary) => {
+                  await onSelectCandidateScreenshot(step.id, candidate.id, { isPrimary: makePrimary });
+                }}
+              />
+            )
           ) : null}
 
           {workspace.reviewMode === "view" && workspace.activeViewTab === "log" ? (

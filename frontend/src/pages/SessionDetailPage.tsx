@@ -58,6 +58,8 @@ export function SessionDetailPage({
   const [exportMenuOpen, setExportMenuOpen] = React.useState(false);
   const exportMenuRef = React.useRef<HTMLDivElement | null>(null);
   const [confirmScreenshotsOpen, setConfirmScreenshotsOpen] = React.useState(false);
+  const [tokenUsageOpen, setTokenUsageOpen] = React.useState(false);
+  const [openTokenSection, setOpenTokenSection] = React.useState<"run" | "skill" | "model">("run");
 
   React.useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -85,6 +87,18 @@ export function SessionDetailPage({
   }
 
   const hasExistingScreenshots = sessionHasPersistedScreenshotEvidence(session);
+  const tokenUsage = session.tokenUsage ?? {
+    calls: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    byModel: [],
+    bySkill: [],
+    byRun: [],
+  };
+  const formatNumber = (value: number) => value.toLocaleString();
+  const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+  const tokenTotalBase = tokenUsage.totalTokens > 0 ? tokenUsage.totalTokens : 1;
 
   return (
     <section className="stack">
@@ -102,6 +116,125 @@ export function SessionDetailPage({
           }}
         />
       ) : null}
+      <section className="panel token-usage-panel">
+        <button
+          type="button"
+          className="token-usage-header token-usage-header-button"
+          onClick={() => setTokenUsageOpen((current) => !current)}
+          aria-expanded={tokenUsageOpen}
+        >
+          <span className="token-usage-header-title">
+            <h3>Token Usage</h3>
+            <span className="muted">Session transparency</span>
+          </span>
+          <span className={`token-usage-caret ${tokenUsageOpen ? "token-usage-caret-open" : ""}`} aria-hidden="true">
+            ▶
+          </span>
+        </button>
+        {tokenUsageOpen ? (
+          <div className="token-usage-root">
+            <div className="token-usage-total">
+              <span>Total {formatNumber(tokenUsage.totalTokens)}</span>
+              <span>Prompt {formatNumber(tokenUsage.promptTokens)}</span>
+              <span>Completion {formatNumber(tokenUsage.completionTokens)}</span>
+              <span>Calls {formatNumber(tokenUsage.calls)}</span>
+            </div>
+            <section className="token-usage-details">
+              <button
+                type="button"
+                className="token-usage-section-button"
+                onClick={() => setOpenTokenSection("run")}
+                aria-expanded={openTokenSection === "run"}
+              >
+                <span>Run-wise split</span>
+                <span className={`token-usage-caret ${openTokenSection === "run" ? "token-usage-caret-open" : ""}`} aria-hidden="true">▶</span>
+              </button>
+              {openTokenSection === "run" ? (
+                <div className="token-usage-list">
+                  {tokenUsage.byRun.length ? (
+                    tokenUsage.byRun.map((run) => (
+                      <div key={`run-${run.runNumber}`} className="token-usage-row">
+                        <strong>Run {run.runNumber}</strong>
+                        <span>
+                          {formatNumber(run.totalTokens)} tok{" "}
+                          <small className="token-usage-percent">({formatPercent((run.totalTokens / tokenTotalBase) * 100)})</small>
+                        </span>
+                        <span>Prompt {formatNumber(run.promptTokens)}</span>
+                        <span>Completion {formatNumber(run.completionTokens)}</span>
+                        <span>{formatNumber(run.calls)} calls</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="muted">No queued runs found yet.</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+            <section className="token-usage-details">
+              <button
+                type="button"
+                className="token-usage-section-button"
+                onClick={() => setOpenTokenSection("skill")}
+                aria-expanded={openTokenSection === "skill"}
+              >
+                <span>Skill / stage split</span>
+                <span className={`token-usage-caret ${openTokenSection === "skill" ? "token-usage-caret-open" : ""}`} aria-hidden="true">▶</span>
+              </button>
+              {openTokenSection === "skill" ? (
+                <div className="token-usage-list">
+                  {tokenUsage.bySkill.length ? (
+                    tokenUsage.bySkill.map((bucket) => (
+                      <div key={`skill-${bucket.key}`} className="token-usage-row">
+                        <strong>{bucket.key}</strong>
+                        <span>
+                          {formatNumber(bucket.totalTokens)} tok{" "}
+                          <small className="token-usage-percent">({formatPercent((bucket.totalTokens / tokenTotalBase) * 100)})</small>
+                        </span>
+                        <span>Prompt {formatNumber(bucket.promptTokens)}</span>
+                        <span>Completion {formatNumber(bucket.completionTokens)}</span>
+                        <span>{formatNumber(bucket.calls)} calls</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="muted">No skill-level usage available.</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+            <section className="token-usage-details">
+              <button
+                type="button"
+                className="token-usage-section-button"
+                onClick={() => setOpenTokenSection("model")}
+                aria-expanded={openTokenSection === "model"}
+              >
+                <span>Model split</span>
+                <span className={`token-usage-caret ${openTokenSection === "model" ? "token-usage-caret-open" : ""}`} aria-hidden="true">▶</span>
+              </button>
+              {openTokenSection === "model" ? (
+                <div className="token-usage-list">
+                  {tokenUsage.byModel.length ? (
+                    tokenUsage.byModel.map((bucket) => (
+                      <div key={`model-${bucket.key}`} className="token-usage-row">
+                        <strong>{bucket.key}</strong>
+                        <span>
+                          {formatNumber(bucket.totalTokens)} tok{" "}
+                          <small className="token-usage-percent">({formatPercent((bucket.totalTokens / tokenTotalBase) * 100)})</small>
+                        </span>
+                        <span>Prompt {formatNumber(bucket.promptTokens)}</span>
+                        <span>Completion {formatNumber(bucket.completionTokens)}</span>
+                        <span>{formatNumber(bucket.calls)} calls</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="muted">No model-level usage available.</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          </div>
+        ) : null}
+      </section>
       <Suspense
         fallback={
           <section className="panel">

@@ -6,6 +6,8 @@ Full filepath: C:\Users\work\Documents\PddGenerator\backend\app\services\pipelin
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
+
+from app.portability.job_messaging.locks.redis_lock import build_redis_distributed_lock
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -43,6 +45,62 @@ class PipelineOrchestratorService:
         self.transcript_intelligence_service = transcript_intelligence_service
         self.screenshot_mapping_service = screenshot_mapping_service
         self.process_group_service = process_group_service
+
+    @staticmethod
+    def reconcile_stale_draft_generation_processing_if_needed(db: Session, session: DraftSessionModel) -> None:
+        """If draft generation died after marking timing complete, or hung past threshold, unblock the session."""
+        if session.status != "processing":
+            return
+        settings = get_settings()
+        threshold = float(settings.draft_generation_stale_after_seconds or 0.0)
+        now = datetime.now(timezone.utc)
+
+        completed = session.draft_generation_completed_at
+        if completed is not None:
+            if completed.tzinfo is None:
+                completed = completed.replace(tzinfo=timezone.utc)
+            # Worker exited (timing finally ran) but status was never moved off processing.
+            if (now - completed).total_seconds() > 15:
+                PipelineOrchestratorService._finalize_stale_draft_generation(
+                    db,
+                    session,
+                    "Draft generation ended abnormally; session was left in processing. Click Generate to retry.",
+                )
+            return
+
+        if threshold <= 0:
+            return
+        started = session.draft_generation_started_at
+        if started is None:
+            return
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if (now - started).total_seconds() <= threshold:
+            return
+        PipelineOrchestratorService._finalize_stale_draft_generation(
+            db,
+            session,
+            "Draft generation did not finish in time (worker may have stopped). Click Generate to retry.",
+        )
+
+    @staticmethod
+    def _finalize_stale_draft_generation(db: Session, session: DraftSessionModel, detail: str) -> None:
+        session.status = "failed"
+        db.add(
+            ActionLogModel(
+                session_id=session.id,
+                event_type="generation_failed",
+                title="Draft generation stalled",
+                detail=detail[:500],
+                actor="system",
+            )
+        )
+        db.commit()
+        try:
+            lock = build_redis_distributed_lock(get_settings())
+            lock.release(f"pdd-generator:draft-generation-lock:{session.id}")
+        except Exception:
+            pass
 
     @staticmethod
     def reconcile_stale_screenshot_processing_if_needed(db: Session, session: DraftSessionModel) -> None:
@@ -106,6 +164,7 @@ class PipelineOrchestratorService:
         if session is None or (owner_id is not None and session.owner_id != owner_id):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft session not found.")
         self.process_group_service.ensure_default_process_group(db, session=session)
+        self.reconcile_stale_draft_generation_processing_if_needed(db, session)
         self.reconcile_stale_screenshot_processing_if_needed(db, session)
         return session
 

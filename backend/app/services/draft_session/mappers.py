@@ -25,13 +25,18 @@ from app.schemas.draft_session import (
     CandidateScreenshotResponse,
     DraftSessionListItemResponse,
     DraftSessionResponse,
+    DraftSessionTokenUsageResponse,
+    ExportTextEnrichmentResponse,
     OutputDocumentResponse,
     PendingEvidenceBundleResponse,
     ProcessNoteResponse,
     ProcessGroupResponse,
     ProcessStepResponse,
     StepScreenshotResponse,
+    TokenUsageBucketResponse,
+    TokenUsageRunResponse,
 )
+from app.services.document_export.enrichment.registry import field_ids_for_document_type
 
 
 def _parse_json_list(value: str) -> list:
@@ -206,6 +211,97 @@ def _llm_usage_totals(session: DraftSessionModel) -> tuple[int, int, int, int]:
     return calls, prompt, completion, total_reported
 
 
+def _build_token_usage(session: DraftSessionModel) -> DraftSessionTokenUsageResponse:
+    events = list(getattr(session, "llm_usage_events", []) or [])
+    if not events:
+        return DraftSessionTokenUsageResponse()
+
+    def _event_total(item) -> int:
+        total = int(getattr(item, "total_tokens", 0) or 0)
+        if total > 0:
+            return total
+        return int(getattr(item, "prompt_tokens", 0) or 0) + int(getattr(item, "completion_tokens", 0) or 0)
+
+    prompt_total = sum(int(getattr(item, "prompt_tokens", 0) or 0) for item in events)
+    completion_total = sum(int(getattr(item, "completion_tokens", 0) or 0) for item in events)
+    total_tokens = sum(_event_total(item) for item in events)
+
+    by_model_raw: dict[str, dict[str, int]] = {}
+    by_skill_raw: dict[str, dict[str, int]] = {}
+    for item in events:
+        model_key = str(getattr(item, "model", None) or "unknown")
+        skill_key = str(getattr(item, "skill_id", None) or "unknown")
+        for grouping, key in ((by_model_raw, model_key), (by_skill_raw, skill_key)):
+            bucket = grouping.setdefault(
+                key,
+                {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            )
+            bucket["calls"] += 1
+            bucket["prompt_tokens"] += int(getattr(item, "prompt_tokens", 0) or 0)
+            bucket["completion_tokens"] += int(getattr(item, "completion_tokens", 0) or 0)
+            bucket["total_tokens"] += _event_total(item)
+
+    by_model = [
+        TokenUsageBucketResponse(
+            key=key,
+            calls=values["calls"],
+            prompt_tokens=values["prompt_tokens"],
+            completion_tokens=values["completion_tokens"],
+            total_tokens=values["total_tokens"],
+        )
+        for key, values in sorted(by_model_raw.items(), key=lambda item: (-item[1]["total_tokens"], item[0]))
+    ]
+    by_skill = [
+        TokenUsageBucketResponse(
+            key=key,
+            calls=values["calls"],
+            prompt_tokens=values["prompt_tokens"],
+            completion_tokens=values["completion_tokens"],
+            total_tokens=values["total_tokens"],
+        )
+        for key, values in sorted(by_skill_raw.items(), key=lambda item: (-item[1]["total_tokens"], item[0]))
+    ]
+
+    queued_points = sorted(
+        [
+            log.created_at
+            for log in getattr(session, "action_logs", [])
+            if getattr(log, "event_type", "") == "generation_queued"
+        ]
+    )
+    by_run: list[TokenUsageRunResponse] = []
+    if queued_points:
+        sorted_events = sorted(events, key=lambda item: item.created_at)
+        for index, start in enumerate(queued_points):
+            end = queued_points[index + 1] if index + 1 < len(queued_points) else None
+            in_window = [
+                item
+                for item in sorted_events
+                if item.created_at >= start and (end is None or item.created_at < end)
+            ]
+            by_run.append(
+                TokenUsageRunResponse(
+                    run_number=index + 1,
+                    started_at=start,
+                    ended_at=end,
+                    calls=len(in_window),
+                    prompt_tokens=sum(int(getattr(item, "prompt_tokens", 0) or 0) for item in in_window),
+                    completion_tokens=sum(int(getattr(item, "completion_tokens", 0) or 0) for item in in_window),
+                    total_tokens=sum(_event_total(item) for item in in_window),
+                )
+            )
+
+    return DraftSessionTokenUsageResponse(
+        calls=len(events),
+        prompt_tokens=prompt_total,
+        completion_tokens=completion_total,
+        total_tokens=total_tokens,
+        by_model=by_model,
+        by_skill=by_skill,
+        by_run=by_run,
+    )
+
+
 def map_artifact(artifact: ArtifactModel, storage_service=None) -> ArtifactResponse:
     """Convert one persisted artifact into an API response with preview metadata when available."""
     preview_url = None
@@ -326,6 +422,25 @@ def map_action_log(action_log) -> ActionLogResponse:
     )
 
 
+def _export_text_enrichment_payload(session: DraftSessionModel) -> ExportTextEnrichmentResponse | None:
+    raw = getattr(session, "export_text_enrichment_json", None)
+    if not raw or not str(raw).strip():
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    fields_raw = data.get("fields")
+    if not isinstance(fields_raw, dict):
+        return ExportTextEnrichmentResponse(version=1, fields={})
+    fields = {str(k): str(v) for k, v in fields_raw.items() if isinstance(k, str) and isinstance(v, str)}
+    ver = data.get("version", 1)
+    version = int(ver) if isinstance(ver, int) else 1
+    return ExportTextEnrichmentResponse(version=version, fields=fields)
+
+
 def map_process_group(process_group: ProcessGroupModel) -> ProcessGroupResponse:
     """Convert one persisted process group into an API response."""
     return ProcessGroupResponse(
@@ -397,6 +512,9 @@ def map_draft_session(session: DraftSessionModel) -> DraftSessionResponse:
         process_notes=[map_process_note(note) for note in session.process_notes],
         output_documents=[OutputDocumentResponse.model_validate(doc) for doc in session.output_documents],
         action_logs=[map_action_log(item) for item in sorted(session.action_logs, key=lambda item: item.created_at, reverse=True)],
+        export_text_enrichment=_export_text_enrichment_payload(session),
+        token_usage=_build_token_usage(session),
+        enrichment_field_ids=list(field_ids_for_document_type(session.document_type)),
     )
 
 

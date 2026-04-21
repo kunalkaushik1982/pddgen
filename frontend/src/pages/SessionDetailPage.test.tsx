@@ -59,6 +59,17 @@ function createSession(): DraftSession {
     processNotes: [],
     outputDocuments: [],
     actionLogs: [],
+    exportTextEnrichment: null,
+    tokenUsage: {
+      calls: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      byModel: [],
+      bySkill: [],
+      byRun: [],
+    },
+    enrichmentFieldIds: [],
   };
 }
 
@@ -103,8 +114,10 @@ describe("SessionDetailPage", () => {
 
     expect(await screen.findByTestId("step-review-page")).toHaveTextContent("Invoice Session::step-1::edit");
 
-    fireEvent.click(screen.getByRole("button", { name: "Word" }));
-    fireEvent.click(screen.getByRole("button", { name: "PDF" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Word" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "PDF" }));
 
     expect(onExportDocx).toHaveBeenCalledTimes(1);
     expect(onExportPdf).toHaveBeenCalledTimes(1);

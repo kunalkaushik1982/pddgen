@@ -210,6 +210,44 @@ export function mapDraftSession(session: BackendDraftSession): DraftSession {
     processNotes: session.process_notes.map(mapProcessNote),
     outputDocuments: session.output_documents.map(mapOutputDocument),
     actionLogs: session.action_logs.map(mapActionLog),
+    exportTextEnrichment: session.export_text_enrichment
+      ? {
+          version: session.export_text_enrichment.version ?? 1,
+          fields: session.export_text_enrichment.fields ?? {},
+        }
+      : null,
+    tokenUsage: {
+      calls: session.token_usage?.calls ?? 0,
+      promptTokens: session.token_usage?.prompt_tokens ?? 0,
+      completionTokens: session.token_usage?.completion_tokens ?? 0,
+      totalTokens:
+        session.token_usage?.total_tokens ??
+        (session.token_usage?.prompt_tokens ?? 0) + (session.token_usage?.completion_tokens ?? 0),
+      byModel: (session.token_usage?.by_model ?? []).map((item) => ({
+        key: item.key,
+        calls: item.calls ?? 0,
+        promptTokens: item.prompt_tokens ?? 0,
+        completionTokens: item.completion_tokens ?? 0,
+        totalTokens: item.total_tokens ?? 0,
+      })),
+      bySkill: (session.token_usage?.by_skill ?? []).map((item) => ({
+        key: item.key,
+        calls: item.calls ?? 0,
+        promptTokens: item.prompt_tokens ?? 0,
+        completionTokens: item.completion_tokens ?? 0,
+        totalTokens: item.total_tokens ?? 0,
+      })),
+      byRun: (session.token_usage?.by_run ?? []).map((item) => ({
+        runNumber: item.run_number,
+        startedAt: item.started_at,
+        endedAt: item.ended_at ?? null,
+        calls: item.calls ?? 0,
+        promptTokens: item.prompt_tokens ?? 0,
+        completionTokens: item.completion_tokens ?? 0,
+        totalTokens: item.total_tokens ?? 0,
+      })),
+    },
+    enrichmentFieldIds: session.enrichment_field_ids ?? [],
   };
 }
 

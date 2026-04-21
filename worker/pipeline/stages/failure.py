@@ -24,6 +24,8 @@ class FailureStage:
         from app.models.draft_session import DraftSessionModel
 
         with bind_log_context(stage="failure"):
+            # Prior stage may have left the session rolled back (e.g. flush DataError).
+            db.rollback()
             session = db.get(DraftSessionModel, session_id)
             if session is None:
                 return

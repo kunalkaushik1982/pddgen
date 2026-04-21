@@ -67,6 +67,18 @@ export const sessionService = {
     return mapDraftSession(session);
   },
 
+  async patchExportTextEnrichment(
+    sessionId: string,
+    payload: { fields: Record<string, string> },
+  ): Promise<DraftSession> {
+    const session = await fetchJson<BackendDraftSession>(`/draft-sessions/${sessionId}/export-text-enrichment`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: payload.fields }),
+    });
+    return mapDraftSession(session);
+  },
+
   async askSession(sessionId: string, question: string, processGroupId?: string | null): Promise<SessionAnswer> {
     const answer = await fetchJson<BackendSessionAnswer>(`/draft-sessions/${sessionId}/ask`, {
       method: "POST",

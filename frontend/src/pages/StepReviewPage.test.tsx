@@ -135,6 +135,8 @@ function createSession(): DraftSession {
     processNotes: [],
     outputDocuments: [],
     actionLogs: [],
+    exportTextEnrichment: null,
+    enrichmentFieldIds: [],
   };
 }
 

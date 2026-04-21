@@ -31,6 +31,7 @@ from app.schemas.draft_session import (
     DraftSessionListItemResponse,
     GenerateDraftSessionRequest,
     DraftSessionResponse,
+    PatchExportTextEnrichmentRequest,
     ProcessStepResponse,
     SaveDiagramArtifactRequest,
     SaveDiagramLayoutRequest,
@@ -72,6 +73,7 @@ def list_draft_sessions(
     )
     sessions = list(db.execute(statement).scalars().all())
     for session in sessions:
+        PipelineOrchestratorService.reconcile_stale_draft_generation_processing_if_needed(db, session)
         PipelineOrchestratorService.reconcile_stale_screenshot_processing_if_needed(db, session)
     return [map_draft_session_list_item(session) for session in sessions]
 
@@ -213,6 +215,27 @@ def get_draft_session(
     current_user: Annotated[UserModel, Depends(require_workspace_user)],
 ) -> DraftSessionResponse:
     """Return the structured draft session for review."""
+    session = service.get_session(db, session_id, owner_id=current_user.username)
+    return map_draft_session(session)
+
+
+@router.patch("/{session_id}/export-text-enrichment", response_model=DraftSessionResponse)
+def patch_export_text_enrichment(
+    session_id: str,
+    payload: PatchExportTextEnrichmentRequest,
+    db: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PipelineOrchestratorService, Depends(get_pipeline_orchestrator_service)],
+    review_service: Annotated[DraftSessionReviewService, Depends(get_draft_session_review_service)],
+    current_user: Annotated[UserModel, Depends(require_workspace_user)],
+) -> DraftSessionResponse:
+    """Merge BA edits into export enrichment fields (used when rendering DOCX/PDF)."""
+    session = service.get_session(db, session_id, owner_id=current_user.username)
+    review_service.update_export_text_enrichment(
+        db,
+        session=session,
+        payload=payload,
+        actor=current_user.username,
+    )
     session = service.get_session(db, session_id, owner_id=current_user.username)
     return map_draft_session(session)
 

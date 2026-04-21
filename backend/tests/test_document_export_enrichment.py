@@ -171,5 +171,31 @@ class EnrichmentServiceTests(unittest.TestCase):
         self.assertEqual(fields, {"pdd.process_summary": "A"})
 
 
+class ExportTextEnrichmentPatchTests(unittest.TestCase):
+    def test_review_service_merges_into_existing_envelope(self) -> None:
+        from unittest.mock import MagicMock
+
+        from app.schemas.draft_session import PatchExportTextEnrichmentRequest
+        from app.services.draft_session.draft_session_review_service import DraftSessionReviewService
+
+        class _Session:
+            id = "s1"
+            document_type = "brd"
+            export_text_enrichment_json = json.dumps({"version": 1, "fields": {"brd.executive_summary": "Keep"}})
+            status = "review"
+
+        session = _Session()
+        db = MagicMock()
+        log = MagicMock()
+        svc = DraftSessionReviewService(action_log_service=log)
+        payload = PatchExportTextEnrichmentRequest(fields={"brd.business_objectives": "New"})
+        svc.update_export_text_enrichment(db, session=session, payload=payload, actor="ba1")
+        merged = json.loads(session.export_text_enrichment_json)
+        self.assertEqual(merged["fields"]["brd.executive_summary"], "Keep")
+        self.assertEqual(merged["fields"]["brd.business_objectives"], "New")
+        db.commit.assert_called()
+        log.record.assert_called()
+
+
 if __name__ == "__main__":
     unittest.main()
