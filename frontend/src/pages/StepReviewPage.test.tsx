@@ -136,6 +136,15 @@ function createSession(): DraftSession {
     outputDocuments: [],
     actionLogs: [],
     exportTextEnrichment: null,
+    tokenUsage: {
+      calls: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      byModel: [],
+      bySkill: [],
+      byRun: [],
+    },
     enrichmentFieldIds: [],
   };
 }
